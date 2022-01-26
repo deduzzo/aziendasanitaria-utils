@@ -5,7 +5,7 @@
   "description": "Un utility per gestire i flussi sanitari ",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\""
   },
   "dependencies": {
     "moment": "^2.29.1",
