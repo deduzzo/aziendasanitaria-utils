@@ -118,6 +118,7 @@ const _elaboraFileFlussoM =  async (filePath) => {
   var noOk = Object.values(ricette).filter((p) => p.totaleCorretto !== 0);
   console.log("NonOK:" + noOk.length);
 
+  //TODO: append stats
   return ricette;
 };
 
