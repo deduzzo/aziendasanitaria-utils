@@ -1,6 +1,7 @@
 {
   "name": "flussisanitari-utils",
   "version": "1.0.0",
+  "url": "https://github.com/deduzzo/flussisanitari-utils",
   "description": "Un utility per gestire i flussi sanitari ",
   "main": "index.js",
   "scripts": {
@@ -11,6 +12,6 @@
     "path": "^0.12.7",
     "readline": "^1.3.0"
   },
-  "author": "",
+  "author": "Roberto De Domenico",
   "license": "ISC"
 }
