@@ -1,5 +1,12 @@
 var f = require('./index');
 
-let path = "c:\\somepath";
+let path = "D:\\DATI\\Desktop\\prova";
 
-let ris = f.flussoM.elaboraFlussi(path);
+const test =  async () => {
+
+    let ris = await f.flussoM.elaboraFlussi(path);
+    console.log(ris);
+
+}
+
+test();

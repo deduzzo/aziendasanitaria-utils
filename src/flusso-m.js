@@ -1,7 +1,9 @@
 var moment = require('moment');
-const fs = require('fs');
 var path = require('path');
 const readline = require('readline');
+const md5File = require('md5-file');
+const fs = require('fs');
+const common = require("./common");
 
 const _startsV10082012 = {
       regione: {id:1, lenght:3,type: "string", required: true},
@@ -73,7 +75,8 @@ const _buildRicetteFromMRows = (rows) =>
     ricetta.numPrestazioni = rows.length -1;
     ricetta.totale = parseFloat(riga99.totale.replace(',','.'));
     ricetta.totaleTicket = parseFloat(riga99.importoTicket.replace(',','.'));
-    ricetta.totaleCorretto = totPrestazioniCalcolate.toFixed(2) - ricetta.totale - ricetta.totaleTicket;
+    ricetta.totaleCorretto = parseFloat(totPrestazioniCalcolate.toFixed(2)) - ricetta.totale - ricetta.totaleTicket;
+    ricetta.totalePrestazioniCalcolate = parseFloat(totPrestazioniCalcolate.toFixed(2));
     return ricetta;
   }
   else
@@ -83,7 +86,7 @@ const _buildRicetteFromMRows = (rows) =>
 
 };
 
-const _elaboraFileFlussoM =  async (filePath) => {
+const _elaboraFileFlussoM =  async (filePath, fileName) => {
   console.log(filePath);
   const fileStream = fs.createReadStream(filePath);
 
@@ -96,6 +99,12 @@ const _elaboraFileFlussoM =  async (filePath) => {
   var i = 0;
   var ricette = {};
   var ricettaTemp = [];
+  let totale = {
+      totale:0,
+      ticket:0,
+      totalePrestazioni:0,
+      totalePrestazioniCalcolate: 0
+  }
   //prima parte, caricamento tutte le ricette utili
   for await (const line of rl) {
 
@@ -108,40 +117,45 @@ const _elaboraFileFlussoM =  async (filePath) => {
       var rt = _buildRicetteFromMRows(ricettaTemp);
       //TODO: filtro?
       ricette[rt.id] = rt;
+      totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
+      totale.totalePrestazioni = totale.totalePrestazioni + rt.numPrestazioni;
+      totale.totale = totale.totale + rt.totale;
+      totale.ticket = totale.ticket + rt.totaleTicket;
       ricettaTemp = [];
     }
     i++;
   }
 
-  console.log("numRicette:" + Object.values(ricette).length)
-  console.log("righe:" + i);
-  var noOk = Object.values(ricette).filter((p) => p.totaleCorretto !== 0);
-  console.log("NonOK:" + noOk.length);
-
-  //TODO: append stats
-  return ricette;
+  let totaleNetto = parseFloat(totale.totale.toFixed(2));
+  let totaleTicket = parseFloat(totale.ticket.toFixed(2));
+return {
+      nomeFile: fileName,
+      absolutePath: filePath,
+      hash: md5File.sync(filePath),
+      totaleNetto: totaleNetto,
+      totaleLordo: parseFloat((totaleNetto + totaleTicket).toFixed(2)),
+      totaleTicket: totaleTicket,
+      totalePrestazioni: totale.totalePrestazioni,
+      totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
+      numeroRighe: i,
+      numeroRicette: Object.values(ricette).length,
+      ricette: ricette,
+      nonOk: Object.values(ricette).filter((p) => p.totaleCorretto !== 0)
+  }
 };
-
-const _getAllFilesInFolder = (folder) => {
-  var files = fs.readdirSync(folder);
-  var filesList = files.filter(function(e){
-    return path.extname(e).toLowerCase() === '.txt'
-  });
-  return filesList;
-}
 
 
 module.exports = {
     elaboraFlussi: async (pathCartella) => {
         let ricetteOut = {}
         //1- ottieni tutti i file txt della cartella
-        let allFiles = _getAllFilesInFolder(pathCartella);
+        let allFiles = common.getAllFilesInFolder(pathCartella);
         let numFiles = allFiles.length;
         var progress = 0;
         // 2- elaborazione
         for(var file of allFiles) {
-            let ricetteInFile = await _elaboraFileFlussoM(pathCartella + path.sep + file);
-            Object.assign({}, ricetteOut, ricetteInFile);
+            let ricetteInFile = await _elaboraFileFlussoM(pathCartella + path.sep + file, file);
+            Object.assign({}, ricetteOut, ricetteInFile.ricette);
             console.log("elaborazione: " + ++progress +" di " +numFiles)
         }
         return ricetteOut;

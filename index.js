@@ -1,3 +1,3 @@
 module.exports = {
-    flussoM: require("./m/flusso-m"),
+    flussoM: require("./src/flusso-m"),
 }
