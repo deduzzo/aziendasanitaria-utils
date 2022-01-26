@@ -1,6 +1,6 @@
 {
   "name": "flussisanitari-utils",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "url": "https://github.com/deduzzo/flussisanitari-utils",
   "description": "Un utility per gestire i flussi sanitari ",
   "main": "index.js",
