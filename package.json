@@ -1,6 +1,6 @@
 {
   "name": "flussisanitari-utils",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "repository": "deduzzo/flussisanitari-utils",
   "description": "Un utility per gestire i flussi sanitari Siciliani",
   "main": "index.js",
