@@ -1,5 +1,7 @@
 var moment = require('moment');
 const fs = require('fs');
+var path = require('path');
+const readline = require('readline');
 
 const _startsV10082012 = {
       regione: {id:1, lenght:3,type: "string", required: true},
@@ -36,7 +38,7 @@ const _startsV10082012 = {
       vuoto: {id:32, lenght:2, type: "string", required: false}, // campo vuoto
     };
 
-const _mRowToJson = (row,starts) => {
+const _mRowToJson = (row,starts = _startsV10082012) => {
   var obj = {}
   let from = 0;
   for (let key in starts)
@@ -81,7 +83,7 @@ const _buildRicetteFromMRows = (rows) =>
 
 };
 
-const getFilesContent =  async (filePath,incProgress,setForReport1, setForReport2) => {
+const _elaboraFileFlussoM =  async (filePath) => {
   console.log(filePath);
   const fileStream = fs.createReadStream(filePath);
 
@@ -94,51 +96,32 @@ const getFilesContent =  async (filePath,incProgress,setForReport1, setForReport
   var i = 0;
   var ricette = {};
   var ricettaTemp = [];
-  var keyStrutture = Object.keys(flussiUtils.struttureRiferimento);
-  var keyPrest = Object.keys(flussiUtils.prestRiferimento);
   //prima parte, caricamento tutte le ricette utili
   for await (const line of rl) {
-    if (i%10000 === 0)
-      incProgress(10000);
-    // Each line in input.txt will be successively available here as `line`.
-    //console.log(`Line from file: ${line}`);
+
     // todo: controllo dimensione riga
-    var t = flussiUtils.mRowToJson(line);
+    var t = _mRowToJson(line);
     ricettaTemp.push(t);
 
     if (t.progrRicetta === "99")
     {
-      var rt = flussiUtils.buildRicetteFromMRows(ricettaTemp);
-      if (rt.prestazioni.filter((p) => keyStrutture.includes(p.arseID) && keyPrest.includes(p.prestID.trim())).length >0) {
-        //ricerca duplicati
-        //if (Object.keys(ricette).includes(rt.id))
-        //  console.log("ricetta" + rt.id + " duplicata!!")
-        ricette[rt.id] = rt;
-      }
+      var rt = _buildRicetteFromMRows(ricettaTemp);
+      //TODO: filtro?
+      ricette[rt.id] = rt;
       ricettaTemp = [];
-      i++;
     }
     i++;
-    //if (i>900000)
-    //  break;
-
   }
-  incProgress(i%30000);
-  console.log("numRicette:" + Object.values(ricette).length)
-  console.log(ricette)
-  console.log("elaborati:" + i);
-  var noOk = Object.values(ricette).filter((p) => p.totaleCorretto !== 0);
-  console.log("NoOk:" + noOk.length);
-  var chiaviValide = flussiUtils.elabora(Object.values(ricette),Object.keys(flussiUtils.prestRiferimento),setForReport1,setForReport2);
-  /*  check[prop] = {};
-      check[prop].count = 1;
-      check[prop].numRicette = 1;
-      check[prop].ricette = {}
-      check[prop].ricette[ricetta.id] = ricetta;*/
 
-  return chiaviValide;
+  console.log("numRicette:" + Object.values(ricette).length)
+  console.log("righe:" + i);
+  var noOk = Object.values(ricette).filter((p) => p.totaleCorretto !== 0);
+  console.log("NonOK:" + noOk.length);
+
+  return ricette;
 };
-const getAllFilesInFolder = (folder) => {
+
+const _getAllFilesInFolder = (folder) => {
   var files = fs.readdirSync(folder);
   var filesList = files.filter(function(e){
     return path.extname(e).toLowerCase() === '.txt'
@@ -148,7 +131,18 @@ const getAllFilesInFolder = (folder) => {
 
 
 module.exports = {
-
-
-
+    elaboraFlussi: async (pathCartella) => {
+        let ricetteOut = {}
+        //1- ottieni tutti i file txt della cartella
+        let allFiles = _getAllFilesInFolder(pathCartella);
+        let numFiles = allFiles.length;
+        var progress = 0;
+        // 2- elaborazione
+        for(var file of allFiles) {
+            let ricetteInFile = await _elaboraFileFlussoM(pathCartella + path.sep + file);
+            Object.assign({}, ricetteOut, ricetteInFile);
+            console.log("elaborazione: " + ++progress +" di " +numFiles)
+        }
+        return ricetteOut;
+    }
 }
