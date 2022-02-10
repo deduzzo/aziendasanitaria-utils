@@ -16,6 +16,7 @@ const test1 =  async () => {
         outTS = await flussiRegioneSicilia.flussoM.progettoTSFlussoM.ottieniInformazioniStrutture(strutturePerControlloTS);
     if (scriviSuCartella)
         await flussiRegioneSicilia.flussoM.scriviFlussoMSuCartella(ris.ok,outTS,strutture);
+    flussiRegioneSicilia.flussoM.generaHtmlDaFileStats(settings.out_folder, strutture,1);
 }
 
 const test2 =  async () => {

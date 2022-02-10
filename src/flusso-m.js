@@ -17,85 +17,85 @@ const DISTRETTO_COL = "Distretto"
 
 
 const _startsFlussoMV10082012 = {
-      regione: {id:1, lenght:3,type: "string", required: true},
-      asID: {id:2, lenght:3, type: "string", required: true}, // codice azienda sanitaria
-      arseID: {id:3, lenght:6, type: "string", required: true}, // codice regionale struttura erogatrice STS11
-      brancaID: {id:4, lenght:2, type: "string", required: true}, // codice branca STS21
-      mpID: {id:5, lenght:16, type: "string", required: true}, // codice medico prescrittore
-      cognome: {id:6, lenght:30, type: "string", required: false}, // cognome utente
-      nome: {id:7, lenght:20, type: "string", required: false}, // nome utente
-      cf: {id:8, lenght:16, type: "string", required: true}, // codice fiscale
-      sesso: {id:9, lenght:1, type: "string", required: false}, // sesso utente
-      dataNascita: {id:10, lenght:8, type: "date", required: false}, // data Nascita Utente
-      comRes: {id:11, lenght:6, type: "string", required: true}, // comune di residenza utente
-      aspRes: {id:12, lenght:3, type: "string", required: true}, // Azienda Sanitaria provinciale di residenza
-      dataPren: {id:13, lenght:8, type: "date", required: true}, // Data di Prenotazione, solo su riga 99
-      ricettaID: {id:14, lenght:16, type: "string", required: true}, // Numero ricetta
-      progrRicetta: {id:15, lenght:2, type: "string", required: true}, // Progressivo riga per ricetta
-      diagnosi: {id:16, lenght:5, type: "string", required: false}, // codifica ICD9CM
-      dataErog: {id:17, lenght:8, type: "date", required: true}, // Data erogazione, in caso di ciclo si riporta chisura ciclo
-      nomID: {id:18, lenght:1, type: "string", required: true}, // codifica nomenclatore
-      prestID: {id:19, lenght:7, type: "string", required: true}, // codice prestazione secondo nomenclatore
-      quant: {id:20, lenght:3, type: "string", required: true}, // quantità
-      ticket: {id:21, lenght:2, type: "string", required: true}, // posizione utente nei confronti del ticket
-      esenzione: {id:22, lenght:6, type: "string", required: true}, // codice esenzione
-      importoTicket: {id:23, lenght:7, type: "string", required: true}, // importo ticket
-      totale: {id:24, lenght:8, type: "string", required: true}, // importo totale
-      posContabile: {id:25, lenght:1, type: "string", required: true}, // posizione contabile
-      recordID: {id:26, lenght:20, type: "string", required: true}, // identificativo Record
-      CRIL: {id:27, lenght:8, type: "string", required: true}, // centro di rilevazione regionale CRIL
-      op: {id:28, lenght:1, type: "string", required: true}, // onere prestazione
-      tipoAccesso: {id:29, lenght:1, type: "string", required: true}, // tipo accesso, se è primo accesso o meno 0->altro 1-> primo accesso
-      tempoMax: {id:30, lenght:1, type: "string", required: true}, // garanzia tempi massimi
-      classePrior: {id:31, lenght:1, type: "string", required: true}, // Classe priorità
-      vuoto: {id:32, lenght:2, type: "string", required: false}, // campo vuoto
-    };
+    regione: {id:1, lenght:3,type: "string", required: true},
+    asID: {id:2, lenght:3, type: "string", required: true}, // codice azienda sanitaria
+    arseID: {id:3, lenght:6, type: "string", required: true}, // codice regionale struttura erogatrice STS11
+    brancaID: {id:4, lenght:2, type: "string", required: true}, // codice branca STS21
+    mpID: {id:5, lenght:16, type: "string", required: true}, // codice medico prescrittore
+    cognome: {id:6, lenght:30, type: "string", required: false}, // cognome utente
+    nome: {id:7, lenght:20, type: "string", required: false}, // nome utente
+    cf: {id:8, lenght:16, type: "string", required: true}, // codice fiscale
+    sesso: {id:9, lenght:1, type: "string", required: false}, // sesso utente
+    dataNascita: {id:10, lenght:8, type: "date", required: false}, // data Nascita Utente
+    comRes: {id:11, lenght:6, type: "string", required: true}, // comune di residenza utente
+    aspRes: {id:12, lenght:3, type: "string", required: true}, // Azienda Sanitaria provinciale di residenza
+    dataPren: {id:13, lenght:8, type: "date", required: true}, // Data di Prenotazione, solo su riga 99
+    ricettaID: {id:14, lenght:16, type: "string", required: true}, // Numero ricetta
+    progrRicetta: {id:15, lenght:2, type: "string", required: true}, // Progressivo riga per ricetta
+    diagnosi: {id:16, lenght:5, type: "string", required: false}, // codifica ICD9CM
+    dataErog: {id:17, lenght:8, type: "date", required: true}, // Data erogazione, in caso di ciclo si riporta chisura ciclo
+    nomID: {id:18, lenght:1, type: "string", required: true}, // codifica nomenclatore
+    prestID: {id:19, lenght:7, type: "string", required: true}, // codice prestazione secondo nomenclatore
+    quant: {id:20, lenght:3, type: "string", required: true}, // quantità
+    ticket: {id:21, lenght:2, type: "string", required: true}, // posizione utente nei confronti del ticket
+    esenzione: {id:22, lenght:6, type: "string", required: true}, // codice esenzione
+    importoTicket: {id:23, lenght:7, type: "string", required: true}, // importo ticket
+    totale: {id:24, lenght:8, type: "string", required: true}, // importo totale
+    posContabile: {id:25, lenght:1, type: "string", required: true}, // posizione contabile
+    recordID: {id:26, lenght:20, type: "string", required: true}, // identificativo Record
+    CRIL: {id:27, lenght:8, type: "string", required: true}, // centro di rilevazione regionale CRIL
+    op: {id:28, lenght:1, type: "string", required: true}, // onere prestazione
+    tipoAccesso: {id:29, lenght:1, type: "string", required: true}, // tipo accesso, se è primo accesso o meno 0->altro 1-> primo accesso
+    tempoMax: {id:30, lenght:1, type: "string", required: true}, // garanzia tempi massimi
+    classePrior: {id:31, lenght:1, type: "string", required: true}, // Classe priorità
+    vuoto: {id:32, lenght:2, type: "string", required: false}, // campo vuoto
+};
 
 const _mRowToJson = (row,starts ) => {
-  var obj = {}
-  let from = 0;
-  for (let key in starts)
-  {
-    obj[key] = row.substr(from, starts[key].lenght).trim();
-    if (starts[key].type === "date") {
-        if (moment(obj[key], "DDMMYYYY").isValid())
-            obj[key] = moment(obj[key], "DDMMYYYY");
+    var obj = {}
+    let from = 0;
+    for (let key in starts)
+    {
+        obj[key] = row.substr(from, starts[key].lenght).trim();
+        if (starts[key].type === "date") {
+            if (moment(obj[key], "DDMMYYYY").isValid())
+                obj[key] = moment(obj[key], "DDMMYYYY");
+        }
+        from+= starts[key].lenght;
     }
-    from+= starts[key].lenght;
-  }
-  return obj;
+    return obj;
 };
 
 const _buildRicetteFromMRows = (rows) =>
 {
-  let ricetta = {}
-  let riga99 = rows.filter((p) => p.progrRicetta === "99")[0];
-  let prestazioni = rows.filter((p) => p.progrRicetta !== "99");
-  var totPrestazioniCalcolate = prestazioni.reduce(function(tot, arr) {
-    // return the sum with previous value
-    return tot +  parseFloat(arr.totale.replace(',','.'));
-    // set initial value as 0
-  },0);
+    let ricetta = {}
+    let riga99 = rows.filter((p) => p.progrRicetta === "99")[0];
+    let prestazioni = rows.filter((p) => p.progrRicetta !== "99");
+    var totPrestazioniCalcolate = prestazioni.reduce(function(tot, arr) {
+        // return the sum with previous value
+        return tot +  parseFloat(arr.totale.replace(',','.'));
+        // set initial value as 0
+    },0);
 
-  if (riga99 != null)
-  {
-    ricetta.id = riga99.ricettaID;
-    ricetta.dataPren = moment(riga99.dataPren, "MM-DD-YYYY");
-    ricetta.prestazioni = prestazioni;
-    ricetta.codiceStruttura = riga99.arseID;
-    ricetta.cf = riga99.cf;
-    ricetta.riga99 = riga99;
-    ricetta.numPrestazioni = rows.length -1;
-    ricetta.totale = parseFloat(riga99.totale.replace(',','.'));
-    ricetta.totaleTicket = parseFloat(riga99.importoTicket.replace(',','.'));
-    ricetta.totaleCorretto = parseFloat(totPrestazioniCalcolate.toFixed(2)) - ricetta.totale - ricetta.totaleTicket;
-    ricetta.totalePrestazioniCalcolate = parseFloat(totPrestazioniCalcolate.toFixed(2));
-    return ricetta;
-  }
-  else
-  {
-    return null;
-  }
+    if (riga99 != null)
+    {
+        ricetta.id = riga99.ricettaID;
+        ricetta.dataPren = moment(riga99.dataPren, "MM-DD-YYYY");
+        ricetta.prestazioni = prestazioni;
+        ricetta.codiceStruttura = riga99.arseID;
+        ricetta.cf = riga99.cf;
+        ricetta.riga99 = riga99;
+        ricetta.numPrestazioni = rows.length -1;
+        ricetta.totale = parseFloat(riga99.totale.replace(',','.'));
+        ricetta.totaleTicket = parseFloat(riga99.importoTicket.replace(',','.'));
+        ricetta.totaleCorretto = parseFloat(totPrestazioniCalcolate.toFixed(2)) - ricetta.totale - ricetta.totaleTicket;
+        ricetta.totalePrestazioniCalcolate = parseFloat(totPrestazioniCalcolate.toFixed(2));
+        return ricetta;
+    }
+    else
+    {
+        return null;
+    }
 
 };
 
@@ -271,70 +271,70 @@ const _verificaLunghezzaRiga = (starts) =>
 
 
 const _elaboraFileFlussoM = async (filePath, starts) => {
-  console.log("Elaboro " + filePath+ " ...");
-  const fileStream = fs.createReadStream(filePath);
+    console.log("Elaboro " + filePath+ " ...");
+    const fileStream = fs.createReadStream(filePath);
 
-  const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity });
-  var i = 0;
-  var ricette = {};
-  var ricettaTemp = [];
-  let totale = {
-      totale:0,
-      ticket:0,
-      totalePrestazioni:0,
-      totalePrestazioniCalcolate: 0
-  }
-  let lunghezzaRiga = _verificaLunghezzaRiga(starts);
-  let error = null;
-  for await (const line of rl) {
-      if (line.length !== lunghezzaRiga) {
-              error = i;
-              break;
-          }
-      else {
-          var t = _mRowToJson(line, starts);
-          ricettaTemp.push(t);
-          if (t.progrRicetta === "99") {
-              var rt = _buildRicetteFromMRows(ricettaTemp);
-              //TODO: filtro?
-              ricette[rt.id] = rt;
-              totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
-              totale.totalePrestazioni = totale.totalePrestazioni + rt.numPrestazioni;
-              totale.totale = totale.totale + rt.totale;
-              totale.ticket = totale.ticket + rt.totaleTicket;
-              ricettaTemp = [];
-          }
-          i++;
-      }
-  }
-  if (error === null) {
-      let totaleNetto = parseFloat(totale.totale.toFixed(2));
-      let totaleTicket = parseFloat(totale.ticket.toFixed(2));
-      let datiDaFile = _controllaNomeFileFlussoM(path.basename(filePath));
-      return {
-          nomeFile: path.basename(filePath),
-          datiDaFile: datiDaFile,
-          absolutePath: filePath,
-          hash: md5File.sync(filePath),
-          totaleNetto: totaleNetto,
-          totaleLordo: parseFloat((totaleNetto + totaleTicket).toFixed(2)),
-          totaleTicket: totaleTicket,
-          totalePrestazioni: totale.totalePrestazioni,
-          totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
-          numeroRighe: i,
-          numeroRicette: Object.values(ricette).length,
-          ricette: ricette,
-          nonOk: Object.values(ricette).filter((p) => p.totaleCorretto !== 0)
-      }
-  }
-  else
-      return {
-          error: true,
-          rowError: i,
-          nomeFile: path.basename(filePath),
-          absolutePath: filePath,
-          hash: md5File.sync(filePath)
-      }
+    const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity });
+    var i = 0;
+    var ricette = {};
+    var ricettaTemp = [];
+    let totale = {
+        totale:0,
+        ticket:0,
+        totalePrestazioni:0,
+        totalePrestazioniCalcolate: 0
+    }
+    let lunghezzaRiga = _verificaLunghezzaRiga(starts);
+    let error = null;
+    for await (const line of rl) {
+        if (line.length !== lunghezzaRiga) {
+            error = i;
+            break;
+        }
+        else {
+            var t = _mRowToJson(line, starts);
+            ricettaTemp.push(t);
+            if (t.progrRicetta === "99") {
+                var rt = _buildRicetteFromMRows(ricettaTemp);
+                //TODO: filtro?
+                ricette[rt.id] = rt;
+                totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
+                totale.totalePrestazioni = totale.totalePrestazioni + rt.numPrestazioni;
+                totale.totale = totale.totale + rt.totale;
+                totale.ticket = totale.ticket + rt.totaleTicket;
+                ricettaTemp = [];
+            }
+            i++;
+        }
+    }
+    if (error === null) {
+        let totaleNetto = parseFloat(totale.totale.toFixed(2));
+        let totaleTicket = parseFloat(totale.ticket.toFixed(2));
+        let datiDaFile = _controllaNomeFileFlussoM(path.basename(filePath));
+        return {
+            nomeFile: path.basename(filePath),
+            datiDaFile: datiDaFile,
+            absolutePath: filePath,
+            hash: md5File.sync(filePath),
+            totaleNetto: totaleNetto,
+            totaleLordo: parseFloat((totaleNetto + totaleTicket).toFixed(2)),
+            totaleTicket: totaleTicket,
+            totalePrestazioni: totale.totalePrestazioni,
+            totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
+            numeroRighe: i,
+            numeroRicette: Object.values(ricette).length,
+            ricette: ricette,
+            nonOk: Object.values(ricette).filter((p) => p.totaleCorretto !== 0)
+        }
+    }
+    else
+        return {
+            error: true,
+            rowError: i,
+            nomeFile: path.basename(filePath),
+            absolutePath: filePath,
+            hash: md5File.sync(filePath)
+        }
 };
 
 const _controllaNomeFileFlussoM = (nome) =>{
@@ -395,7 +395,7 @@ const elaboraFlussi = async (pathCartella,strutture, starts=_startsFlussoMV10082
             else
                 fileOut.errori.push(ricetta.out)
             console.log("elaborazione: " + ++progress + " di " + numFiles)
-            }
+        }
         else {
             console.log("elaborazione: " + ++progress + " di " + numFiles + "\n File già presente")
             fileOut.ripetuti.push([fileOut.ok[md5].absolutePath,pathCartella + path.sep + file]);
@@ -441,7 +441,8 @@ const _calcolaDifferenzeDaTs = (dati) => {
             differenzaTotaleNetto: (dati.controlloTs.out.netto_mese_totale - dati.totaleNetto).toFixed(2),
             differenzaTotale: (dati.controlloTs.out.importo_totale - dati.totaleLordo).toFixed(2),
             differenzaTicket: (dati.controlloTs.out.ticket_totale - dati.totaleTicket).toFixed(2),
-            differenzaPreztazioni: dati.controlloTs.out.numeroPrestazioni - dati.totalePrestazioni
+            differenzaPrestazioni: dati.controlloTs.out.numeroPrestazioni - dati.totalePrestazioni,
+            differenzaRicette: dati.controlloTs.out.numero_ricette - dati.numeroRicette
         }
     }
 };
@@ -484,38 +485,56 @@ const generaHtmlDaFileStats =  (pathFile, strutture, idDistretto = null, salvaSu
 {
     let out =
         "<html><head>" +
-        "<style>" +
-        "body { font-size: 8px;}" +
+        "<style type=\"text/css\">" +
+        "td { font-size: 12px;}" +
+        "th { font-size: 14px;}" +
+        ".red {" +
+        "    color: yellow;\n" +
+        "    background-color: red;\n" +
+        "    font-weight: bold;" +
+        " }" +
+        ".green {" +
+        "    color: yellow;\n" +
+        "    background-color: green;\n" +
+        "    font-weight: bold;" +
+        " }" +
+        ".blue {" +
+        "    color: yellow;\n" +
+        "    background-color: blue;\n" +
+        "    font-weight: bold;" +
+        " }" +
         "</style>" +
         "</head><body>" +
 
-            "<table border='1'" +
-                "<tr>" +
-                    "<th rowspan='2'>ID Struttura</th>" +
-                    "<th rowspan='2'>Nome</th>" +
-                    "<th rowspan='2'>Mese</th>" +
-                    "<th rowspan='2'>Anno</th>" +
-                    "<th colspan='6'>DATI FILE FLUSSO M</th>" +
-                    "<th colspan='5'>DATI DA PROGETTO TS</th>" +
-                    "<th colspan='4'>DIFFERENZE</th>" +
-                "</tr>"+
-                "<tr>" +
-                "<th>N° Righe</th>" +
-                "<th>N° Ricette</th>" +
-                "<th>N° Prestazioni</th>" +
-                "<th>Totale Netto</th>" +
-                "<th>Totale Ticket</th>" +
-                "<th>Totale Lordo</th>" +
-                "<th>N° Prestazioni</th>" +
-                "<th>Totale Netto</th>" +
-                "<th>Totale Ticket</th>" +
-                "<th>Totale Lordo</th>" +
-                "<th>Data Ora Verifica</th>" +
-                "<th>Diff. N° Prestazioni</th>" +
-                "<th>Diff. Netto</th>" +
-                "<th>Diff. Ticket</th>" +
-                "<th>Diff. Lordo</th>" +
-                "</tr>";
+        "<table border='1'" +
+        "<tr>" +
+        "<th rowspan='2'>ID Struttura</th>" +
+        "<th rowspan='2'>Nome</th>" +
+        "<th rowspan='2'>Mese</th>" +
+        "<th rowspan='2'>Anno</th>" +
+        "<th colspan='6'>DATI FILE FLUSSO M</th>" +
+        "<th colspan='6'>DATI DA PROGETTO TS</th>" +
+        "<th colspan='5'>DIFFERENZE</th>" +
+        "</tr>"+
+        "<tr>" +
+        "<th>N° Righe</th>" +
+        "<th>N° Ricette</th>" +
+        "<th>N° Prestazioni</th>" +
+        "<th>Totale Netto</th>" +
+        "<th>Totale Ticket</th>" +
+        "<th>Totale Lordo</th>" +
+        "<th>N° Ricette</th>" +
+        "<th>N° Prestazioni</th>" +
+        "<th>Totale Netto</th>" +
+        "<th>Totale Ticket</th>" +
+        "<th>Totale Lordo</th>" +
+        "<th>Data Ora Verifica</th>" +
+        "<th>Diff. Ricette</th>" +
+        "<th>Diff. N° Prestazioni</th>" +
+        "<th>Diff. Netto</th>" +
+        "<th>Diff. Ticket</th>" +
+        "<th>Diff. Lordo</th>" +
+        "</tr>";
     let files = common.getAllFilesRecursive(pathFile,'.mstats');
     let data = [];
     for (let file of files) {
@@ -540,14 +559,16 @@ const generaHtmlDaFileStats =  (pathFile, strutture, idDistretto = null, salvaSu
                 "<td>" + struttureFile.totaleTicket + "</td>" +
                 "<td>" + struttureFile.totaleLordo + "</td>" +
                 (!struttureFile.controlloTs.error ? (
+                    "<td>" + struttureFile.controlloTs.out.numero_ricette + "</td>" +
                     "<td>" + struttureFile.controlloTs.out.numeroPrestazioni + "</td>" +
                     "<td>" + struttureFile.controlloTs.out.netto_mese_totale + "</td>" +
                     "<td>" + struttureFile.controlloTs.out.ticket_totale + "</td>" +
                     "<td>" + struttureFile.controlloTs.out.importo_totale + "</td>" +
                     "<td>" + struttureFile.controlloTs.out.dataOra + "</td>"
-            ) : "<td colspan='5'>Dati non disponibili</td>") +
+                ) : "<td colspan='5'>Dati non disponibili</td>") +
                 (struttureFile.differenze !== null ? (
-                    "<td>" + struttureFile.differenze.differenzaPreztazioni + "</td>" +
+                    "<td class='red'>" + struttureFile.differenze.differenzaRicette + "</td>" +
+                    "<td>" + struttureFile.differenze.differenzaPrestazioni + "</td>" +
                     "<td>" + struttureFile.differenze.differenzaTotaleNetto + "</td>" +
                     "<td>" + struttureFile.differenze.differenzaTicket + "</td>" +
                     "<td>" + struttureFile.differenze.differenzaTotale + "</td>"
@@ -576,7 +597,7 @@ const generaHtmlDaFileStats =  (pathFile, strutture, idDistretto = null, salvaSu
 const _scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") => {
     for (let file in fileData) {
         let md5 = file
-        let dirName = dirname(fileData[file].tempPath)
+        let dirName = path.dirname(fileData[file].tempPath)
         if (!fs.existsSync(dirName + path.sep + settings.stat_folder_name))
             fs.mkdirSync(dirName + path.sep + settings.stat_folder_name);
         if (sovrascrivi || !fs.existsSync(dirName + path.sep + settings.stat_folder_name + path.sep + md5 + ext))

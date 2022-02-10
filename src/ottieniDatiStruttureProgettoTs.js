@@ -94,26 +94,55 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
                                 //importo totale: body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(3)
                                 //totale ticket: body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(4)
                                 //netto del mese: body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(7)
-                                console.log("ciao");
+                                let totaliPerBranca = {}
+                                let dichiarati = {}
+                                let righeTabella1 = document.querySelector("body > div:nth-child(5) > table:nth-child(9)").rows.length;
+                                let righeTabella2 = document.querySelector("body > div:nth-child(5) > table:nth-child(14)").rows.length;
+                                for (let i=3; i<righeTabella1; i++)
+                                {
+                                    totaliPerBranca[document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ i +") > td:nth-child(1)").innerHTML.replaceAll("&nbsp;","")] =
+                                    {
+                                        numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                        importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                        ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                        sconto_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                        netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    }
+                                }
+                                dichiarati.numero_ricette = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.'));
+                                dichiarati.importo_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.'));
+                                dichiarati.netto_mese_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(5)").innerText.replaceAll('.', '').replaceAll(',', '.'));
                                 out2.out = {
                                     cod_struttura: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(6) > tbody > tr:nth-child(3) > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(4) > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 +") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    sconto: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    is_definitivo: !document.querySelector("body > div:nth-child(5) > table:nth-child(18)").innerText.includes("non sono ancora definitivi"),
+                                    totali_per_branca: totaliPerBranca,
+                                    totali_dichiarati: dichiarati
                                 }
                             }
                             return out2;
                         });
                         out = datiStruttura;
                         if (!datiStruttura.error) {
-                            await page.click("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(3) > td:nth-child(8) > a");
-                            await page.waitForSelector('body > div:nth-child(5) > table:nth-child(6)');
-                            let numeroPrestazioni = await page.evaluate(() => {
-                                let num = document.querySelector("body > div:nth-child(5) > table:nth-child(13)").rows.length;
-                                console.log("quanti " + num)
-                                return document.querySelector("body > div:nth-child(5) > table:nth-child(13) > tbody > tr:nth-child(" + num.toString() + ") > td:nth-child(3)").innerText;
-                            });
-                            out.out.numeroPrestazioni = parseInt(numeroPrestazioni);
+                            let numeroPrestazioni = 0;
+                            let i = 3;
+                            for (let branca in out.out.totali_per_branca) {
+                                await page.click("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i++ + ") > td:nth-child(8) > a");
+                                await page.waitForSelector('body > div:nth-child(5) > table:nth-child(6)');
+                                let numeroPrestazioniBranca = await page.evaluate(() => {
+                                    let num = document.querySelector("body > div:nth-child(5) > table:nth-child(13)").rows.length;
+                                    console.log("quanti " + num)
+                                    return document.querySelector("body > div:nth-child(5) > table:nth-child(13) > tbody > tr:nth-child(" + num.toString() + ") > td:nth-child(3)").innerText;
+                                });
+                                out.out.totali_per_branca[branca].numeroPrestazioni = parseInt(numeroPrestazioniBranca);
+                                numeroPrestazioni+= parseInt(numeroPrestazioniBranca);
+                                await page.goBack()
+                            }
+                            out.out.numeroPrestazioni = numeroPrestazioni
                             out.out.dataOra = moment().format("YYYY/MM/DD-HH:mm:ss");
                         }
                     } catch (ex) {

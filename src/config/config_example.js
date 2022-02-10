@@ -1,25 +1,17 @@
-//rinominare come config.js
-const settings = {
+import {struttureDistrettiMap, distretti, comuniDistretti} from './struttureDistrettiDB.js';
+
+export const settings = {
+    extensions: ['.txt'],
     ts_username: "",
     ts_password: "",
-    in_folder: "d:\\Dati\\Desktop\\prova\\",
-    out_folder: "d:\\Dati\\Desktop\\outFolder\\",
+    in_folder: "d:\\Dati\\Desktop\\prova",
+    out_folder: "d:\\Dati\\Desktop\\outFolder",
+    stat_folder_name: ".stats",
     flowlookDBFilePath: "C:\\Program Files (x86)\\FlowLook\\FlowLook.mdb",
     flowlookDBTable: "tSTS11",
     codiceRegione: "190",
     codiceAzienda: "205",
-    distretti: {
-        "Messina": 1,
-        "Taormina": 3,
-        "Milazzo": 4,
-        "Lipari": 5,
-        "Barcellona": 6,
-        "Patti": 7,
-        "S.Agata": 8
-    },
-    struttureDistrettiMap: {
-
-    }
+    distretti: distretti,
+    struttureDistrettiMap: struttureDistrettiMap,
+    comuniDistretti: comuniDistretti,
 }
-
-export {settings}
