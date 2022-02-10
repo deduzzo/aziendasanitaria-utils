@@ -11,7 +11,7 @@ const getAllFilesRecursive = (dirPath, extensions, arrayOfFiles) => {
             arrayOfFiles = getAllFilesRecursive(dirPath + path.sep + file, extensions, arrayOfFiles)
         } else {
             //arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
-            if (extensions.includes(path.extname(file).toLowerCase()))
+            if (path.extname(file) !== "" && extensions.includes(path.extname(file).toLowerCase()))
                 arrayOfFiles.push(path.join(dirPath, path.sep, file))
         }
     })

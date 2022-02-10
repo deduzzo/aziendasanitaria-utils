@@ -29,6 +29,6 @@ const test3 =  () => {
     //await test1()
     let strutture = flussiRegioneSicilia.flussoM.loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
     //flussiRegioneSicilia.flussoM.generaHtmlUsandoGrid(settings.out_folder, strutture,1);
-    flussiRegioneSicilia.flussoM.generaHtmlDaFileStats(settings.out_folder, strutture,1);
+    flussiRegioneSicilia.flussoM.generaGridJSTable(settings.out_folder, strutture,1);
 })();
 

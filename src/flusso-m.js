@@ -481,6 +481,98 @@ function _replacer(key, value) {
     }
 }
 
+const generaGridJSTable = (pathFile, strutture, idDistretto = null, salvaSuFile= true, nomeFile="out.html") =>
+{
+    let gridData = {
+        "columns": [
+            "ID","Nome","Mese","Anno",
+            {
+                name: "DATI DA FILE FLUSSO M",
+                columns: [
+                    {name: 'N.Ricette'},
+                    {name: 'N.Prest.'},
+                    {name: 'TOT. NETTO'},
+                    {name: 'TOT. TICKET'},
+                    {name: 'TOT. LORDO'},
+                ]
+            },
+            {
+                name: "DATI DA PROGETTO TS",
+                columns: [
+                    {name: 'N. Righe'},
+                    {name: 'N. Ricette'},
+                    {name: 'N. Prest.'},
+                    {name: 'TOT. NETTO'},
+                    {name: 'TOT. TICKET'},
+                    {name: 'TOT. LORDO'},
+                    {name: 'Data/Ora VERIFICA'},
+                    {name: 'Tipo Dati'},
+                ]
+            },
+            {
+                name: "DIFFERENZE",
+                columns: [
+                    {name: 'Diff. N° Ricette'},
+                    {name: 'Diff. N° Prest.'},
+                    {name: 'Diff. Netto'},
+                    {name: 'Diff. Ticket'},
+                    {name: 'Diff. Lordo'},
+                ]
+            }
+        ],
+        "data": []
+    }
+    let files = common.getAllFilesRecursive(pathFile,'.mstats');
+    let data = [];
+    for (let file of files) {
+        let rawdata = fs.readFileSync(file);
+        let dati = JSON.parse(rawdata);
+        data.push(dati)
+    }
+    if (idDistretto !== null) {
+        data = data.filter(p => p.idDistretto === idDistretto)
+        for (let struttureFile of data) {
+            gridData.data.push(
+                [
+                    struttureFile.codiceStruttura,
+                    strutture[struttureFile.codiceStruttura].denominazione.toUpperCase(),
+                    (struttureFile.datiDaFile?.mese ?? struttureFile.mesePrevalente),
+                    (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente),
+                    struttureFile.numeroRighe,
+                    struttureFile.numeroRicette,
+                    struttureFile.totalePrestazioni,
+                    struttureFile.totaleNetto,
+                    struttureFile.totaleTicket,
+                    struttureFile.totaleLordo,
+                    //!struttureFile.controlloTs.error ? ...[
+                    struttureFile.controlloTs.out.numero_ricette,
+                    struttureFile.controlloTs.out.numeroPrestazioni,
+                    struttureFile.controlloTs.out.netto_mese_totale,
+                    struttureFile.controlloTs.out.ticket_totale,
+                    struttureFile.controlloTs.out.importo_totale,
+                    struttureFile.controlloTs.out.dataOra,
+                    struttureFile.controlloTs.out.is_definitivo === true ? "COMPLETI" : "INCOMPLETI",
+            //"<td colspan='5'>Dati non disponibili</td>") +
+                    //(struttureFile.differenze !== null ? (
+                    struttureFile.differenze.differenzaRicette,
+                    struttureFile.differenze.differenzaPrestazioni,
+                    struttureFile.differenze.differenzaTotaleNetto,
+                    struttureFile.differenze.differenzaTicket,
+                    struttureFile.differenze.differenzaTotale,
+                    //    ) : ("<td colspan='4'>Dati non disponibili</td>")) +
+                ]
+            )
+        }
+        if (salvaSuFile)
+        {
+            const __dirname = path.resolve();
+            let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/index.html")).toLocaleString();
+            rawdata = rawdata.replace("var gridData = {}","var gridData = " + JSON.stringify(gridData))
+            fs.writeFileSync(pathFile + path.sep + nomeFile , rawdata);
+        }
+    }
+}
+
 const generaHtmlDaFileStats =  (pathFile, strutture, idDistretto = null, salvaSuFile= true, nomeFile="out.html") =>
 {
     let out =
@@ -622,5 +714,5 @@ const _aggiornaStatsFlussoM = async (fileArray, strutture, elaborazione= {},sovr
     }
 }
 
-export const flussoM = {elaboraFlussi, verificaCorrettezzaFileMInCartella,loadStruttureFromFlowlookDB, progettoTSFlussoM, scriviFlussoMSuCartella, generaHtmlDaFileStats}
+export const flussoM = {elaboraFlussi, verificaCorrettezzaFileMInCartella,loadStruttureFromFlowlookDB, progettoTSFlussoM, scriviFlussoMSuCartella, generaHtmlDaFileStats, generaGridJSTable}
 
