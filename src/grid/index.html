@@ -296,15 +296,115 @@
     </style>
 </head>
 <body>
+<h1></h1>
 <div id="wrapper"></div>
 
 <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 <script>
-    var gridData = {}
+    const formatCurrency = (val) => {
+        try { return parseFloat(val).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')+ "€"; }
+            catch (ex) { return "-"; }
+    }
+    const formatColor = (val, type = "text") => {
+        let valore = parseFloat(val);
+        if (valore === 0.0)
+            return "<b style='color: green'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+        else if (valore >0)
+            return "<b style='color: red'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+        else
+            return "<b style='color: blue'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+    }
+    const gridData = {
+        "columns": [
+            "ID","Nome","Distretto","Mese","Anno",
+            {
+                name: "DATI DA FILE FLUSSO M",
+                columns: [
+                    {name: 'N. Righe'},
+                    {name: 'N.Ricette'},
+                    {name: 'N.Prest.'},
+                    {
+                        name: 'TOT. NETTO',
+                        formatter: (cell) => gridjs.html(`<b>${formatCurrency(cell)}</b>`)
+                    },
+                    {
+                        name: 'TOT. TICKET',
+                        formatter: (cell) => gridjs.html(`<b>${formatCurrency(cell)}</b>`)
+                    },
+                    {
+                        name: 'TOT. LORDO',
+                        formatter: (cell) => gridjs.html(`<b>${formatCurrency(cell)}</b>`)
+                    },
+                ]
+            },
+            {
+                name: "DATI DA PROGETTO TS",
+                columns: [
+                    {
+                        name: 'N. Ricette',
+                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
+                    },
+                    {
+                        name: 'N. Prest.',
+                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
+                    },
+                    {
+                        name: 'TOT. NETTO',
+                        formatter: (cell) => gridjs.html(`<b style="color: darkslategray">${formatCurrency(cell)}</b>`)
+                    },
+                    {
+                        name: 'TOT. TICKET',
+                        formatter: (cell) => gridjs.html(`<b style="color: darkslategray">${formatCurrency(cell)}</b>`)
+                    },
+                    {
+                        name: 'TOT. LORDO',
+                        formatter: (cell) => gridjs.html(`<b style="color: darkslategray">${formatCurrency(cell)}</b>`)
+                    },
+                    {
+                        name: 'Data/Ora VERIFICA',
+                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
+                    },
+                    {
+                        name: 'Tipo Dati',
+                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
+                    },
+                ]
+            },
+            {
+                name: "DIFFERENZE",
+                columns: [
+                    {
+                        name: 'Diff. N° Ricette',
+                        formatter: (cell) => gridjs.html(formatColor(cell))
+                    },
+                    {
+                        name: 'Diff. N° Prest.',
+                        formatter: (cell) => gridjs.html(formatColor(cell))
+                    },
+                    {
+                        name: 'Diff. Netto',
+                        formatter: (cell) => gridjs.html(formatColor(cell,"currency"))
+                    },
+                    {
+                        name: 'Diff. Ticket',
+                        formatter: (cell) => gridjs.html(formatColor(cell,"currency"))
+                    },
+                    {
+                        name: 'Diff. Lordo',
+                        formatter: (cell) => gridjs.html(formatColor(cell,"currency"))
+                    },
+                ]
+            }
+        ],
+        "data": [xxx]
+    }
     new gridjs.Grid({
         columns: gridData.columns,
-        search: true,
+        height: '700px',
         sort: true,
+        fixedHeader:true,
+        pagination: true,
+        search: true,
         data: gridData.data,
         style: {
             table: {

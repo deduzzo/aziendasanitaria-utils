@@ -5,6 +5,7 @@ import {common} from "./src/common.js";
 const test1 =  async () => {
     const scriviSuCartella = true
     const controllaSuTs = true
+    const generaStats = true
     let strutture = flussiRegioneSicilia.flussoM.loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
     let ris = await flussiRegioneSicilia.flussoM.elaboraFlussi(settings.in_folder,strutture,settings.distretti);
     let strutturePerControlloTS = {};
@@ -16,7 +17,8 @@ const test1 =  async () => {
         outTS = await flussiRegioneSicilia.flussoM.progettoTSFlussoM.ottieniInformazioniStrutture(strutturePerControlloTS);
     if (scriviSuCartella)
         await flussiRegioneSicilia.flussoM.scriviFlussoMSuCartella(ris.ok,outTS,strutture);
-    flussiRegioneSicilia.flussoM.generaHtmlDaFileStats(settings.out_folder, strutture,1);
+    if (generaStats)
+    flussiRegioneSicilia.flussoM.generaGridJSTable(settings.out_folder, strutture,Object.keys(settings.distretti));
 }
 
 const test2 =  async () => {
@@ -26,9 +28,6 @@ const test3 =  () => {
 }
 
 (async () => {
-    //await test1()
-    let strutture = flussiRegioneSicilia.flussoM.loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
-    //flussiRegioneSicilia.flussoM.generaHtmlUsandoGrid(settings.out_folder, strutture,1);
-    flussiRegioneSicilia.flussoM.generaGridJSTable(settings.out_folder, strutture,1);
+    await test1()
 })();
 

@@ -66,6 +66,14 @@ const _mRowToJson = (row,starts ) => {
     return obj;
 };
 
+const _calcolaNumPrestazioni = (righe) => {
+    let quanti = 0;
+    for (let riga of righe) {
+        quanti += parseInt(riga.quant);
+    }
+    return quanti;
+}
+
 const _buildRicetteFromMRows = (rows) =>
 {
     let ricetta = {}
@@ -85,7 +93,7 @@ const _buildRicetteFromMRows = (rows) =>
         ricetta.codiceStruttura = riga99.arseID;
         ricetta.cf = riga99.cf;
         ricetta.riga99 = riga99;
-        ricetta.numPrestazioni = rows.length -1;
+        ricetta.numPrestazioni = _calcolaNumPrestazioni(prestazioni);
         ricetta.totale = parseFloat(riga99.totale.replace(',','.'));
         ricetta.totaleTicket = parseFloat(riga99.importoTicket.replace(',','.'));
         ricetta.totaleCorretto = parseFloat(totPrestazioniCalcolate.toFixed(2)) - ricetta.totale - ricetta.totaleTicket;
@@ -144,8 +152,6 @@ const _checkMeseAnnoStruttura = (ricette)  => {
                         dateFuoriPeriodoDiCompetenza[key99] = dateFuoriPeriodoDiCompetenza[key99] + 1;
                 }
                 else { // se non c'è lo consideriamo nel periodo di competenza
-                    if (key99 !== "122021")
-                        console.log("bau");
                     if (!dateRiga99.hasOwnProperty(key99))
                         dateRiga99[key99] = 1
                     else
@@ -454,8 +460,10 @@ const scriviFlussoMSuCartella = async (fileElaborati, controlloTs, strutture, sc
         let file = fileElaborati[chiave]
         let anno = file.datiDaFile?.anno ?? file.annoPrevalente;
         let mese = file.datiDaFile?.mese ?? file.mesePrevalente;
-        fileElaborati[chiave].controlloTs = controlloTs[file.codiceStruttura + "-" + mese + anno];
-        fileElaborati[chiave].differenze = _calcolaDifferenzeDaTs(fileElaborati[chiave])
+        if (Object.keys(controlloTs).length >0) {
+            fileElaborati[chiave].controlloTs = controlloTs[file.codiceStruttura + "-" + mese + anno];
+            fileElaborati[chiave].differenze = _calcolaDifferenzeDaTs(fileElaborati[chiave])
+        }
         if (!fs.existsSync(settings.out_folder + path.sep + anno)) {
             fs.mkdirSync(settings.out_folder + path.sep + anno);
         }
@@ -481,47 +489,8 @@ function _replacer(key, value) {
     }
 }
 
-const generaGridJSTable = (pathFile, strutture, idDistretto = null, salvaSuFile= true, nomeFile="out.html") =>
+const generaGridJSTable = (pathFile, strutture, idDistretti = [""], salvaSuFile= true) =>
 {
-    let gridData = {
-        "columns": [
-            "ID","Nome","Mese","Anno",
-            {
-                name: "DATI DA FILE FLUSSO M",
-                columns: [
-                    {name: 'N.Ricette'},
-                    {name: 'N.Prest.'},
-                    {name: 'TOT. NETTO'},
-                    {name: 'TOT. TICKET'},
-                    {name: 'TOT. LORDO'},
-                ]
-            },
-            {
-                name: "DATI DA PROGETTO TS",
-                columns: [
-                    {name: 'N. Righe'},
-                    {name: 'N. Ricette'},
-                    {name: 'N. Prest.'},
-                    {name: 'TOT. NETTO'},
-                    {name: 'TOT. TICKET'},
-                    {name: 'TOT. LORDO'},
-                    {name: 'Data/Ora VERIFICA'},
-                    {name: 'Tipo Dati'},
-                ]
-            },
-            {
-                name: "DIFFERENZE",
-                columns: [
-                    {name: 'Diff. N° Ricette'},
-                    {name: 'Diff. N° Prest.'},
-                    {name: 'Diff. Netto'},
-                    {name: 'Diff. Ticket'},
-                    {name: 'Diff. Lordo'},
-                ]
-            }
-        ],
-        "data": []
-    }
     let files = common.getAllFilesRecursive(pathFile,'.mstats');
     let data = [];
     for (let file of files) {
@@ -529,46 +498,62 @@ const generaGridJSTable = (pathFile, strutture, idDistretto = null, salvaSuFile=
         let dati = JSON.parse(rawdata);
         data.push(dati)
     }
-    if (idDistretto !== null) {
-        data = data.filter(p => p.idDistretto === idDistretto)
-        for (let struttureFile of data) {
-            gridData.data.push(
-                [
-                    struttureFile.codiceStruttura,
-                    strutture[struttureFile.codiceStruttura].denominazione.toUpperCase(),
-                    (struttureFile.datiDaFile?.mese ?? struttureFile.mesePrevalente),
-                    (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente),
-                    struttureFile.numeroRighe,
-                    struttureFile.numeroRicette,
-                    struttureFile.totalePrestazioni,
-                    struttureFile.totaleNetto,
-                    struttureFile.totaleTicket,
-                    struttureFile.totaleLordo,
-                    //!struttureFile.controlloTs.error ? ...[
-                    struttureFile.controlloTs.out.numero_ricette,
-                    struttureFile.controlloTs.out.numeroPrestazioni,
-                    struttureFile.controlloTs.out.netto_mese_totale,
-                    struttureFile.controlloTs.out.ticket_totale,
-                    struttureFile.controlloTs.out.importo_totale,
-                    struttureFile.controlloTs.out.dataOra,
-                    struttureFile.controlloTs.out.is_definitivo === true ? "COMPLETI" : "INCOMPLETI",
-            //"<td colspan='5'>Dati non disponibili</td>") +
-                    //(struttureFile.differenze !== null ? (
-                    struttureFile.differenze.differenzaRicette,
-                    struttureFile.differenze.differenzaPrestazioni,
-                    struttureFile.differenze.differenzaTotaleNetto,
-                    struttureFile.differenze.differenzaTicket,
-                    struttureFile.differenze.differenzaTotale,
-                    //    ) : ("<td colspan='4'>Dati non disponibili</td>")) +
-                ]
-            )
+    for (let distretto of idDistretti) {
+        let nomeFile;
+        let filteredData = []
+        let gridData = [];
+        if (distretto !== "") {
+            filteredData = data.filter(p => p.idDistretto.toString() === distretto.toString())
+            nomeFile = settings.distretti[distretto].toUpperCase() + ".html";
         }
-        if (salvaSuFile)
+        else
         {
-            const __dirname = path.resolve();
-            let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/index.html")).toLocaleString();
-            rawdata = rawdata.replace("var gridData = {}","var gridData = " + JSON.stringify(gridData))
-            fs.writeFileSync(pathFile + path.sep + nomeFile , rawdata);
+            filteredData = filteredData.sort(p => p.idDistretto)
+            nomeFile = "out.html"
+        }
+        if (filteredData.length >0) {
+            for (let struttureFile of filteredData) {
+                gridData.push(
+                    [
+                        struttureFile.codiceStruttura,
+                        strutture[struttureFile.codiceStruttura].denominazione.toUpperCase(),
+                        settings.distretti[struttureFile.idDistretto],
+                        (struttureFile.datiDaFile?.mese ?? struttureFile.mesePrevalente),
+                        (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente),
+                        struttureFile.numeroRighe,
+                        struttureFile.numeroRicette,
+                        struttureFile.totalePrestazioni,
+                        struttureFile.totaleNetto,
+                        struttureFile.totaleTicket,
+                        struttureFile.totaleLordo,
+                        //!struttureFile.controlloTs.error ? ...[
+                        struttureFile.controlloTs?.out.numero_ricette ?? "-",
+                        struttureFile.controlloTs?.out.numeroPrestazioni ?? "-",
+                        struttureFile.controlloTs?.out.netto_mese_totale ?? "-",
+                        struttureFile.controlloTs?.out.ticket_totale ?? "-",
+                        struttureFile.controlloTs?.out.importo_totale ?? "-",
+                        struttureFile.controlloTs?.out.dataOra ?? "-",
+                        struttureFile.controlloTs?.out.is_definitivo === true ? "COMPLETI" : "INCOMPLETI",
+                        //"<td colspan='5'>Dati non disponibili</td>") +
+                        //(struttureFile.differenze !== null ? (
+                        struttureFile.differenze?.differenzaRicette ?? "-",
+                        struttureFile.differenze?.differenzaPrestazioni ?? "-",
+                        struttureFile.differenze?.differenzaTotaleNetto ?? "-",
+                        struttureFile.differenze?.differenzaTicket ?? "-",
+                        struttureFile.differenze?.differenzaTotale ?? "-",
+                        //    ) : ("<td colspan='4'>Dati non disponibili</td>")) +
+                    ]
+                )
+            }
+            if (salvaSuFile) {
+                const __dirname = path.resolve();
+                let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/index.html")).toLocaleString();
+                rawdata = rawdata.replace("[xxx]", JSON.stringify(gridData));
+                rawdata = rawdata.replace("<h1></h1>",
+                    "<h1>Distretto di " + nomeFile.substring(0,nomeFile.length -5) + "</h1>"
+                )
+                fs.writeFileSync(pathFile + path.sep + nomeFile, rawdata);
+            }
         }
     }
 }
