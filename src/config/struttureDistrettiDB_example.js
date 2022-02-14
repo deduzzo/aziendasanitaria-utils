@@ -21,10 +21,8 @@ const comuniDistretti = {
     "083001": 9, "083060": 9, "083009": 9, "083084": 9, "083099": 9, "083010": 9, "083078":9, "083011": 9, "083014": 9
 }
 
-//fine : 083085 struttura 604600
-
 const struttureDistrettiMap = {
-
+    //eventuali strutture che eccezionalmente non appartengono alla tabella dei comuni
 }
 
 export {struttureDistrettiMap,distretti,comuniDistretti}
