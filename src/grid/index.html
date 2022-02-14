@@ -302,17 +302,24 @@
 <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 <script>
     const formatCurrency = (val) => {
-        try { return parseFloat(val).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')+ "€"; }
-            catch (ex) { return "-"; }
+        if (val !== "-")
+            try { return parseFloat(val).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,')+ "€"; }
+                catch (ex) { return "-"; }
+        else
+            return val;
     }
     const formatColor = (val, type = "text") => {
-        let valore = parseFloat(val);
-        if (valore === 0.0)
-            return "<b style='color: green'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
-        else if (valore >0)
-            return "<b style='color: red'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+        if (val !== "-") {
+            let valore = parseFloat(val);
+            if (valore === 0.0)
+                return "<b style='color: green'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+            else if (valore > 0)
+                return "<b style='color: red'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+            else
+                return "<b style='color: blue'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+        }
         else
-            return "<b style='color: blue'>" + (type === 'currency' ? formatCurrency(val) : val) + "</b>";
+            return "<b>-</b>";
     }
     const gridData = {
         "columns": [
@@ -341,6 +348,10 @@
                 name: "DATI DA PROGETTO TS",
                 columns: [
                     {
+                        name: 'Tipo Dati',
+                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
+                    },
+                    {
                         name: 'N. Ricette',
                         formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
                     },
@@ -362,10 +373,6 @@
                     },
                     {
                         name: 'Data/Ora VERIFICA',
-                        formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
-                    },
-                    {
-                        name: 'Tipo Dati',
                         formatter: (cell) => gridjs.html(`<p style="color: darkslategray">${cell}</p>`)
                     },
                 ]

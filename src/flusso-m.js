@@ -5,15 +5,10 @@ import md5File from 'md5-file';
 import fs from 'fs';
 import {common} from "./common.js";
 import _ from 'lodash';
-import reader from "xlsx";
 import MDBReader from "mdb-reader";
 import {progettoTSFlussoM} from "./ottieniDatiStruttureProgettoTs.js";
 import {settings} from "./config/config.js";
-import { Grid } from "gridjs";
-
-const DENOMINAZIONE_COL = "Denominazione";
-const CODICE_STRUTTURA_COL = "Sts11"
-const DISTRETTO_COL = "Distretto"
+import {flussiRegioneSicilia} from "../index.js";
 
 
 const _startsFlussoMV10082012 = {
@@ -106,28 +101,6 @@ const _buildRicetteFromMRows = (rows) =>
     }
 
 };
-
-const _creaMappaStruttureFromFileExcel = (pathFileStrutture, distretti) =>
-{
-    let mappaStrutture = {}
-    const file = reader.readFile(pathFileStrutture);
-
-    let data = [];
-
-    const sheets = file.SheetNames;
-    for (let i = 0; i < sheets.length; i++) {
-        const temp = reader.utils.sheet_to_json(
-            file.Sheets[file.SheetNames[i]]);
-        temp.forEach((res) => {
-            data.push(res);
-        });
-    }
-
-    for (let i = 0; i < data.length; i++) {
-        mappaStrutture[data[i][CODICE_STRUTTURA_COL]] = {denominazione: data[i][DENOMINAZIONE_COL].trim(), distretto: data[i][DISTRETTO_COL], idDistretto:distretti[data[i][DISTRETTO_COL]]}
-    }
-    return mappaStrutture
-}
 
 const _checkMeseAnnoStruttura = (ricette)  => {
     //chiave: mmAAAA, count: ?
@@ -336,7 +309,7 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
     else
         return {
             error: true,
-            rowError: i,
+            rowError: i+1,
             nomeFile: path.basename(filePath),
             absolutePath: filePath,
             hash: md5File.sync(filePath)
@@ -357,7 +330,7 @@ const _controllaNomeFileFlussoM = (nome) =>{
 }
 
 
-const loadStruttureFromFlowlookDB = (pathFileFlowLookDB, tabellaStrutture, codiceRegione, codiceAzienda) =>
+const _loadStruttureFromFlowlookDB = (pathFileFlowLookDB, tabellaStrutture, codiceRegione, codiceAzienda) =>
 {
     const buffer = fs.readFileSync(pathFileFlowLookDB);
     const reader = new MDBReader(buffer);
@@ -384,7 +357,7 @@ const loadStruttureFromFlowlookDB = (pathFileFlowLookDB, tabellaStrutture, codic
     return struttureOut;
 }
 
-const elaboraFlussi = async (pathCartella,strutture, starts=_startsFlussoMV10082012) => {
+const _elaboraFlussi = async (pathCartella,strutture, starts=_startsFlussoMV10082012) => {
 
     let fileOut = {ripetuti: [], ok:{}, errori:[]}
     //1- ottieni tutti i file txt della cartella
@@ -420,24 +393,12 @@ const _ottieniStatDaFileFlussoM = async (file, strutture, starts=_startsFlussoMV
     else {
         let verificaDateStruttura = _checkMeseAnnoStruttura(Object.values(ricetteInFile.ricette))
         ricetteInFile.codiceStruttura = verificaDateStruttura.codiceStruttura;
-        ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura].idDistretto;
+        ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura].idDistretto.toString();
         ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
         ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
         ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
         return {errore: false, out: ricetteInFile}
     }
-}
-
-const verificaCorrettezzaFileMInCartella = async (pathCartella, starts=_startsFlussoMV10082012) => {
-    let lunghezzaRiga = _verificaLunghezzaRiga(starts);
-    let errors = [];
-    let allFiles = common.getAllFilesRecursive(pathCartella, settings.extensions);
-    for (var file of allFiles) {
-        console.log("processing " + file + "...");
-        errors = [...errors, ...await _processLineByLine(file, lunghezzaRiga)]
-    }
-    console.log("FINE");
-    console.log(errors);
 }
 
 const _calcolaDifferenzeDaTs = (dati) => {
@@ -453,7 +414,7 @@ const _calcolaDifferenzeDaTs = (dati) => {
     }
 };
 
-const scriviFlussoMSuCartella = async (fileElaborati, controlloTs, strutture, scriviStats = true) => {
+const _scriviFlussoMSuCartella = async (fileElaborati, controlloTs, strutture, scriviStats = true) => {
     fs.rmSync(settings.out_folder, {recursive: true, force: true});
     fs.mkdirSync(settings.out_folder);
     for (let chiave in fileElaborati) {
@@ -475,7 +436,7 @@ const scriviFlussoMSuCartella = async (fileElaborati, controlloTs, strutture, sc
         fileElaborati[chiave].tempPath = fname;
     }
     if (scriviStats)
-        await _scriviStatsFlussoM(fileElaborati, strutture)
+        await scriviStatsFlussoM(fileElaborati, strutture)
 }
 
 function _replacer(key, value) {
@@ -527,13 +488,13 @@ const generaGridJSTable = (pathFile, strutture, idDistretti = [""], salvaSuFile=
                         struttureFile.totaleTicket,
                         struttureFile.totaleLordo,
                         //!struttureFile.controlloTs.error ? ...[
+                        struttureFile.controlloTs?.out.is_definitivo === true ? "COMPLETI" : (struttureFile.hasOwnProperty("controlloTs") ? "INCOMPLETI" : "NON PRESENTI"),
                         struttureFile.controlloTs?.out.numero_ricette ?? "-",
                         struttureFile.controlloTs?.out.numeroPrestazioni ?? "-",
                         struttureFile.controlloTs?.out.netto_mese_totale ?? "-",
                         struttureFile.controlloTs?.out.ticket_totale ?? "-",
                         struttureFile.controlloTs?.out.importo_totale ?? "-",
                         struttureFile.controlloTs?.out.dataOra ?? "-",
-                        struttureFile.controlloTs?.out.is_definitivo === true ? "COMPLETI" : "INCOMPLETI",
                         //"<td colspan='5'>Dati non disponibili</td>") +
                         //(struttureFile.differenze !== null ? (
                         struttureFile.differenze?.differenzaRicette ?? "-",
@@ -558,120 +519,7 @@ const generaGridJSTable = (pathFile, strutture, idDistretti = [""], salvaSuFile=
     }
 }
 
-const generaHtmlDaFileStats =  (pathFile, strutture, idDistretto = null, salvaSuFile= true, nomeFile="out.html") =>
-{
-    let out =
-        "<html><head>" +
-        "<style type=\"text/css\">" +
-        "td { font-size: 12px;}" +
-        "th { font-size: 14px;}" +
-        ".red {" +
-        "    color: yellow;\n" +
-        "    background-color: red;\n" +
-        "    font-weight: bold;" +
-        " }" +
-        ".green {" +
-        "    color: yellow;\n" +
-        "    background-color: green;\n" +
-        "    font-weight: bold;" +
-        " }" +
-        ".blue {" +
-        "    color: yellow;\n" +
-        "    background-color: blue;\n" +
-        "    font-weight: bold;" +
-        " }" +
-        "</style>" +
-        "</head><body>" +
-
-        "<table border='1'" +
-        "<tr>" +
-        "<th rowspan='2'>ID Struttura</th>" +
-        "<th rowspan='2'>Nome</th>" +
-        "<th rowspan='2'>Mese</th>" +
-        "<th rowspan='2'>Anno</th>" +
-        "<th colspan='6'>DATI FILE FLUSSO M</th>" +
-        "<th colspan='6'>DATI DA PROGETTO TS</th>" +
-        "<th colspan='5'>DIFFERENZE</th>" +
-        "</tr>"+
-        "<tr>" +
-        "<th>N° Righe</th>" +
-        "<th>N° Ricette</th>" +
-        "<th>N° Prestazioni</th>" +
-        "<th>Totale Netto</th>" +
-        "<th>Totale Ticket</th>" +
-        "<th>Totale Lordo</th>" +
-        "<th>N° Ricette</th>" +
-        "<th>N° Prestazioni</th>" +
-        "<th>Totale Netto</th>" +
-        "<th>Totale Ticket</th>" +
-        "<th>Totale Lordo</th>" +
-        "<th>Data Ora Verifica</th>" +
-        "<th>Diff. Ricette</th>" +
-        "<th>Diff. N° Prestazioni</th>" +
-        "<th>Diff. Netto</th>" +
-        "<th>Diff. Ticket</th>" +
-        "<th>Diff. Lordo</th>" +
-        "</tr>";
-    let files = common.getAllFilesRecursive(pathFile,'.mstats');
-    let data = [];
-    for (let file of files) {
-        let rawdata = fs.readFileSync(file);
-        let dati = JSON.parse(rawdata);
-        data.push(dati)
-    }
-    if (idDistretto !== null)
-    {
-        data = data.filter(p => p.idDistretto === idDistretto)
-        for (let struttureFile of data)
-        {
-            out += "<tr>" +
-                "<td>" + struttureFile.codiceStruttura + "</td>" +
-                "<td>" + strutture[struttureFile.codiceStruttura].denominazione.toUpperCase() + "</td>" +
-                "<td>" + (struttureFile.datiDaFile?.mese ?? struttureFile.mesePrevalente)  + "</td>" +
-                "<td>" + (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente) + "</td>"+
-                "<td>" + struttureFile.numeroRighe + "</td>" +
-                "<td>" + struttureFile.numeroRicette + "</td>" +
-                "<td>" + struttureFile.totalePrestazioni + "</td>" +
-                "<td>" + struttureFile.totaleNetto + "</td>" +
-                "<td>" + struttureFile.totaleTicket + "</td>" +
-                "<td>" + struttureFile.totaleLordo + "</td>" +
-                (!struttureFile.controlloTs.error ? (
-                    "<td>" + struttureFile.controlloTs.out.numero_ricette + "</td>" +
-                    "<td>" + struttureFile.controlloTs.out.numeroPrestazioni + "</td>" +
-                    "<td>" + struttureFile.controlloTs.out.netto_mese_totale + "</td>" +
-                    "<td>" + struttureFile.controlloTs.out.ticket_totale + "</td>" +
-                    "<td>" + struttureFile.controlloTs.out.importo_totale + "</td>" +
-                    "<td>" + struttureFile.controlloTs.out.dataOra + "</td>"
-                ) : "<td colspan='5'>Dati non disponibili</td>") +
-                (struttureFile.differenze !== null ? (
-                    "<td class='red'>" + struttureFile.differenze.differenzaRicette + "</td>" +
-                    "<td>" + struttureFile.differenze.differenzaPrestazioni + "</td>" +
-                    "<td>" + struttureFile.differenze.differenzaTotaleNetto + "</td>" +
-                    "<td>" + struttureFile.differenze.differenzaTicket + "</td>" +
-                    "<td>" + struttureFile.differenze.differenzaTotale + "</td>"
-                ) : ("<td colspan='4'>Dati non disponibili</td>")) +
-                "</tr>";
-        }
-        out += "</table></body></html>";
-        if (salvaSuFile)
-        {
-            fs.writeFileSync(pathFile + path.sep + nomeFile , out);
-        }
-    }
-}
-
-/*const generaHtmlUsandoGrid =  (pathFile, strutture, idDistretto = null, salvaSuFile= true, nomeFile="out.html") => {
-    const grid = new Grid({
-        columns: ['Name', 'Email', 'Phone Number'],
-        data: [
-            ['John', 'john@example.com', '(353) 01 222 3333'],
-            ['Mark', 'mark@gmail.com',   '(01) 22 888 4444']
-        ]
-    });
-    grid.render(el);
-}*/
-
-const _scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") => {
+const scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") => {
     for (let file in fileData) {
         let md5 = file
         let dirName = path.dirname(fileData[file].tempPath)
@@ -682,22 +530,75 @@ const _scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") =
     }
 }
 
-
-const _aggiornaStatsFlussoM = async (fileArray, strutture, elaborazione= {},sovrascrivi=true, ext = ".mstats") => {
-    for (let file of fileArray) {
-        let md5 = md5File.sync(file);
-        let dirName = path.dirname(file)
-        if (!fs.existsSync(dirName + path.sep + settings.stat_folder_name))
-            fs.mkdirSync(dirName + path.sep + settings.stat_folder_name);
-        if (!elaborazione)
-            elaborazione = await _ottieniStatDaFileFlussoM(file, strutture);
-        if (elaborazione.errore)
-        {
-            if (sovrascrivi || !fs.existsSync(dirName + path.sep + settings.stat_folder_name + path.sep + md5+ ext))
-                fs.writeFileSync(dirName + path.sep + settings.stat_folder_name + path.sep + md5+ ext, JSON.stringify(_.omit(out.out, ["ricette", "nonOk", "absolutePath", "nomeFile"]), null, "\t"), 'utf8');
-        }
+const eseguiElaborazioneCompletaFlussoMDaCartella =  async (scriviSuCartella = true, controllaSuTs = true, generaStats = true) => {
+    let strutture = _loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
+    let ris = await _elaboraFlussi(settings.in_folder,strutture,settings.distretti);
+    if (ris.errori.length === 0) {
+        let strutturePerControlloTS = {};
+        for (let value of Object.values(ris.ok))
+            strutturePerControlloTS[value.codiceStruttura + "-" + (value.datiDaFile?.mese ?? value.mesePrevalente) + (value.datiDaFile?.anno ?? value.annoPrevalente)] =
+                {
+                    mese: (value.datiDaFile?.mese ?? value.mesePrevalente),
+                    anno: (value.datiDaFile?.anno ?? value.annoPrevalente),
+                    codiceRegione: "190",
+                    codiceAsl: "205",
+                    codiceStruttura: value.codiceStruttura
+                };
+        let outTS = []
+        if (controllaSuTs)
+            outTS = await progettoTSFlussoM.ottieniInformazioniStrutture(strutturePerControlloTS);
+        if (scriviSuCartella)
+            await _scriviFlussoMSuCartella(ris.ok, outTS, strutture);
+        if (generaStats)
+            generaGridJSTable(settings.out_folder, strutture, Object.keys(settings.distretti));
+        //controllo post
+        console.log("Elaborazione completata, di seguito gli errori trovati")
+        console.table(await flussiRegioneSicilia.flussoM.verificaErroriDaStats(settings.out_folder))
+        return true;
+    }
+    else {
+        console.table(ris.errori);
+        return false;
     }
 }
 
-export const flussoM = {elaboraFlussi, verificaCorrettezzaFileMInCartella,loadStruttureFromFlowlookDB, progettoTSFlussoM, scriviFlussoMSuCartella, generaHtmlDaFileStats, generaGridJSTable}
+
+const verificaErroriDaStats = async (filePath) => {
+    let errors = [];
+    let files = common.getAllFilesRecursive(filePath,'.mstats');
+
+    for (let file of files) {
+        let rawdata = fs.readFileSync(file);
+        let dati = JSON.parse(rawdata);
+        let key = dati.idDistretto + dati.codiceStruttura.substring(0,4) + (dati.hasOwnProperty("datiDaFile") ? (dati.datiDaFile.mese + dati.datiDaFile.anno.substring(0,2)) : (dati.mesePrevalente + dati.annoPrevalente)) + "M";
+        if (dati.hasOwnProperty("datiDaFile"))
+        {
+            let error = "";
+            if (dati.datiDaFile.idDistretto.toString() !== dati.idDistretto.toString())
+                error = "idDistretto";
+            if ((dati.datiDaFile.codStruttura + "00") !== dati.codiceStruttura)
+                error += " codStruttura";
+            if (dati.datiDaFile.mese !== dati.mesePrevalente || dati.datiDaFile.anno !== dati.annoPrevalente)
+                error += " data"
+            if (error !== "")
+                errors.push({error: true, chiave: key, tipoErrore: "Nome file differente dal contenuto", dettagli: error.trim(), mstatFile: file})
+        }
+    }
+    return errors;
+}
+
+const verificaCorrettezzaFileMInCartella = async (pathCartella, starts=_startsFlussoMV10082012) => {
+    let lunghezzaRiga = _verificaLunghezzaRiga(starts);
+    let errors = [];
+    let allFiles = common.getAllFilesRecursive(pathCartella, settings.extensions);
+    for (var file of allFiles) {
+        console.log("processing " + file + "...");
+        errors = [...errors, ...await _processLineByLine(file, lunghezzaRiga)]
+    }
+    console.log("FINE");
+    console.log(errors);
+}
+
+export const flussoM = {verificaCorrettezzaFileMInCartella, progettoTSFlussoM, generaGridJSTable,
+    verificaErroriDaStats, eseguiElaborazioneCompletaFlussoMDaCartella, scriviStatsFlussoM}
 
