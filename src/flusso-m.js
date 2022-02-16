@@ -12,38 +12,38 @@ import {flussiRegioneSicilia} from "../index.js";
 
 
 const _startsFlussoMV10082012 = {
-    regione: {id:1, lenght:3,type: "string", required: true},
-    asID: {id:2, lenght:3, type: "string", required: true}, // codice azienda sanitaria
-    arseID: {id:3, lenght:6, type: "string", required: true}, // codice regionale struttura erogatrice STS11
-    brancaID: {id:4, lenght:2, type: "string", required: true}, // codice branca STS21
-    mpID: {id:5, lenght:16, type: "string", required: true}, // codice medico prescrittore
-    cognome: {id:6, lenght:30, type: "string", required: false}, // cognome utente
-    nome: {id:7, lenght:20, type: "string", required: false}, // nome utente
-    cf: {id:8, lenght:16, type: "string", required: true}, // codice fiscale
-    sesso: {id:9, lenght:1, type: "string", required: false}, // sesso utente
-    dataNascita: {id:10, lenght:8, type: "date", required: false}, // data Nascita Utente
-    comRes: {id:11, lenght:6, type: "string", required: true}, // comune di residenza utente
-    aspRes: {id:12, lenght:3, type: "string", required: true}, // Azienda Sanitaria provinciale di residenza
-    dataPren: {id:13, lenght:8, type: "date", required: true}, // Data di Prenotazione, solo su riga 99
-    ricettaID: {id:14, lenght:16, type: "string", required: true}, // Numero ricetta
-    progrRicetta: {id:15, lenght:2, type: "string", required: true}, // Progressivo riga per ricetta
-    diagnosi: {id:16, lenght:5, type: "string", required: false}, // codifica ICD9CM
-    dataErog: {id:17, lenght:8, type: "date", required: true}, // Data erogazione, in caso di ciclo si riporta chisura ciclo
-    nomID: {id:18, lenght:1, type: "string", required: true}, // codifica nomenclatore
-    prestID: {id:19, lenght:7, type: "string", required: true}, // codice prestazione secondo nomenclatore
-    quant: {id:20, lenght:3, type: "string", required: true}, // quantità
-    ticket: {id:21, lenght:2, type: "string", required: true}, // posizione utente nei confronti del ticket
-    esenzione: {id:22, lenght:6, type: "string", required: true}, // codice esenzione
-    importoTicket: {id:23, lenght:7, type: "string", required: true}, // importo ticket
-    totale: {id:24, lenght:8, type: "string", required: true}, // importo totale
-    posContabile: {id:25, lenght:1, type: "string", required: true}, // posizione contabile
-    recordID: {id:26, lenght:20, type: "string", required: true}, // identificativo Record
-    CRIL: {id:27, lenght:8, type: "string", required: true}, // centro di rilevazione regionale CRIL
-    op: {id:28, lenght:1, type: "string", required: true}, // onere prestazione
-    tipoAccesso: {id:29, lenght:1, type: "string", required: true}, // tipo accesso, se è primo accesso o meno 0->altro 1-> primo accesso
-    tempoMax: {id:30, lenght:1, type: "string", required: true}, // garanzia tempi massimi
-    classePrior: {id:31, lenght:1, type: "string", required: true}, // Classe priorità
-    vuoto: {id:32, lenght:2, type: "string", required: false}, // campo vuoto
+    regione: {id:1, length:3,type: "string", required: true},
+    asID: {id:2, length:3, type: "string", required: true}, // codice azienda sanitaria
+    arseID: {id:3, length:6, type: "string", required: true}, // codice regionale struttura erogatrice STS11
+    brancaID: {id:4, length:2, type: "string", required: true}, // codice branca STS21
+    mpID: {id:5, length:16, type: "string", required: true}, // codice medico prescrittore
+    cognome: {id:6, length:30, type: "string", required: false}, // cognome utente
+    nome: {id:7, length:20, type: "string", required: false}, // nome utente
+    cf: {id:8, length:16, type: "string", required: true}, // codice fiscale
+    sesso: {id:9, length:1, type: "string", required: false}, // sesso utente
+    dataNascita: {id:10, length:8, type: "date", required: false}, // data Nascita Utente
+    comRes: {id:11, length:6, type: "string", required: true}, // comune di residenza utente
+    aspRes: {id:12, length:3, type: "string", required: true}, // Azienda Sanitaria provinciale di residenza
+    dataPren: {id:13, length:8, type: "date", required: true}, // Data di Prenotazione, solo su riga 99
+    ricettaID: {id:14, length:16, type: "string", required: true}, // Numero ricetta
+    progrRicetta: {id:15, length:2, type: "string", required: true}, // Progressivo riga per ricetta
+    diagnosi: {id:16, length:5, type: "string", required: false}, // codifica ICD9CM
+    dataErog: {id:17, length:8, type: "date", required: true}, // Data erogazione, in caso di ciclo si riporta chisura ciclo
+    nomID: {id:18, length:1, type: "string", required: true}, // codifica nomenclatore
+    prestID: {id:19, length:7, type: "string", required: true}, // codice prestazione secondo nomenclatore
+    quant: {id:20, length:3, type: "int", required: true}, // quantità
+    ticket: {id:21, length:2, type: "double", required: true}, // posizione utente nei confronti del ticket
+    esenzione: {id:22, length:6, type: "string", required: true}, // codice esenzione
+    importoTicket: {id:23, length:7, type: "double", required: true}, // importo ticket
+    totale: {id:24, length:8, type: "double", required: true}, // importo totale
+    posContabile: {id:25, length:1, type: "string", required: true}, // posizione contabile
+    recordID: {id:26, length:20, type: "string", required: true}, // identificativo Record
+    CRIL: {id:27, length:8, type: "string", required: true}, // centro di rilevazione regionale CRIL
+    op: {id:28, length:1, type: "string", required: true}, // onere prestazione
+    tipoAccesso: {id:29, length:1, type: "string", required: true}, // tipo accesso, se è primo accesso o meno 0->altro 1-> primo accesso
+    tempoMax: {id:30, length:1, type: "string", required: true}, // garanzia tempi massimi
+    classePrior: {id:31, length:1, type: "string", required: true}, // Classe priorità
+    vuoto: {id:32, length:2, type: "string", required: false}, // campo vuoto
 };
 
 const _mRowToJson = (row,starts ) => {
@@ -51,12 +51,16 @@ const _mRowToJson = (row,starts ) => {
     let from = 0;
     for (let key in starts)
     {
-        obj[key] = row.substr(from, starts[key].lenght).trim();
+        obj[key] = row.substr(from, starts[key].length).trim();
         if (starts[key].type === "date") {
             if (moment(obj[key], "DDMMYYYY").isValid())
                 obj[key] = moment(obj[key], "DDMMYYYY");
         }
-        from+= starts[key].lenght;
+        else if (starts[key].type === "double")
+            obj[key] = obj[key] === "" ? 0 : parseFloat(obj[key].replace(',', '.'));
+        else if (starts[key].type === "int")
+            obj[key] = parseInt(obj[key]);
+        from+= starts[key].length;
     }
     return obj;
 };
@@ -76,7 +80,7 @@ const _buildRicetteFromMRows = (rows) =>
     let prestazioni = rows.filter((p) => p.progrRicetta !== "99");
     var totPrestazioniCalcolate = prestazioni.reduce(function(tot, arr) {
         // return the sum with previous value
-        return tot +  parseFloat(arr.totale.replace(',','.'));
+        return tot + arr.totale;
         // set initial value as 0
     },0);
 
@@ -89,10 +93,10 @@ const _buildRicetteFromMRows = (rows) =>
         ricetta.cf = riga99.cf;
         ricetta.riga99 = riga99;
         ricetta.numPrestazioni = _calcolaNumPrestazioni(prestazioni);
-        ricetta.totale = parseFloat(riga99.totale.replace(',','.'));
-        ricetta.totaleTicket = parseFloat(riga99.importoTicket.replace(',','.'));
-        ricetta.totaleCorretto = parseFloat(totPrestazioniCalcolate.toFixed(2)) - ricetta.totale - ricetta.totaleTicket;
-        ricetta.totalePrestazioniCalcolate = parseFloat(totPrestazioniCalcolate.toFixed(2));
+        ricetta.totale = riga99.totale;
+        ricetta.totaleTicket = riga99.importoTicket;
+        ricetta.totaleCorretto = totPrestazioniCalcolate.toFixed(2) - ricetta.totale - ricetta.totaleTicket;
+        ricetta.totalePrestazioniCalcolate = totPrestazioniCalcolate.toFixed(2);
         return ricetta;
     }
     else
@@ -101,6 +105,25 @@ const _buildRicetteFromMRows = (rows) =>
     }
 
 };
+
+const _totaliMeseAnnoStruttura = (ricette)  => {
+    let out = {}
+    for (let ricetta of ricette) {
+        let dataErog99 = ricetta.riga99.dataErog ? (ricetta.riga99.dataErog.month() + 1).toString() + ricetta.riga99.dataErog.year().toString() : null
+        for (let prestazione of ricetta.prestazioni) {
+            let dataErog = prestazione.dataErog ? (prestazione.dataErog.month() + 1).toString() + prestazione.dataErog.year().toString() : null;
+            let key = dataErog ?? dataErog99;
+            if (!out.hasOwnProperty(key))
+            {
+                out[key] = { totaleLordo: 0, totaleTicket: 0, numPrestazioni: 0}
+            }
+            out[key].totaleLordo += prestazione.importoTicket;
+            out[key].totaleTicket += prestazione.totaleTicket;
+            console.log(prestazione);
+        }
+    }
+    return out;
+}
 
 const _checkMeseAnnoStruttura = (ricette)  => {
     //chiave: mmAAAA, count: ?
@@ -244,7 +267,7 @@ const _verificaLunghezzaRiga = (starts) =>
 {
     let lunghezza = 0;
     for (let val of Object.values(starts))
-        lunghezza+= val.lenght;
+        lunghezza+= val.length;
     return lunghezza;
 }
 
@@ -278,7 +301,7 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
                 //TODO: filtro?
                 ricette[rt.id] = rt;
                 totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
-                totale.totalePrestazioni = totale.totalePrestazioni + rt.numPrestazioni;
+                totale.numPrestazioni = totale.numPrestazioni + rt.numPrestazioni;
                 totale.totale = totale.totale + rt.totale;
                 totale.ticket = totale.ticket + rt.totaleTicket;
                 ricettaTemp = [];
@@ -290,6 +313,7 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
         let totaleNetto = parseFloat(totale.totale.toFixed(2));
         let totaleTicket = parseFloat(totale.ticket.toFixed(2));
         let datiDaFile = _controllaNomeFileFlussoM(path.basename(filePath));
+        let calcolaPrestazioniPerMese = _totaliMeseAnnoStruttura(Object.values(ricette))
         return {
             nomeFile: path.basename(filePath),
             datiDaFile: datiDaFile,
@@ -298,7 +322,7 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
             totaleNetto: totaleNetto,
             totaleLordo: parseFloat((totaleNetto + totaleTicket).toFixed(2)),
             totaleTicket: totaleTicket,
-            totalePrestazioni: totale.totalePrestazioni,
+            numPrestazioni: totale.numPrestazioni,
             totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
             numeroRighe: i,
             numeroRicette: Object.values(ricette).length,
@@ -357,7 +381,7 @@ const _loadStruttureFromFlowlookDB = (pathFileFlowLookDB, tabellaStrutture, codi
     return struttureOut;
 }
 
-const _elaboraFlussi = async (pathCartella,strutture, starts=_startsFlussoMV10082012) => {
+const _elaboraFlussi = async (pathCartella,strutture) => {
 
     let fileOut = {ripetuti: [], ok:{}, errori:[]}
     //1- ottieni tutti i file txt della cartella
@@ -383,8 +407,8 @@ const _elaboraFlussi = async (pathCartella,strutture, starts=_startsFlussoMV1008
     return fileOut;
 }
 
-const _ottieniStatDaFileFlussoM = async (file, strutture, starts=_startsFlussoMV10082012) => {
-    let ricetteInFile = await _elaboraFileFlussoM(file,starts);
+const _ottieniStatDaFileFlussoM = async (file, strutture) => {
+    let ricetteInFile = await _elaboraFileFlussoM(file,_startsFlussoMV10082012);
     if (ricetteInFile.error)
     {
         console.log("file " + file + " con errori");
@@ -408,7 +432,7 @@ const _calcolaDifferenzeDaTs = (dati) => {
             differenzaTotaleNetto: (dati.controlloTs.out.netto_mese_totale - dati.totaleNetto).toFixed(2),
             differenzaTotale: (dati.controlloTs.out.importo_totale - dati.totaleLordo).toFixed(2),
             differenzaTicket: (dati.controlloTs.out.ticket_totale - dati.totaleTicket).toFixed(2),
-            differenzaPrestazioni: dati.controlloTs.out.numeroPrestazioni - dati.totalePrestazioni,
+            differenzaPrestazioni: dati.controlloTs.out.numeroPrestazioni - dati.numPrestazioni,
             differenzaRicette: dati.controlloTs.out.numero_ricette - dati.numeroRicette
         }
     }
@@ -483,7 +507,7 @@ const generaGridJSTable = (pathFile, strutture, idDistretti = [""], salvaSuFile=
                         (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente),
                         struttureFile.numeroRighe,
                         struttureFile.numeroRicette,
-                        struttureFile.totalePrestazioni,
+                        struttureFile.numPrestazioni,
                         struttureFile.totaleNetto,
                         struttureFile.totaleTicket,
                         struttureFile.totaleLordo,
@@ -532,7 +556,7 @@ const scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") =>
 
 const eseguiElaborazioneCompletaFlussoMDaCartella =  async (scriviSuCartella = true, controllaSuTs = true, generaStats = true) => {
     let strutture = _loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
-    let ris = await _elaboraFlussi(settings.in_folder,strutture,settings.distretti);
+    let ris = await _elaboraFlussi(settings.in_folder,strutture);
     if (ris.errori.length === 0) {
         let strutturePerControlloTS = {};
         for (let value of Object.values(ris.ok))
