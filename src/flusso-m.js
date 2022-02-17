@@ -95,8 +95,8 @@ const _buildRicetteFromMRows = (rows) =>
         ricetta.numPrestazioni = _calcolaNumPrestazioni(prestazioni);
         ricetta.totale = riga99.totale;
         ricetta.totaleTicket = riga99.importoTicket;
-        ricetta.totaleCorretto = totPrestazioniCalcolate.toFixed(2) - ricetta.totale - ricetta.totaleTicket;
-        ricetta.totalePrestazioniCalcolate = totPrestazioniCalcolate.toFixed(2);
+        ricetta.differenzeTotale = parseFloat((totPrestazioniCalcolate - ricetta.totale - ricetta.totaleTicket).toFixed(2));
+        ricetta.totalePrestazioniCalcolate = totPrestazioniCalcolate;
         return ricetta;
     }
     else
@@ -109,18 +109,30 @@ const _buildRicetteFromMRows = (rows) =>
 const _totaliMeseAnnoStruttura = (ricette)  => {
     let out = {}
     for (let ricetta of ricette) {
+        let key = null;
         let dataErog99 = ricetta.riga99.dataErog ? (ricetta.riga99.dataErog.month() + 1).toString() + ricetta.riga99.dataErog.year().toString() : null
+        if (dataErog99?.length < 6)
+            dataErog99 = "0"+ dataErog99
         for (let prestazione of ricetta.prestazioni) {
             let dataErog = prestazione.dataErog ? (prestazione.dataErog.month() + 1).toString() + prestazione.dataErog.year().toString() : null;
-            let key = dataErog ?? dataErog99;
+            if (dataErog.length < 6)
+                dataErog = "0"+ dataErog
+            //if (dataErog !== dataErog99)
+            //    console.log("data")
+            key = (prestazione.arseID.substring(0,4)) + (dataErog ?? dataErog99);
             if (!out.hasOwnProperty(key))
-            {
-                out[key] = { totaleLordo: 0, totaleTicket: 0, numPrestazioni: 0}
-            }
-            out[key].totaleLordo += prestazione.importoTicket;
-            out[key].totaleTicket += prestazione.totaleTicket;
-            console.log(prestazione);
+                out[key] = { totaleLordo: 0, totaleTicket: 0, numPrestazioni: 0, totaleNetto: 0}
+            out[key].totaleLordo += prestazione.totale;
+            out[key].numPrestazioni += prestazione.quant;
+            out[key].totaleNetto += ricetta.riga99.totale;
         }
+        out[key].totaleTicket += ricetta.riga99.importoTicket;
+        out[key].totaleNetto += ricetta.riga99.totale;
+    }
+    for (let key in out) {
+        out[key].totaleLordo = parseFloat(out[key].totaleLordo.toFixed(2));
+        out[key].totaleTicket = parseFloat(out[key].totaleTicket.toFixed(2));
+        out[key].totaleNetto = parseFloat(out[key].totaleNetto.toFixed(2));
     }
     return out;
 }
@@ -283,7 +295,7 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
     let totale = {
         totale:0,
         ticket:0,
-        totalePrestazioni:0,
+        numPrestazioni:0,
         totalePrestazioniCalcolate: 0
     }
     let lunghezzaRiga = _verificaLunghezzaRiga(starts);
@@ -309,9 +321,10 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
             i++;
         }
     }
+    totale.totalePrestazioniCalcolate = parseFloat(totale.totalePrestazioniCalcolate.toFixed(2));
+    totale.totale = parseFloat(totale.totale.toFixed(2));
+    totale.ticket = parseFloat(totale.ticket.toFixed(2));
     if (error === null) {
-        let totaleNetto = parseFloat(totale.totale.toFixed(2));
-        let totaleTicket = parseFloat(totale.ticket.toFixed(2));
         let datiDaFile = _controllaNomeFileFlussoM(path.basename(filePath));
         let calcolaPrestazioniPerMese = _totaliMeseAnnoStruttura(Object.values(ricette))
         return {
@@ -319,15 +332,16 @@ const _elaboraFileFlussoM = async (filePath, starts) => {
             datiDaFile: datiDaFile,
             absolutePath: filePath,
             hash: md5File.sync(filePath),
-            totaleNetto: totaleNetto,
-            totaleLordo: parseFloat((totaleNetto + totaleTicket).toFixed(2)),
-            totaleTicket: totaleTicket,
+            totaleNetto: totale.totale,
+            totaleLordo: parseFloat((totale.totale + totale.ticket).toFixed(2)),
+            totaleTicket: totale.ticket,
             numPrestazioni: totale.numPrestazioni,
             totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
+            calcolaPrestazioniPerMese: calcolaPrestazioniPerMese,
             numeroRighe: i,
             numeroRicette: Object.values(ricette).length,
             ricette: ricette,
-            nonOk: Object.values(ricette).filter((p) => p.totaleCorretto !== 0)
+            nonOk: Object.values(ricette).filter((p) => p.differenzeTotale !== 0)
         }
     }
     else
@@ -420,6 +434,7 @@ const _ottieniStatDaFileFlussoM = async (file, strutture) => {
         ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura].idDistretto.toString();
         ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
         ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
+        ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
         ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
         return {errore: false, out: ricetteInFile}
     }
@@ -554,7 +569,7 @@ const scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") =>
     }
 }
 
-const eseguiElaborazioneCompletaFlussoMDaCartella =  async (scriviSuCartella = true, controllaSuTs = true, generaStats = true) => {
+const eseguiElaborazioneCompletaFlussoMDaCartella =  async (scriviSuCartella, controllaSuTs, generaStats) => {
     let strutture = _loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
     let ris = await _elaboraFlussi(settings.in_folder,strutture);
     if (ris.errori.length === 0) {
