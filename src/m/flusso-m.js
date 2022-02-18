@@ -3,12 +3,12 @@ import path  from 'path';
 import readline from 'readline';
 import md5File from 'md5-file';
 import fs from 'fs';
-import {common} from "./common.js";
+import {common} from "../common.js";
 import _ from 'lodash';
 import MDBReader from "mdb-reader";
 import {progettoTSFlussoM} from "./ottieniDatiStruttureProgettoTs.js";
-import {settings} from "./config/config.js";
-import {flussiRegioneSicilia} from "../index.js";
+import {settings} from "../config/config.js";
+import {flussiRegioneSicilia} from "../../index.js";
 
 
 const _startsFlussoMV10082012 = {
@@ -249,7 +249,6 @@ const _checkMeseAnnoStruttura = (ricette)  => {
     };
 }
 
-
 const _processLineByLine = async (filePath, lunghezzaRiga) => {
     let errors = [];
     const fileStream = fs.createReadStream(filePath);
@@ -274,6 +273,8 @@ const _processLineByLine = async (filePath, lunghezzaRiga) => {
     }
     return errors;
 }
+
+
 
 const _verificaLunghezzaRiga = (starts) =>
 {
@@ -395,6 +396,8 @@ const _loadStruttureFromFlowlookDB = (pathFileFlowLookDB, tabellaStrutture, codi
     return struttureOut;
 }
 
+
+
 const _elaboraFlussi = async (pathCartella,strutture) => {
 
     let fileOut = {ripetuti: [], ok:{}, errori:[]}
@@ -434,7 +437,6 @@ const _ottieniStatDaFileFlussoM = async (file, strutture) => {
         ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura].idDistretto.toString();
         ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
         ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
-        ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
         ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
         return {errore: false, out: ricetteInFile}
     }
@@ -569,6 +571,52 @@ const scriviStatsFlussoM = async (fileData,sovrascrivi=true, ext = ".mstats") =>
     }
 }
 
+const unisciFileTxt = async (inFolder, outFolder) => {
+    let errors = [];
+    let allFiles = common.getAllFilesRecursive(inFolder,settings.extensions);
+    let lunghezzaRiga = _verificaLunghezzaRiga(_startsFlussoMV10082012);
+    const outputFile = outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT';
+    var logger = fs.createWriteStream(outputFile, {
+        flags: 'a' // 'a' means appending (old data will be preserved)
+    })
+    var writeLine = (line) => logger.write(`${line}\n`);
+    for(var file of allFiles)
+    {
+        const fileStream = fs.createReadStream(file);
+        const rl = readline.createInterface({
+            input: fileStream,
+            crlfDelay: Infinity
+        });
+
+        let nLine = 0;
+        for await (const line of rl) {
+            writeLine(line);
+            // Each line in input.txt will be successively available here as `line`.
+            nLine++;
+            if (line.length !== lunghezzaRiga) {
+                console.log("file: " + file);
+                console.log('length: ' + line.length);
+                console.log('nLine: ' + nLine);
+                errors.push({file: file, lunghezza: line.length, linea: nLine})
+            }
+        }
+    }
+    logger.end();
+    if (errors.length===0) {
+        //verifica
+        console.log("verifica.. ");
+        errors = [...errors, ...await _processLineByLine(outputFile, lunghezzaRiga)]
+        if (errors.length === 0)
+            console.log("verifica ok");
+        else {
+            console.log("ERRORI");
+            console.table(errors);
+        }
+    }
+    return {error: errors.length !==0, errors: errors}
+}
+
+
 const eseguiElaborazioneCompletaFlussoMDaCartella =  async (scriviSuCartella, controllaSuTs, generaStats) => {
     let strutture = _loadStruttureFromFlowlookDB(settings.flowlookDBFilePath,settings.flowlookDBTable,settings.codiceRegione, settings.codiceAzienda, settings.struttureDistrettiMap);
     let ris = await _elaboraFlussi(settings.in_folder,strutture);
@@ -639,5 +687,5 @@ const verificaCorrettezzaFileMInCartella = async (pathCartella, starts=_startsFl
 }
 
 export const flussoM = {verificaCorrettezzaFileMInCartella, progettoTSFlussoM, generaGridJSTable,
-    verificaErroriDaStats, eseguiElaborazioneCompletaFlussoMDaCartella, scriviStatsFlussoM}
+    verificaErroriDaStats, eseguiElaborazioneCompletaFlussoMDaCartella, scriviStatsFlussoM, unisciFileTxt}
 

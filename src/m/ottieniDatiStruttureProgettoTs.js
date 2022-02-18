@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer';
-import {settings} from "../src/config/config.js"
+import {settings} from "../config/config.js"
 import moment from "moment";
 
 //cod reg = 190, cod_asl = 205
