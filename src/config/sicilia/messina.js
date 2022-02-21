@@ -1,4 +1,3 @@
-//esempio: messina
 const distretti = {
     1: "Messina",
     3: "Taormina",
@@ -22,7 +21,7 @@ const comuniDistretti = {
 }
 
 const struttureDistrettiMap = {
-    //eventuali strutture che eccezionalmente non appartengono alla tabella dei comuni
+
 }
 
 export {struttureDistrettiMap,distretti,comuniDistretti}

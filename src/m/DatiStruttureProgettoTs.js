@@ -1,44 +1,53 @@
 import puppeteer from 'puppeteer';
-import {settings} from "../config/config.js"
 import moment from "moment";
 
-//cod reg = 190, cod_asl = 205
-const _parametriMap =
-    {
-        _ANNO: "<anno>",
-        _MESE: "<mese>",
-        _COD_REG: "<cod_reg>",
-        _COD_ASL: "<cod_asl>",
-        _COD_STRUTTURA: "<cod_struttura>"
+export class DatiStruttureProgettoTs {
+
+    //cod reg = 190, cod_asl = 205
+    _parametriMap =
+        {
+            _ANNO: "<anno>",
+            _MESE: "<mese>",
+            _COD_REG: "<cod_reg>",
+            _COD_ASL: "<cod_asl>",
+            _COD_STRUTTURA: "<cod_struttura>"
+        }
+
+    _mesi = {
+        "01": "Gennaio",
+        "02": "Febbraio",
+        "03": "Marzo",
+        "04": "Aprile",
+        "05": "Maggio",
+        "06": "Giugno",
+        "07": "Luglio",
+        "08": "Agosto",
+        "09": "Settembre",
+        "10": "Ottobre",
+        "11": "Novembre",
+        "12": "Dicembre"
     }
 
-const _mesi = {
-    "01": "Gennaio",
-    "02": "Febbraio",
-    "03": "Marzo",
-    "04": "Aprile",
-    "05": "Maggio",
-    "06": "Giugno",
-    "07": "Luglio",
-    "08": "Agosto",
-    "09": "Settembre",
-    "10": "Ottobre",
-    "11": "Novembre",
-    "12": "Dicembre"
-}
+    _urlProspettoContabileV1 = "https://sistemats4.sanita.finanze.it/SimossLiqV2Web/caricaDettaglioProspettiContabiliS.do?" +
+        "tipoStampa=html&annoSped=<anno>&meseSped=<mese>&tipoPeriodo=s&codReg=<cod_reg>&codAsl=<cod_asl>" +
+        "&tipoErogazione=tutti&tipoRicerca=&codSsa=<cod_struttura>&tutte=n&aslAccorpata=<cod_asl>"
 
-const _urlProspettoContabileV1 = "https://sistemats4.sanita.finanze.it/SimossLiqV2Web/caricaDettaglioProspettiContabiliS.do?" +
-    "tipoStampa=html&annoSped=<anno>&meseSped=<mese>&tipoPeriodo=s&codReg=<cod_reg>&codAsl=<cod_asl>" +
-    "&tipoErogazione=tutti&tipoRicerca=&codSsa=<cod_struttura>&tutte=n&aslAccorpata=<cod_asl>"
+    /**
+     * @param {ImpostazioniFlussoM} impostazioni - Impostazioni Flusso M
+     */
+    constructor(impostazioni) {
+        this._impostazioni = impostazioni;
+    }
 
-const _sostituisciValoriInUrl= (url, map) => {
-    // map = { ANNO: 2021, MESE: 1, COD_REG: ecc..  }
-    for (let chiave in map)
-        url = url.replaceAll(_parametriMap[chiave.toString()], map[chiave].toString());
-    return url;
-}
 
-const ottieniInformazioniStrutture = async (arrayStrutture) => {
+    #sostituisciValoriInUrl (url, map) {
+        // map = { ANNO: 2021, MESE: 1, COD_REG: ecc..  }
+        for (let chiave in map)
+            url = url.replaceAll(this._parametriMap[chiave.toString()], map[chiave].toString());
+        return url;
+    }
+
+    async ottieniInformazioniStrutture(arrayStrutture) {
         // arraystrutture: {mese, anno, codiceRegione, codiceAsl, codiceStruttura}
         const maxRetryOriginal = 5;
         let maxRetry = maxRetryOriginal;
@@ -48,15 +57,15 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
         const page = await browser.newPage();
         try {
             await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
-            await page.type("#j_username", settings.ts_username);
-            await page.type("#j_password", settings.ts_password);
+            await page.type("#j_username", this._impostazioni.ts_username);
+            await page.type("#j_password", this._impostazioni.ts_password);
             await page.click("#login > fieldset > input:nth-child(11)");
             await page.waitForSelector('#dettaglio_utente')
             /*await page.waitForNavigation({
                 waitUntil: 'networkidle0',
             });*/
             console.log("loaded")
-        }catch (ex) {
+        } catch (ex) {
             out.error = true;
             out.errortext = "Generic error";
         }
@@ -68,13 +77,13 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
                 do {
                     try {
                         let map = {
-                            _MESE: _mesi[mese],
+                            _MESE: this._mesi[mese],
                             _ANNO: anno,
                             _COD_REG: codiceRegione,
                             _COD_ASL: codiceAsl,
                             _COD_STRUTTURA: codiceStruttura
                         }
-                        let url = _sostituisciValoriInUrl(_urlProspettoContabileV1, map);
+                        let url = this.#sostituisciValoriInUrl(this._urlProspettoContabileV1, map);
                         await page.goto(url, {waitUntil: 'networkidle2'});
                         let datiStruttura = await page.evaluate(() => {
                             let out2 = {error: false, out: {}}
@@ -98,27 +107,26 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
                                 let dichiarati = {}
                                 let righeTabella1 = document.querySelector("body > div:nth-child(5) > table:nth-child(9)").rows.length;
                                 let righeTabella2 = document.querySelector("body > div:nth-child(5) > table:nth-child(14)").rows.length;
-                                for (let i=3; i<righeTabella1; i++)
-                                {
-                                    totaliPerBranca[document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ i +") > td:nth-child(1)").innerHTML.replaceAll("&nbsp;","")] =
-                                    {
-                                        numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                        importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                        ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                        sconto_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                        netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    }
+                                for (let i = 3; i < righeTabella1; i++) {
+                                    totaliPerBranca[document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(1)").innerHTML.replaceAll("&nbsp;", "")] =
+                                        {
+                                            numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                            importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                            ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                            sconto_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                            netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i + ") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                        }
                                 }
-                                dichiarati.numero_ricette = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.'));
-                                dichiarati.importo_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.'));
-                                dichiarati.netto_mese_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child("+ righeTabella2 +") > td:nth-child(5)").innerText.replaceAll('.', '').replaceAll(',', '.'));
+                                dichiarati.numero_ricette = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child(" + righeTabella2 + ") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.'));
+                                dichiarati.importo_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child(" + righeTabella2 + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.'));
+                                dichiarati.netto_mese_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child(" + righeTabella2 + ") > td:nth-child(5)").innerText.replaceAll('.', '').replaceAll(',', '.'));
                                 out2.out = {
                                     cod_struttura: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(6) > tbody > tr:nth-child(3) > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 +") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
-                                    sconto: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child("+ righeTabella1 +") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    netto_mese_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(7)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    numero_ricette: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
+                                    sconto: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(6)").innerText.replaceAll('.', '').replaceAll(',', '.')),
                                     is_definitivo: !document.querySelector("body > div:nth-child(5) > table:nth-child(18)").innerText.includes("non sono ancora definitivi"),
                                     totali_per_branca: totaliPerBranca,
                                     totali_dichiarati: dichiarati
@@ -139,7 +147,7 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
                                     return document.querySelector("body > div:nth-child(5) > table:nth-child(13) > tbody > tr:nth-child(" + num.toString() + ") > td:nth-child(3)").innerText;
                                 });
                                 out.out.totali_per_branca[branca].numeroPrestazioni = parseInt(numeroPrestazioniBranca);
-                                numeroPrestazioni+= parseInt(numeroPrestazioniBranca);
+                                numeroPrestazioni += parseInt(numeroPrestazioniBranca);
                                 await page.goBack()
                             }
                             out.out.numeroPrestazioni = numeroPrestazioni
@@ -158,5 +166,4 @@ const ottieniInformazioniStrutture = async (arrayStrutture) => {
         await browser.close()
         return ris;
     }
-
-export const progettoTSFlussoM = { ottieniInformazioniStrutture }
+}

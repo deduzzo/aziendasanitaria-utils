@@ -1,4 +1,4 @@
-import {flussoM} from "./src/m/flusso-m.js";
-import {flussoSIAD} from "./src/siad/siad.js";
+import {FlussoM} from "./src/m/FlussoM.js";
+import {FlussoSIAD} from "./src/siad/siad.js";
 
-export const flussiRegioneSicilia = {flussoM, flussoSIAD}
+export const flussiRegioneSicilia = {FlussoM, FlussoSIAD}
