@@ -1,6 +1,21 @@
 import path from "path";
 import fs from 'fs';
 
+const mesi = {
+    "01": "Gennaio",
+    "02": "Febbraio",
+    "03": "Marzo",
+    "04": "Aprile",
+    "05": "Maggio",
+    "06": "Giugno",
+    "07": "Luglio",
+    "08": "Agosto",
+    "09": "Settembre",
+    "10": "Ottobre",
+    "11": "Novembre",
+    "12": "Dicembre"
+}
+
 const getAllFilesRecursive = (dirPath, extensions, arrayOfFiles) => {
     let files = fs.readdirSync(dirPath)
 
@@ -27,4 +42,4 @@ const getAllFilesInFolder = (folder) => {
     }
 
 
-export const common = {getAllFilesInFolder, getAllFilesRecursive}
+export const common = {getAllFilesInFolder, getAllFilesRecursive, mesi}

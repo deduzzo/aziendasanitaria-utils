@@ -16,10 +16,12 @@ import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPer
         "C:\\Program Files (x86)\\FlowLook\\FlowLook.mdb",
         struttureMessina
     );
-    impostazioniMessina.ts_username = ""; // username
-    impostazioniMessina.ts_password = "" // password
+    impostazioniMessina.ts_username = "";
+    impostazioniMessina.ts_password = ""
     const flussoM = new flussiRegioneSicilia.FlussoM(impostazioniMessina);
-    await flussoM.eseguiElaborazioneCompletaFlussoMDaCartella(true,true,true)
-
+    //await flussoM.eseguiElaborazioneCompletaFlussoMDaCartella(true,false,true)
+    //flussoM.verificaErroriDaStats(flussoM.settings.out_folder)
+    //flussoM.generaGridJSTable();
+    //await flussoM.generaFileExcelPerAnno("prova.xlsx",2022);
 })();
 

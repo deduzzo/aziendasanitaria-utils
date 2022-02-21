@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer';
 import moment from "moment";
+import {common} from "./../common.js"
 
 export class DatiStruttureProgettoTs {
 
@@ -13,20 +14,6 @@ export class DatiStruttureProgettoTs {
             _COD_STRUTTURA: "<cod_struttura>"
         }
 
-    _mesi = {
-        "01": "Gennaio",
-        "02": "Febbraio",
-        "03": "Marzo",
-        "04": "Aprile",
-        "05": "Maggio",
-        "06": "Giugno",
-        "07": "Luglio",
-        "08": "Agosto",
-        "09": "Settembre",
-        "10": "Ottobre",
-        "11": "Novembre",
-        "12": "Dicembre"
-    }
 
     _urlProspettoContabileV1 = "https://sistemats4.sanita.finanze.it/SimossLiqV2Web/caricaDettaglioProspettiContabiliS.do?" +
         "tipoStampa=html&annoSped=<anno>&meseSped=<mese>&tipoPeriodo=s&codReg=<cod_reg>&codAsl=<cod_asl>" +
@@ -77,7 +64,7 @@ export class DatiStruttureProgettoTs {
                 do {
                     try {
                         let map = {
-                            _MESE: this._mesi[mese],
+                            _MESE: common.mesi[mese],
                             _ANNO: anno,
                             _COD_REG: codiceRegione,
                             _COD_ASL: codiceAsl,

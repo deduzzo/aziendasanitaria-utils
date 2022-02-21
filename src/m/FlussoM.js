@@ -7,6 +7,7 @@ import {common} from "../common.js";
 import _ from 'lodash';
 import MDBReader from "mdb-reader";
 import {DatiStruttureProgettoTs} from "./DatiStruttureProgettoTs.js";
+import ExcelJS from "exceljs"
 
 export class FlussoM {
     /**
@@ -328,10 +329,10 @@ export class FlussoM {
                 i++;
             }
         }
-        totale.totalePrestazioniCalcolate = parseFloat(totale.totalePrestazioniCalcolate.toFixed(2));
-        totale.totale = parseFloat(totale.totale.toFixed(2));
-        totale.ticket = parseFloat(totale.ticket.toFixed(2));
         if (error === null) {
+            totale.totalePrestazioniCalcolate = parseFloat(totale.totalePrestazioniCalcolate.toFixed(2));
+            totale.totale = parseFloat(totale.totale.toFixed(2));
+            totale.ticket = parseFloat(totale.ticket.toFixed(2));
             let datiDaFile = this.#controllaNomeFileFlussoM(path.basename(filePath));
             let calcolaPrestazioniPerMese = this.#totaliMeseAnnoStruttura(Object.values(ricette))
             return {
@@ -402,8 +403,7 @@ export class FlussoM {
 
 
 
-    async #elaboraFlussi(strutture) {
-
+    async #elaboraFlussi() {
         let fileOut = {ripetuti: [], ok: {}, errori: []}
         //1- ottieni tutti i file txt della cartella
         let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
@@ -413,7 +413,7 @@ export class FlussoM {
         for (var file of allFiles) {
             let md5 = md5File.sync(file);
             if (!fileOut.ok.hasOwnProperty(md5)) {
-                let ricetta = await this.#ottieniStatDaFileFlussoM(file, strutture)
+                let ricetta = await this.#ottieniStatDaFileFlussoM(file)
                 if (!ricetta.errore)
                     fileOut.ok[ricetta.out.hash] = _.omit(ricetta.out, ["ricette", "nonOk"])
                 else
@@ -427,7 +427,8 @@ export class FlussoM {
         return fileOut;
     }
 
-    async #ottieniStatDaFileFlussoM(file, strutture) {
+    async #ottieniStatDaFileFlussoM(file) {
+        let strutture = this.#loadStruttureFromFlowlookDB();
         let ricetteInFile = await this.#elaboraFileFlussoM(file, this._starts);
         if (ricetteInFile.error) {
             console.log("file " + file + " con errori");
@@ -455,7 +456,7 @@ export class FlussoM {
         }
     }
 
-    async #scriviFlussoMSuCartella(fileElaborati, controlloTs, strutture, scriviStats = true) {
+    async #scriviFlussoMSuCartella(fileElaborati, controlloTs, scriviStats = true) {
         fs.rmSync(this._settings.out_folder, {recursive: true, force: true});
         fs.mkdirSync(this._settings.out_folder);
         for (let chiave in fileElaborati) {
@@ -477,7 +478,7 @@ export class FlussoM {
             fileElaborati[chiave].tempPath = fname;
         }
         if (scriviStats)
-            await this.scriviStatsFlussoM(fileElaborati, strutture)
+            await this.scriviStatsFlussoM(fileElaborati)
     }
 
     #replacer(key, value) {
@@ -491,7 +492,9 @@ export class FlussoM {
         }
     }
 
-    generaGridJSTable (strutture, idDistretti = [""], salvaSuFile= true) {
+    generaGridJSTable (salvaSuFile= true) {
+        let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
+        let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
         for (let file of files) {
@@ -546,7 +549,7 @@ export class FlussoM {
                 }
                 if (salvaSuFile) {
                     const __dirname = path.resolve();
-                    let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/index.html")).toLocaleString();
+                    let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/flussoM-mese.html")).toLocaleString();
                     rawdata = rawdata.replace("[xxx]", JSON.stringify(gridData));
                     rawdata = rawdata.replace("<h1></h1>",
                         "<h1>Distretto di " + nomeFile.substring(0, nomeFile.length - 5) + "</h1>"
@@ -614,8 +617,7 @@ export class FlussoM {
 
 
     async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats) {
-        let strutture = this.#loadStruttureFromFlowlookDB();
-        let ris = await this.#elaboraFlussi(strutture);
+        let ris = await this.#elaboraFlussi();
         if (ris.errori.length === 0) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
@@ -633,9 +635,10 @@ export class FlussoM {
                 outTS = await verificaTS.ottieniInformazioniStrutture(strutturePerControlloTS);
             }
             if (scriviSuCartella)
-                await this.#scriviFlussoMSuCartella(ris.ok, outTS, strutture);
-            if (generaStats)
-                this.generaGridJSTable(strutture, Object.keys(this._settings.datiStruttureRegione.distretti));
+                await this.#scriviFlussoMSuCartella(ris.ok, outTS);
+            if (generaStats) {
+                this.generaGridJSTable();
+            }
             //controllo post
             console.log("Elaborazione completata, di seguito gli errori trovati")
             console.table(this.verificaErroriDaStats(this._settings.out_folder))
@@ -653,23 +656,48 @@ export class FlussoM {
         for (let file of files) {
             let rawdata = fs.readFileSync(file);
             let dati = JSON.parse(rawdata);
-            let key = dati.idDistretto + dati.codiceStruttura.substring(0, 4) + (dati.hasOwnProperty("datiDaFile") ? (dati.datiDaFile.mese + dati.datiDaFile.anno.substring(0, 2)) : (dati.mesePrevalente + dati.annoPrevalente)) + "M";
+            let key;
+            try {
+                key = dati.idDistretto + dati.codiceStruttura.substring(0, 4) + (!dati.hasOwnProperty("datiDaFile") ? (dati.datiDaFile.mese + dati.datiDaFile.anno.substring(0, 2)) : (dati.mesePrevalente + dati.annoPrevalente)) + "M";
+            } catch (ex) {
+                console.log(ex);
+            }
             if (dati.hasOwnProperty("datiDaFile")) {
                 let error = "";
-                if (dati.datiDaFile.idDistretto.toString() !== dati.idDistretto.toString())
-                    error = "idDistretto";
-                if ((dati.datiDaFile.codStruttura + "00") !== dati.codiceStruttura)
-                    error += " codStruttura";
-                if (dati.datiDaFile.mese !== dati.mesePrevalente || dati.datiDaFile.anno !== dati.annoPrevalente)
-                    error += " data"
-                if (error !== "")
+                try {
+                    if (dati.datiDaFile!== null) {
+                        if (dati.datiDaFile?.idDistretto?.toString() !== dati.idDistretto.toString())
+                            error = "idDistretto";
+                        if ((dati.datiDaFile?.codStruttura + "00") !== dati.codiceStruttura)
+                            error += " codStruttura";
+                        if (dati.datiDaFile?.mese !== dati.mesePrevalente || dati.datiDaFile.anno !== dati.annoPrevalente)
+                            error += " data"
+                        if (error !== "")
+                            errors.push({
+                                error: true,
+                                chiave: key,
+                                tipoErrore: "Nome file differente dal contenuto",
+                                dettagli: error.trim(),
+                                mstatFile: file
+                            })
+                    }
+                    else
+                        errors.push({
+                            error: true,
+                            chiave: key,
+                            tipoErrore: "datiDaFile non presente",
+                            dettagli: "",
+                            mstatFile: file
+                        })
+                } catch (ex) {
                     errors.push({
                         error: true,
                         chiave: key,
-                        tipoErrore: "Nome file differente dal contenuto",
-                        dettagli: error.trim(),
+                        tipoErrore: "Altro errore",
+                        dettagli: ex,
                         mstatFile: file
                     })
+                }
             }
         }
         return errors;
@@ -685,6 +713,71 @@ export class FlussoM {
         }
         console.log("FINE");
         console.log(errors);
+    }
+
+    async generaFileExcelPerAnno(nomeFile, anno) {
+        let strutture = this.#loadStruttureFromFlowlookDB();
+        let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        let data = [];
+        for (let file of files) {
+            let rawdata = fs.readFileSync(file);
+            let dati = JSON.parse(rawdata);
+            data.push(dati)
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('PerAnno');
+        sheet.columns = [
+            { header: 'Id', key: 'id'},
+            { header: 'Distretto', key: 'distretto'},
+            { header: 'Descrizione', key: 'descrizione'},
+            { header: 'Gennaio', key: '01'},
+            { header: 'Febbraio', key: '02'},
+            { header: 'Marzo', key: '03'},
+            { header: 'Aprile', key: '04'},
+            { header: 'Maggio', key: '05'},
+            { header: 'Giugno', key: '06'},
+            { header: 'Luglio', key: '07'},
+            { header: 'Agosto', key: '08'},
+            { header: 'Settembre', key: '09'},
+            { header: 'Ottobre', key: '10'},
+            { header: 'Novembre', key: '11'},
+            { header: 'Dicembre', key: '12'}
+        ];
+
+        //const cell = worksheet.getCell('C3');
+        //cell.value = new Date(1968, 5, 1);
+
+        let error = [];
+        let outData = {}
+        for (let file of data)
+        {
+            let anno = file.annoPrevalente ?? file.datiDaFile?.anno;
+            let mese = file.mesePrevalente ?? file.datiDaFile?.mese;
+            if (anno === null || mese == null)
+                error.push({tipo:"Mese anno non validi", file: file});
+            else {
+                if (anno === anno.toString()) {
+                    if (!outData.hasOwnProperty(file.codiceStruttura))
+                        outData[file.codiceStruttura] = {
+                            id: file.codiceStruttura,
+                            descrizione: strutture[file.codiceStruttura].denominazione,
+                            distretto: this.settings.datiStruttureRegione.distretti[file.idDistretto]
+                        }
+                    if (!outData[file.codiceStruttura].hasOwnProperty(mese))
+                        outData[file.codiceStruttura][mese] = file.totaleNetto;
+                    else
+                        error.push({tipo: "File Duplicato nel mese", file: file});
+                } else if (!anno)
+                    error.push({tipo: "Anno non elaborato", file: file});
+            }
+        }
+        for (let dato in outData) {
+            sheet.insertRow(2, outData[dato]);
+        }
+
+        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile);
+        console.log(error)
     }
 
 }
