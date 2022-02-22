@@ -571,6 +571,31 @@ export class FlussoM {
         }
     }
 
+    #trovaDuplicati (ricetteInFile, mapRicette = {}) {
+        for (let ricettaKey in ricetteInFile.ricette) {
+            let ricetta = ricetteInFile.ricette[ricettaKey];
+            if (mapRicette.chiavi.hasOwnProperty(ricetta.id)) {
+                console.log("Trovato duplicato ", ricetta.id);
+                mapRicette.chiavi[ricetta.id].push(ricetteInFile);
+                mapRicette.duplicati[ricetta.id] = mapRicette.chiavi[ricetta.id];
+            } else {
+                mapRicette.chiavi[ricetta.id] = [ricetteInFile]
+            }
+        }
+        return mapRicette
+    }
+
+
+    async trovaRicetteDuplicateDaPath(folder = this._settings.out_folder) {
+        let mapRicette = {chiavi: {}, duplicati: {}}
+        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
+        for (let file of allFiles) {
+            let ricette = await this.#elaboraFileFlussoM(file)
+            mapRicette = this.#trovaDuplicati(ricette, mapRicette)
+            console.log(" Duplicati "+ Object.keys(mapRicette.duplicati).length)
+        }
+    }
+
     async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
         let errors = [];
         let allFiles = common.getAllFilesRecursive(inFolder, this._settings.extensions);

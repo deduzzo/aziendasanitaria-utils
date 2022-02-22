@@ -23,5 +23,6 @@ import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPer
     //flussoM.verificaErroriDaStats(flussoM.settings.out_folder)
     //flussoM.generaGridJSTable();
     //await flussoM.generaFileExcelPerAnno("prova.xlsx",2022);
+    flussoM.trovaRicetteDuplicateDaPath(flussoM.settings.in_folder);
 })();
 
