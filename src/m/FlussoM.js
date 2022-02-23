@@ -8,6 +8,7 @@ import _ from 'lodash';
 import MDBReader from "mdb-reader";
 import {DatiStruttureProgettoTs} from "./DatiStruttureProgettoTs.js";
 import ExcelJS from "exceljs"
+import loki from 'lokijs';
 
 export class FlussoM {
     /**
@@ -33,6 +34,9 @@ export class FlussoM {
     set starts(value) {
         this._starts = value;
     }
+
+    static PER_STRUTTURA = "PER_STRUTTURA"
+    static PER_STRUTTURA_ANNO_MESE = "PER_STRUTTURA_ANNO_MESE"
 
     _startsFlussoMV10082012 = {
         regione: {id: 1, length: 3, type: "string", required: true},
@@ -571,29 +575,126 @@ export class FlussoM {
         }
     }
 
-    #trovaDuplicati (ricetteInFile, mapRicette = {}) {
-        for (let ricettaKey in ricetteInFile.ricette) {
-            let ricetta = ricetteInFile.ricette[ricettaKey];
-            if (mapRicette.chiavi.hasOwnProperty(ricetta.id)) {
-                console.log("Trovato duplicato ", ricetta.id);
-                mapRicette.chiavi[ricetta.id].push(ricetteInFile);
-                mapRicette.duplicati[ricetta.id] = mapRicette.chiavi[ricetta.id];
-            } else {
-                mapRicette.chiavi[ricetta.id] = [ricetteInFile]
+
+    async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null) {
+        let cartellaTipologia;
+        if (divisiPerTipologia !== null) {
+            cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
+            fs.rmSync(cartellaTipologia, { recursive: true, force: true });
+            fs.mkdirSync(cartellaTipologia);
+        }
+        let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+        const calcolaMeseAnnoPrestazioni = (righeRicetta) =>
+        {
+            let annoMese = {}
+            for (let riga of righeRicetta)
+            {
+                if (riga.progrRicetta !== 99 && riga.dataErog.isValid()) {
+                    let anno = riga.dataErog.year().toString();
+                    let mese = riga.dataErog.month() <11 ? ("0" + (riga.dataErog.month() +1).toString()) : (riga.dataErog.month() +1).toString()
+                    if (annoMese.hasOwnProperty(anno + mese))
+                        annoMese[anno + mese] += 1;
+                    else
+                        annoMese[anno + mese] = 1;
+                }
+                else
+                    return "XXXXXX";
+            }
+            if (Object.keys(annoMese).length === 1)
+                return Object.keys(annoMese)[0];
+            else
+                return "XXXXXX";
+        }
+        let db = new loki('index.db');
+        let ricetteTable = db.addCollection('ricette', {
+            unique: ['id'],
+            indices: ['id']
+        });
+        let duplicati = db.addCollection('duplicati');
+        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
+        let logger = {}
+        if (scriviFileDifferenze) {
+            logger["loggerNoDuplicati"] = fs.createWriteStream(folder + path.sep + "no_duplicati.txt", {
+                flags: 'a+' // 'a' means appending (old data will be preserved)
+            })
+            logger["loggerDuplicati"] = fs.createWriteStream(folder + path.sep + "solo_duplicati.txt", {
+                flags: 'a+' // 'a' means appending (old data will be preserved)
+            })
+        }
+        let numFile = 0;
+        let numDuplicati = 0;
+        for (let file of allFiles) {
+            console.log("[" + ++numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] - Elaboro " + file +  " ...");
+            const fileStream = fs.createReadStream(file);
+            const fileSizeInMB = (fs.statSync(file).size / 1000000).toFixed(2);
+            const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+            let i = 0;
+            let ricettaTemp = [];
+            let ricettaTempString = "";
+            let error = null;
+            for await (const line of rl) {
+                if (line.length !== lunghezzaRiga) {
+                    error = i;
+                    break;
+                } else {
+                    let t = this.#mRowToJson(line, this._starts);
+                    ricettaTempString+= (line + "\n");
+                    ricettaTemp.push(t);
+                    if (t.progrRicetta === "99") {
+                         try {
+                             ricetteTable.insert({id:t.ricettaID, file: file, line: i});
+                             if (scriviFileDifferenze)
+                                 logger["loggerNoDuplicati"].write(ricettaTempString)
+                             if (divisiPerTipologia)
+                             {
+                                 let key = "";
+                                 switch (divisiPerTipologia)
+                                 {
+                                     case FlussoM.PER_STRUTTURA:
+                                         key = t.arseID;
+                                         break;
+                                     case FlussoM.PER_STRUTTURA_ANNO_MESE:
+                                         key = t.arseID + "-" + calcolaMeseAnnoPrestazioni(ricettaTemp);
+                                 }
+                                 if (!logger.hasOwnProperty(key))
+                                     logger[key] = fs.createWriteStream(cartellaTipologia + path.sep + key + ".txt", {
+                                         flags: 'a+' // 'a' means appending (old data will be preserved)
+                                     })
+                                 logger[key].write(ricettaTempString);
+                             }
+                         }
+                        catch (ex) {
+                             numDuplicati++;
+                            if (scriviFileDifferenze)
+                                logger["loggerDuplicati"].write(ricettaTempString)
+                            let duplicato = duplicati.findOne({id: t.ricettaID});
+                            if (!duplicato) {
+                                let primo = ricetteTable.findOne({id: t.ricettaID});
+                                duplicati.insert({ id: t.ricettaID, info: [ {file: primo.file, line: primo.line} , { file: file, line: i  } ] })
+                            }
+                            else {
+                                duplicato.info.push({file: file, line: i})
+                                duplicati.update(duplicato)
+                            }
+                        }
+                        ricettaTemp = [];
+                        ricettaTempString = "";
+                    }
+                    if (++i % 100000 === 0) {
+                        console.log("Elaborazione file " + file + " " + ((i * lunghezzaRiga) / 1000000).toFixed(2) + " mb su " + fileSizeInMB + " - duplicati: " + numDuplicati)
+                    }
+                }
             }
         }
-        return mapRicette
-    }
-
-
-    async trovaRicetteDuplicateDaPath(folder = this._settings.out_folder) {
-        let mapRicette = {chiavi: {}, duplicati: {}}
-        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
-        for (let file of allFiles) {
-            let ricette = await this.#elaboraFileFlussoM(file)
-            mapRicette = this.#trovaDuplicati(ricette, mapRicette)
-            console.log(" Duplicati "+ Object.keys(mapRicette.duplicati).length)
-        }
+        for (let loggerKey in logger)
+            logger[loggerKey].end();
+        let duplicatiObj =  duplicati.find({});
+        let duplicatiJson = {}
+        duplicatiObj.forEach((duplicato) => {
+            duplicatiJson[duplicato.id] = duplicato.info;
+        })
+        fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
+        return duplicatiJson;
     }
 
     async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
