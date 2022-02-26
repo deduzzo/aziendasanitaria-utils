@@ -37,6 +37,9 @@ export class FlussoM {
 
     static PER_STRUTTURA = "PER_STRUTTURA"
     static PER_STRUTTURA_ANNO_MESE = "PER_STRUTTURA_ANNO_MESE"
+    static TAB_TOTALI_PER_MESE = "TAB_TOTALI_PER_MESE"
+    static TAB_CONSEGNE_PER_CONTENUTO = "TAB_CONSEGNE_PER_CONTENUTO"
+    static TAB_CONSEGNE_PER_NOME_FILE = "TAB_CONSEGNE_PER_NOME_FILE"
 
     _startsFlussoMV10082012 = {
         regione: {id: 1, length: 3, type: "string", required: true},
@@ -406,8 +409,7 @@ export class FlussoM {
     }
 
 
-
-    async #elaboraFlussi() {
+    async elaboraFlussi() {
         let fileOut = {ripetuti: [], ok: {}, errori: []}
         //1- ottieni tutti i file txt della cartella
         let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
@@ -743,7 +745,7 @@ export class FlussoM {
 
 
     async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats) {
-        let ris = await this.#elaboraFlussi();
+        let ris = await this.elaboraFlussi();
         if (ris.errori.length === 0) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
@@ -841,7 +843,7 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async generaFileExcelPerAnno(nomeFile, anno) {
+    async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE] ) {
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
@@ -852,54 +854,75 @@ export class FlussoM {
         }
 
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('PerAnno');
-        sheet.columns = [
-            { header: 'Id', key: 'id'},
-            { header: 'Distretto', key: 'distretto'},
-            { header: 'Descrizione', key: 'descrizione'},
-            { header: 'Gennaio', key: '01'},
-            { header: 'Febbraio', key: '02'},
-            { header: 'Marzo', key: '03'},
-            { header: 'Aprile', key: '04'},
-            { header: 'Maggio', key: '05'},
-            { header: 'Giugno', key: '06'},
-            { header: 'Luglio', key: '07'},
-            { header: 'Agosto', key: '08'},
-            { header: 'Settembre', key: '09'},
-            { header: 'Ottobre', key: '10'},
-            { header: 'Novembre', key: '11'},
-            { header: 'Dicembre', key: '12'}
-        ];
+        let sheets = [];
+        for (let sheet of cosaGenerare) {
+            sheets[sheet] = workbook.addWorksheet(sheet);
+            if (sheet === FlussoM.PER_STRUTTURA_ANNO_MESE || sheet === FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
+                sheets[sheet].columns = [
+                    {header: 'Id', key: 'id'},
+                    {header: 'Distretto', key: 'distretto'},
+                    {header: 'Descrizione', key: 'descrizione'},
+                    {header: 'Gennaio', key: '01'},
+                    {header: 'Febbraio', key: '02'},
+                    {header: 'Marzo', key: '03'},
+                    {header: 'Aprile', key: '04'},
+                    {header: 'Maggio', key: '05'},
+                    {header: 'Giugno', key: '06'},
+                    {header: 'Luglio', key: '07'},
+                    {header: 'Agosto', key: '08'},
+                    {header: 'Settembre', key: '09'},
+                    {header: 'Ottobre', key: '10'},
+                    {header: 'Novembre', key: '11'},
+                    {header: 'Dicembre', key: '12'}
+                ];
+        }
 
         //const cell = worksheet.getCell('C3');
         //cell.value = new Date(1968, 5, 1);
 
         let error = [];
         let outData = {}
-        for (let file of data)
-        {
+        for (let file of data) {
             let anno = file.annoPrevalente ?? file.datiDaFile?.anno;
             let mese = file.mesePrevalente ?? file.datiDaFile?.mese;
             if (anno === null || mese == null)
-                error.push({tipo:"Mese anno non validi", file: file});
+                error.push({tipo: "Mese anno non validi", file: file});
             else {
-                if (anno === anno.toString()) {
-                    if (!outData.hasOwnProperty(file.codiceStruttura))
-                        outData[file.codiceStruttura] = {
-                            id: file.codiceStruttura,
-                            descrizione: strutture[file.codiceStruttura].denominazione,
-                            distretto: this.settings.datiStruttureRegione.distretti[file.idDistretto]
-                        }
-                    if (!outData[file.codiceStruttura].hasOwnProperty(mese))
-                        outData[file.codiceStruttura][mese] = file.totaleNetto;
-                    else
-                        error.push({tipo: "File Duplicato nel mese", file: file});
-                } else if (!anno)
-                    error.push({tipo: "Anno non elaborato", file: file});
+                for (let tab of cosaGenerare) {
+                    outData[tab] = {}
+                    switch (tab) {
+                        case FlussoM.PER_STRUTTURA_ANNO_MESE:
+                        case FlussoM.TAB_CONSEGNE_PER_NOME_FILE:
+                            if (anno === anno.toString()) {
+                                if (!outData[tab].hasOwnProperty(file.codiceStruttura))
+                                    outData[tab][file.codiceStruttura] = {
+                                        id: file.codiceStruttura,
+                                        descrizione: strutture[file.codiceStruttura].denominazione,
+                                        distretto: this.settings.datiStruttureRegione.distretti[file.idDistretto]
+                                    }
+                                if (!outData[tab][file.codiceStruttura].hasOwnProperty(mese)) {
+                                    if (tab === FlussoM.PER_STRUTTURA_ANNO_MESE)
+                                        outData[tab][file.codiceStruttura][mese] = file.totaleNetto;
+                                    else if (tab === FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
+                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                } else {
+                                    if (FlussoM.PER_STRUTTURA_ANNO_MESE)
+                                        error.push({tipo: "File Duplicato nel mese", file: file});
+                                    else if (FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
+                                        outData[tab][file.codiceStruttura][mese]+= " - " + file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                }
+                            } else if (!anno)
+                                error.push({tipo: "Anno non elaborato", file: file});
+                            break;
+
+                    }
+                }
             }
         }
-        for (let dato in outData) {
-            sheet.insertRow(2, outData[dato]);
+        for (let tab of cosaGenerare) {
+            for (let dato in outData[tab]) {
+                sheets[FlussoM.PER_STRUTTURA_ANNO_MESE].insertRow(2, outData[tab][dato]);
+            }
         }
 
         await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile);
