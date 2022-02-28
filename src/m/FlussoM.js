@@ -677,7 +677,7 @@ export class FlussoM {
                          if (!duplicata || includiComunqueRicetteDuplicateNellaDivisione) {
                              if (scriviFileDifferenze)
                                  logger["loggerNoDuplicati"].write(ricettaTempString)
-                             if (divisiPerTipologia) {
+                             if (divisiPerTipologia && scriviFileDifferenze) {
                                  let key = "";
                                  switch (divisiPerTipologia) {
                                      case FlussoM.PER_STRUTTURA:
@@ -703,15 +703,20 @@ export class FlussoM {
             }
 
         }
-        for (let loggerKey in logger)
-            logger[loggerKey].end();
+        if (scriviFileDifferenze)
+            for (let loggerKey in logger)
+                logger[loggerKey].end();
         let duplicatiObj =  duplicati.find({});
         let duplicatiJson = {}
         duplicatiObj.forEach((duplicato) => {
             duplicatiJson[duplicato.id] = duplicato.info;
         })
-        fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
-        return duplicatiJson;
+        if (scriviFileDifferenze)
+            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
+        return {
+            numDuplicati: numDuplicati,
+            stats: duplicatiJson
+        };
     }
 
     async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
@@ -759,9 +764,12 @@ export class FlussoM {
     }
 
 
-    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats) {
+    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false) {
         let ris = await this.elaboraFlussi();
-        if (ris.errori.length === 0) {
+        let duplicati
+        if (ris.errori.length === 0)
+            duplicati = await this.trovaRicetteDuplicate(this._settings.in_folder,false);
+        if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || eseguiComunqueConDuplicati)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
                 strutturePerControlloTS[value.codiceStruttura + "-" + (value.datiDaFile?.mese ?? value.mesePrevalente) + (value.datiDaFile?.anno ?? value.annoPrevalente)] =
@@ -785,9 +793,14 @@ export class FlussoM {
             //controllo post
             console.log("Elaborazione completata, di seguito gli errori trovati")
             console.table(this.verificaErroriDaStats(this._settings.out_folder))
+            console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
+            console.table(duplicati?.stats || "Controllo non effettuato");
             return true;
         } else {
+            console.log("Errori rilevati")
             console.table(ris.errori);
+            console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
+            console.table(duplicati?.stats || "Controllo non effettuato");
             return false;
         }
     }
