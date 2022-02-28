@@ -2,6 +2,7 @@ import {flussiRegioneSicilia} from "./index.js";
 import {ImpostazioniFlussoM} from "./src/config/ImpostazioniFlussoM.js";
 import {struttureDistrettiMap, distretti, comuniDistretti} from "./src/config/sicilia/messina.js"
 import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPerProvincia.js";
+import {FlussoM} from "./src/m/FlussoM.js";
 
 (async () => {
     //await flussiRegioneSicilia.flussoM.eseguiElaborazioneCompletaFlussoMDaCartella( true,true,true);
@@ -11,7 +12,7 @@ import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPer
     let impostazioniMessina = new ImpostazioniFlussoM(
         "205",
         "190",
-        "d:\\Dati\\Desktop\\prova",
+        "d:\\Dati\\Desktop\\prova\\",
         "d:\\Dati\\Desktop\\outFolder",
         "C:\\Program Files (x86)\\FlowLook\\FlowLook.mdb",
         struttureMessina
@@ -19,10 +20,5 @@ import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPer
     impostazioniMessina.ts_username = "";
     impostazioniMessina.ts_password = ""
     const flussoM = new flussiRegioneSicilia.FlussoM(impostazioniMessina);
-    //await flussoM.eseguiElaborazioneCompletaFlussoMDaCartella(true,false,true)
-    //flussoM.verificaErroriDaStats(flussoM.settings.out_folder)
-    //flussoM.generaGridJSTable();
-    //await flussoM.generaFileExcelPerAnno("prova.xlsx",2022);
-    flussoM.trovaRicetteDuplicateDaPath(flussoM.settings.in_folder);
 })();
 

@@ -370,7 +370,7 @@ export class FlussoM {
 
     #controllaNomeFileFlussoM (nome) {
         try {
-            if (nome.length !== 14 || nome.toLowerCase().substring(nome.length - 5, nome.length) !== "m.txt")
+            if (nome.length !== 14)
                 return null;
             return {
                 idDistretto: nome.substring(0, 1),
@@ -578,7 +578,9 @@ export class FlussoM {
     }
 
 
-    async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null) {
+
+
+    async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
             cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
@@ -586,27 +588,36 @@ export class FlussoM {
             fs.mkdirSync(cartellaTipologia);
         }
         let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+
         const calcolaMeseAnnoPrestazioni = (righeRicetta) =>
         {
             let annoMese = {}
+            let data99 = "";
             for (let riga of righeRicetta)
             {
-                if (riga.progrRicetta !== 99 && riga.dataErog.isValid()) {
+                if (riga.dataErog && riga.dataErog.isValid()) {
                     let anno = riga.dataErog.year().toString();
-                    let mese = riga.dataErog.month() <11 ? ("0" + (riga.dataErog.month() +1).toString()) : (riga.dataErog.month() +1).toString()
-                    if (annoMese.hasOwnProperty(anno + mese))
-                        annoMese[anno + mese] += 1;
-                    else
-                        annoMese[anno + mese] = 1;
+                    let mese = (riga.dataErog.month() +1) <10 ? ("0" + (riga.dataErog.month() +1).toString()) : (riga.dataErog.month() +1).toString()
+                    if (riga.progrRicetta === "99")
+                        data99 = anno + mese;
+                    else {
+                        if (annoMese.hasOwnProperty(anno + mese))
+                            annoMese[anno + mese] += 1;
+                        else
+                            annoMese[anno + mese] = 1;
+                    }
                 }
-                else
+                else if (riga.progrRicetta !== "99")
                     return "XXXXXX";
             }
             if (Object.keys(annoMese).length === 1)
                 return Object.keys(annoMese)[0];
+            else if (data99 !== "")
+                return data99;
             else
                 return "XXXXXX";
         }
+
         let db = new loki('index.db');
         let ricetteTable = db.addCollection('ricette', {
             unique: ['id'],
@@ -643,15 +654,31 @@ export class FlussoM {
                     ricettaTempString+= (line + "\n");
                     ricettaTemp.push(t);
                     if (t.progrRicetta === "99") {
+                        let duplicata = false;
                          try {
                              ricetteTable.insert({id:t.ricettaID, file: file, line: i});
+                         }
+                         catch (ex) {
+                             numDuplicati++;
+                             duplicata = true;
+                             if (scriviFileDifferenze)
+                                 logger["loggerDuplicati"].write(ricettaTempString)
+                             let duplicato = duplicati.findOne({id: t.ricettaID});
+                             if (!duplicato) {
+                                 let primo = ricetteTable.findOne({id: t.ricettaID});
+                                 duplicati.insert({ id: t.ricettaID, info: [ {file: primo.file, line: primo.line} , { file: file, line: i  } ] })
+                             }
+                             else {
+                                 duplicato.info.push({file: file, line: i})
+                                 duplicati.update(duplicato)
+                             }
+                         }
+                         if (!duplicata || includiComunqueRicetteDuplicateNellaDivisione) {
                              if (scriviFileDifferenze)
                                  logger["loggerNoDuplicati"].write(ricettaTempString)
-                             if (divisiPerTipologia)
-                             {
+                             if (divisiPerTipologia) {
                                  let key = "";
-                                 switch (divisiPerTipologia)
-                                 {
+                                 switch (divisiPerTipologia) {
                                      case FlussoM.PER_STRUTTURA:
                                          key = t.arseID;
                                          break;
@@ -665,28 +692,15 @@ export class FlussoM {
                                  logger[key].write(ricettaTempString);
                              }
                          }
-                        catch (ex) {
-                             numDuplicati++;
-                            if (scriviFileDifferenze)
-                                logger["loggerDuplicati"].write(ricettaTempString)
-                            let duplicato = duplicati.findOne({id: t.ricettaID});
-                            if (!duplicato) {
-                                let primo = ricetteTable.findOne({id: t.ricettaID});
-                                duplicati.insert({ id: t.ricettaID, info: [ {file: primo.file, line: primo.line} , { file: file, line: i  } ] })
-                            }
-                            else {
-                                duplicato.info.push({file: file, line: i})
-                                duplicati.update(duplicato)
-                            }
-                        }
                         ricettaTemp = [];
                         ricettaTempString = "";
                     }
                     if (++i % 100000 === 0) {
-                        console.log("Elaborazione file " + file + " " + ((i * lunghezzaRiga) / 1000000).toFixed(2) + " mb su " + fileSizeInMB + " - duplicati: " + numDuplicati)
+                        console.log("[" + numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] [" + ((i * lunghezzaRiga) / 1000000).toFixed(2) + " mb su " + fileSizeInMB + "] - Elaboro " + file +  " ...");
                     }
                 }
             }
+
         }
         for (let loggerKey in logger)
             logger[loggerKey].end();
