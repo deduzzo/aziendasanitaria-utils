@@ -871,6 +871,21 @@ export class FlussoM {
         console.log(errors);
     }
 
+    async provaExcel() {
+
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet("prova");
+        sheet.columns = [
+            { header: 'Id', key: 'id', width: 10 },
+            { header: 'Name', key: 'name', width: 32 },
+            { header: 'D.O.B.', key: 'DOB', width: 10, headerCount:2},
+            { header: 'bau', key: 'bau', width: 32 },
+        ];
+        sheet.insertRow(2, {id: 1, name: "prova", DOB: "ciao", bau: "asdasd asdasdasdasd"});
+        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "prova22.xlsx");
+    }
+
     async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE] ) {
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
