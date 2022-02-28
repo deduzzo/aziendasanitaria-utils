@@ -40,6 +40,7 @@ export class FlussoM {
     static TAB_TOTALI_PER_MESE = "TAB_TOTALI_PER_MESE"
     static TAB_CONSEGNE_PER_CONTENUTO = "TAB_CONSEGNE_PER_CONTENUTO"
     static TAB_CONSEGNE_PER_NOME_FILE = "TAB_CONSEGNE_PER_NOME_FILE"
+    static TAB_DIFFERENZE_CONTENUTO_NOMEFILE = "TAB_DIFFERENZE_CONTENUTO_NOMEFILE"
 
     _startsFlussoMV10082012 = {
         regione: {id: 1, length: 3, type: "string", required: true},
@@ -857,7 +858,7 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE] ) {
+    async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE] ) {
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
@@ -871,7 +872,11 @@ export class FlussoM {
         let sheets = [];
         for (let sheet of cosaGenerare) {
             sheets[sheet] = workbook.addWorksheet(sheet);
-            if (sheet === FlussoM.PER_STRUTTURA_ANNO_MESE || sheet === FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
+            if (sheet === FlussoM.PER_STRUTTURA_ANNO_MESE ||
+                sheet === FlussoM.TAB_CONSEGNE_PER_NOME_FILE ||
+                sheet === FlussoM.TAB_CONSEGNE_PER_CONTENUTO ||
+                sheet === FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE
+            )
                 sheets[sheet].columns = [
                     {header: 'Id', key: 'id'},
                     {header: 'Distretto', key: 'distretto'},
@@ -903,10 +908,14 @@ export class FlussoM {
                 error.push({tipo: "Mese anno non validi", file: file});
             else {
                 for (let tab of cosaGenerare) {
-                    outData[tab] = {}
+                    anno = tab === FlussoM.TAB_CONSEGNE_PER_NOME_FILE ? (file.datiDaFile?.anno ?? anno) : anno;
+                    mese = tab === FlussoM.TAB_CONSEGNE_PER_NOME_FILE ? (file.datiDaFile?.mese ?? mese) : mese;
+                    if (!outData.hasOwnProperty(tab)) outData[tab] = {}
                     switch (tab) {
                         case FlussoM.PER_STRUTTURA_ANNO_MESE:
                         case FlussoM.TAB_CONSEGNE_PER_NOME_FILE:
+                        case FlussoM.TAB_CONSEGNE_PER_CONTENUTO:
+                        case FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE:
                             if (anno === anno.toString()) {
                                 if (!outData[tab].hasOwnProperty(file.codiceStruttura))
                                     outData[tab][file.codiceStruttura] = {
@@ -919,11 +928,19 @@ export class FlussoM {
                                         outData[tab][file.codiceStruttura][mese] = file.totaleNetto;
                                     else if (tab === FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
                                         outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                    else if (tab === FlussoM.TAB_CONSEGNE_PER_CONTENUTO)
+                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + mese + anno;
+                                    else if (tab === FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE)
+                                        outData[tab][file.codiceStruttura][mese] = (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK": "*NO*"
                                 } else {
                                     if (FlussoM.PER_STRUTTURA_ANNO_MESE)
                                         error.push({tipo: "File Duplicato nel mese", file: file});
                                     else if (FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
                                         outData[tab][file.codiceStruttura][mese]+= " - " + file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                    else if (tab === FlussoM.TAB_CONSEGNE_PER_CONTENUTO)
+                                        outData[tab][file.codiceStruttura][mese]+= " - " + file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + mese + anno;
+                                    else if (tab === FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE)
+                                        outData[tab][file.codiceStruttura][mese]+= " - " + (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK": "*NO*"
                                 }
                             } else if (!anno)
                                 error.push({tipo: "Anno non elaborato", file: file});
@@ -935,7 +952,7 @@ export class FlussoM {
         }
         for (let tab of cosaGenerare) {
             for (let dato in outData[tab]) {
-                sheets[FlussoM.PER_STRUTTURA_ANNO_MESE].insertRow(2, outData[tab][dato]);
+                sheets[tab].insertRow(2, outData[tab][dato]);
             }
         }
 
