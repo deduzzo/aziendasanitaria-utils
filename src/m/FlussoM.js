@@ -41,6 +41,7 @@ export class FlussoM {
     static TAB_CONSEGNE_PER_CONTENUTO = "TAB_CONSEGNE_PER_CONTENUTO"
     static TAB_CONSEGNE_PER_NOME_FILE = "TAB_CONSEGNE_PER_NOME_FILE"
     static TAB_DIFFERENZE_CONTENUTO_NOMEFILE = "TAB_DIFFERENZE_CONTENUTO_NOMEFILE"
+    static DIVIDI_PER_MESE = "DIVIDI_PER_MESE"
 
     _startsFlussoMV10082012 = {
         regione: {id: 1, length: 3, type: "string", required: true},
@@ -464,8 +465,7 @@ export class FlussoM {
     }
 
     async #scriviFlussoMSuCartella(fileElaborati, controlloTs, scriviStats = true) {
-        fs.rmSync(this._settings.out_folder, {recursive: true, force: true});
-        fs.mkdirSync(this._settings.out_folder);
+        common.creaCartellaSeNonEsisteSvuotalaSeEsiste(this._settings.out_folder);
         for (let chiave in fileElaborati) {
             let file = fileElaborati[chiave]
             let anno = file.datiDaFile?.anno ?? file.annoPrevalente;
@@ -578,15 +578,11 @@ export class FlussoM {
         }
     }
 
-
-
-
     async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
             cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
-            fs.rmSync(cartellaTipologia, { recursive: true, force: true });
-            fs.mkdirSync(cartellaTipologia);
+            common.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
         }
         let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
 
@@ -719,11 +715,25 @@ export class FlussoM {
         };
     }
 
-    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
+    async unisciFilePerCartella(inFolder = this._settings.in_folder,outFolder = this._settings.out_folder)
+    {
+        let files = fs.readdirSync(inFolder)
+
+        for (const file of files) {
+            if (fs.statSync(inFolder + path.sep + file).isDirectory()) {
+                await this.unisciFileTxt(inFolder + path.sep + file,outFolder,file + ".txt");
+            }
+        }
+    }
+
+    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder,nomeFile = "") {
         let errors = [];
         let allFiles = common.getAllFilesRecursive(inFolder, this._settings.extensions);
+        if (!fs.existsSync(outFolder)){
+            fs.mkdirSync(outFolder, { recursive: true });
+        }
         let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
-        const outputFile = outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT';
+        const outputFile =nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
         var logger = fs.createWriteStream(outputFile, {
             flags: 'a' // 'a' means appending (old data will be preserved)
         })
