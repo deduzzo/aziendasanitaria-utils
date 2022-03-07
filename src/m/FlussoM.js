@@ -41,6 +41,7 @@ export class FlussoM {
     static TAB_CONSEGNE_PER_CONTENUTO = "TAB_CONSEGNE_PER_CONTENUTO"
     static TAB_CONSEGNE_PER_NOME_FILE = "TAB_CONSEGNE_PER_NOME_FILE"
     static TAB_DIFFERENZE_CONTENUTO_NOMEFILE = "TAB_DIFFERENZE_CONTENUTO_NOMEFILE"
+    static DIVIDI_PER_MESE = "DIVIDI_PER_MESE"
 
     _startsFlussoMV10082012 = {
         regione: {id: 1, length: 3, type: "string", required: true},
@@ -464,8 +465,7 @@ export class FlussoM {
     }
 
     async #scriviFlussoMSuCartella(fileElaborati, controlloTs, scriviStats = true) {
-        fs.rmSync(this._settings.out_folder, {recursive: true, force: true});
-        fs.mkdirSync(this._settings.out_folder);
+        common.creaCartellaSeNonEsisteSvuotalaSeEsiste(this._settings.out_folder);
         for (let chiave in fileElaborati) {
             let file = fileElaborati[chiave]
             let anno = file.datiDaFile?.anno ?? file.annoPrevalente;
@@ -578,15 +578,11 @@ export class FlussoM {
         }
     }
 
-
-
-
-    async trovaRicetteDuplicate(scriviFileDifferenze, scriviLogDuplicati = true, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
+    async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
-            cartellaTipologia = this._settings.in_folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
-            fs.rmSync(cartellaTipologia, { recursive: true, force: true });
-            fs.mkdirSync(cartellaTipologia);
+            cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
+            common.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
         }
         let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
 
@@ -625,13 +621,13 @@ export class FlussoM {
             indices: ['id']
         });
         let duplicati = db.addCollection('duplicati');
-        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
+        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
         let logger = {}
         if (scriviFileDifferenze) {
-            logger["loggerNoDuplicati"] = fs.createWriteStream(this._settings.out_folder + path.sep + "no_duplicati.dat", {
+            logger["loggerNoDuplicati"] = fs.createWriteStream(folder + path.sep + "no_duplicati.txt", {
                 flags: 'a+' // 'a' means appending (old data will be preserved)
             })
-            logger["loggerDuplicati"] = fs.createWriteStream(this._settings.out_folder + path.sep + "solo_duplicati.dat", {
+            logger["loggerDuplicati"] = fs.createWriteStream(folder + path.sep + "solo_duplicati.txt", {
                 flags: 'a+' // 'a' means appending (old data will be preserved)
             })
         }
@@ -711,19 +707,33 @@ export class FlussoM {
         duplicatiObj.forEach((duplicato) => {
             duplicatiJson[duplicato.id] = duplicato.info;
         })
-        if (scriviLogDuplicati)
-            fs.writeFileSync(this._settings.in_folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
+        if (scriviFileDifferenze)
+            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
         return {
             numDuplicati: numDuplicati,
             stats: duplicatiJson
         };
     }
 
-    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
+    async unisciFilePerCartella(inFolder = this._settings.in_folder,outFolder = this._settings.out_folder)
+    {
+        let files = fs.readdirSync(inFolder)
+
+        for (const file of files) {
+            if (fs.statSync(inFolder + path.sep + file).isDirectory()) {
+                await this.unisciFileTxt(inFolder + path.sep + file,outFolder,file + ".txt");
+            }
+        }
+    }
+
+    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder,nomeFile = "") {
         let errors = [];
         let allFiles = common.getAllFilesRecursive(inFolder, this._settings.extensions);
+        if (!fs.existsSync(outFolder)){
+            fs.mkdirSync(outFolder, { recursive: true });
+        }
         let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
-        const outputFile = outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT';
+        const outputFile =nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
         var logger = fs.createWriteStream(outputFile, {
             flags: 'a' // 'a' means appending (old data will be preserved)
         })
@@ -767,10 +777,8 @@ export class FlussoM {
     async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false) {
         let ris = await this.elaboraFlussi();
         let duplicati
-        console.log("1° Elaborazione completata:" + ris.errori.length + " errori rilevati, " + ris.ripetuti.length + " file ripetuti")
-        console.table(ris.errori);
         if (ris.errori.length === 0)
-            duplicati = await this.trovaRicetteDuplicate(false);
+            duplicati = await this.trovaRicetteDuplicate(this._settings.in_folder,false);
         if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || eseguiComunqueConDuplicati)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))

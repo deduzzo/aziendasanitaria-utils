@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "exceljs": "^4.3.0",
+    "fs-extra": "^10.0.1",
     "lodash": "^4.17.21",
     "lokijs": "^1.5.12",
     "md5-file": "^5.0.0",

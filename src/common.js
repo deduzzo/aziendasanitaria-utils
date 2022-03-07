@@ -1,6 +1,7 @@
 import path from "path";
 import fs from 'fs';
 import * as nodemailer from "nodemailer";
+import fsExtra from 'fs-extra'
 
 const mesi = {
     "01": "Gennaio",
@@ -72,6 +73,11 @@ const inviaMail = async (settings, destinatario, oggetto, corpo,  pathAllegati =
     return info.messageId;
 }
 
+const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) =>
+{
+    fsExtra.emptyDirSync(cartella);
+}
 
 
-export const common = {getAllFilesRecursive, mesi}
+
+export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi}
