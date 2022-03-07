@@ -581,10 +581,10 @@ export class FlussoM {
 
 
 
-    async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
+    async trovaRicetteDuplicate(scriviFileDifferenze, scriviLogDuplicati = true, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
-            cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
+            cartellaTipologia = this._settings.in_folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
             fs.rmSync(cartellaTipologia, { recursive: true, force: true });
             fs.mkdirSync(cartellaTipologia);
         }
@@ -625,13 +625,13 @@ export class FlussoM {
             indices: ['id']
         });
         let duplicati = db.addCollection('duplicati');
-        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
+        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
         let logger = {}
         if (scriviFileDifferenze) {
-            logger["loggerNoDuplicati"] = fs.createWriteStream(folder + path.sep + "no_duplicati.txt", {
+            logger["loggerNoDuplicati"] = fs.createWriteStream(this._settings.out_folder + path.sep + "no_duplicati.dat", {
                 flags: 'a+' // 'a' means appending (old data will be preserved)
             })
-            logger["loggerDuplicati"] = fs.createWriteStream(folder + path.sep + "solo_duplicati.txt", {
+            logger["loggerDuplicati"] = fs.createWriteStream(this._settings.out_folder + path.sep + "solo_duplicati.dat", {
                 flags: 'a+' // 'a' means appending (old data will be preserved)
             })
         }
@@ -711,8 +711,8 @@ export class FlussoM {
         duplicatiObj.forEach((duplicato) => {
             duplicatiJson[duplicato.id] = duplicato.info;
         })
-        if (scriviFileDifferenze)
-            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
+        if (scriviLogDuplicati)
+            fs.writeFileSync(this._settings.in_folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
         return {
             numDuplicati: numDuplicati,
             stats: duplicatiJson
@@ -767,8 +767,10 @@ export class FlussoM {
     async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false) {
         let ris = await this.elaboraFlussi();
         let duplicati
+        console.log("1° Elaborazione completata:" + ris.errori.length + " errori rilevati, " + ris.ripetuti.length + " file ripetuti")
+        console.table(ris.errori);
         if (ris.errori.length === 0)
-            duplicati = await this.trovaRicetteDuplicate(this._settings.in_folder,false);
+            duplicati = await this.trovaRicetteDuplicate(false);
         if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || eseguiComunqueConDuplicati)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
