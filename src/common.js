@@ -22,14 +22,18 @@ const getAllFilesRecursive = (dirPath, extensions,filterFileName = null, arrayOf
     let files = fs.readdirSync(dirPath)
 
     files.forEach(function (file) {
-        if (fs.statSync(dirPath + path.sep + file).isDirectory()) {
-            arrayOfFiles = getAllFilesRecursive(dirPath + path.sep + file, extensions,filterFileName, arrayOfFiles)
-        } else {
-            //arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
-            if (path.extname(file) !== "" && extensions.includes(path.extname(file).toLowerCase()) &&
-                (filterFileName === null || path.basename(file).toLowerCase().includes(filterFileName.toLowerCase()))
-            )
-                arrayOfFiles.push(path.join(dirPath, path.sep, file))
+        try {
+            if (fs.statSync(dirPath + path.sep + file).isDirectory()) {
+                arrayOfFiles = getAllFilesRecursive(dirPath + path.sep + file, extensions, filterFileName, arrayOfFiles)
+            } else {
+                //arrayOfFiles.push(path.join(__dirname, dirPath, "/", file))
+                if (path.extname(file) !== "" && extensions.includes(path.extname(file).toLowerCase()) &&
+                    (filterFileName === null || path.basename(file).toLowerCase().includes(filterFileName.toLowerCase()))
+                )
+                    arrayOfFiles.push(path.join(dirPath, path.sep, file))
+            }
+        } catch (ex) {
+            console.log(ex);
         }
     })
     return arrayOfFiles

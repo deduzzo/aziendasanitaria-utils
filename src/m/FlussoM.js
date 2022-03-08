@@ -499,7 +499,7 @@ export class FlussoM {
         }
     }
 
-    generaGridJSTable (salvaSuFile= true) {
+    generaGridJSTable (salvaFileHtml= true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
@@ -509,10 +509,40 @@ export class FlussoM {
             let dati = JSON.parse(rawdata);
             data.push(dati)
         }
+        const workbook = new ExcelJS.Workbook();
+        let sheets = []
         for (let distretto of idDistretti) {
             let nomeFile;
             let filteredData = []
             let gridData = [];
+            if (salvaFileExcel) {
+                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase());
+                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].columns = [
+                    {header: 'Id', key: 'id'},
+                    {header: 'Nome', key: 'nome'},
+                    {header: 'Distretto', key: 'distretto'},
+                    {header: 'Mese', key: 'mese'},
+                    {header: 'Anno', key: 'anno'},
+                    {header: 'N.Righe.M', key: 'nRigheM'},
+                    {header: 'N.Ricette.M', key: 'nRicetteM'},
+                    {header: 'N.Prest.M', key: 'nPrestM'},
+                    {header: 'TOT.NETTO.M', key: 'totNetto'},
+                    {header: 'TOT.TICKET.M', key: 'totTicketM'},
+                    {header: 'TOT.LORDO.M', key: 'totLordoM'},
+                    {header: 'TipoDati.TS', key: 'tipoDatiTS'},
+                    {header: 'N.Ricette.TS', key: 'nRicetteTS'},
+                    {header: 'N.Prest.TS', key: 'nPrestTS'},
+                    {header: 'TOT.NETTO.TS', key: 'totNettoTS'},
+                    {header: 'TOT.TICKET.TS', key: 'totTicketTS'},
+                    {header: 'TOT.LORDO.TS', key: 'totLordoTS'},
+                    {header: 'Data Verifica TS', key: 'dataVerificaTS'},
+                    {header: 'Diff.N.Ricette', key: 'diffNRicette'},
+                    {header: 'Diff.N.Prest', key: 'diffNPrest'},
+                    {header: 'Diff.Netto', key: 'diffNetto'},
+                    {header: 'Diff.Ticket', key: 'diffTicket'},
+                    {header: 'Diff.Lordo', key: 'diffLordo'},
+                ];
+            }
             if (distretto !== "") {
                 filteredData = data.filter(p => p.idDistretto.toString() === distretto.toString())
                 nomeFile = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() + ".html";
