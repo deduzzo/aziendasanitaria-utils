@@ -455,9 +455,9 @@ export class FlussoM {
     #calcolaDifferenzeDaTs (dati) {
         if (dati.hasOwnProperty("controlloTs") && dati.controlloTs.error === false) {
             return {
-                differenzaTotaleNetto: (dati.controlloTs.out.netto_mese_totale - dati.totaleNetto).toFixed(2),
-                differenzaTotale: (dati.controlloTs.out.importo_totale - dati.totaleLordo).toFixed(2),
-                differenzaTicket: (dati.controlloTs.out.ticket_totale - dati.totaleTicket).toFixed(2),
+                differenzaTotaleNetto: parseFloat((dati.controlloTs.out.netto_mese_totale - dati.totaleNetto).toFixed(2)),
+                differenzaTotale: parseFloat((dati.controlloTs.out.importo_totale - dati.totaleLordo).toFixed(2)),
+                differenzaTicket: parseFloat((dati.controlloTs.out.ticket_totale - dati.totaleTicket).toFixed(2)),
                 differenzaPrestazioni: dati.controlloTs.out.numeroPrestazioni - dati.numPrestazioni,
                 differenzaRicette: dati.controlloTs.out.numero_ricette - dati.numeroRicette
             }
@@ -499,10 +499,35 @@ export class FlussoM {
         }
     }
 
-    generaGridJSTable (salvaFileHtml= true, salvaFileExcel = true) {
+    async generaGridJSTable(salvaFileHtml = true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        const sheetColumn = [
+            {header: 'Id', key: 'id' },
+            {header: 'Nome', key: 'nome', width: 60},
+            {header: 'Distretto', key: 'distretto', width: 15},
+            {header: 'Mese', key: 'mese'},
+            {header: 'Anno', key: 'anno'},
+            {header: 'N.Righe.M', key: 'nRigheM',width: 15,},
+            {header: 'N.Ricette.M', key: 'nRicetteM',width: 15,},
+            {header: 'N.Prest.M', key: 'nPrestM',width: 15,},
+            {header: 'TOT.NETTO.M', key: 'totNetto',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'TOT.TICKET.M', key: 'totTicketM',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'TOT.LORDO.M', key: 'totLordoM',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'TipoDati.TS', key: 'tipoDatiTS',width: 15},
+            {header: 'N.Ricette.TS', key: 'nRicetteTS',width: 15,},
+            {header: 'N.Prest.TS', key: 'nPrestTS',width: 15,},
+            {header: 'TOT.NETTO.TS', key: 'totNettoTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'TOT.TICKET.TS', key: 'totTicketTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'TOT.LORDO.TS', key: 'totLordoTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
+            {header: 'Diff.N.Ricette', key: 'diffNRicette',width: 18, style: { numFmt: '#0;[Red]\-#0' }},
+            {header: 'Diff.N.Prest', key: 'diffNPrest',width: 18, style: { numFmt: '#0;[Red]\-#0' }},
+            {header: 'Diff.Netto', key: 'diffNetto',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'Diff.Ticket', key: 'diffTicket',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            {header: 'Diff.Lordo', key: 'diffLordo',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+        ];
         let data = [];
         for (let file of files) {
             let rawdata = fs.readFileSync(file);
@@ -517,38 +542,14 @@ export class FlussoM {
             let gridData = [];
             if (salvaFileExcel) {
                 sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase());
-                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].columns = [
-                    {header: 'Id', key: 'id'},
-                    {header: 'Nome', key: 'nome'},
-                    {header: 'Distretto', key: 'distretto'},
-                    {header: 'Mese', key: 'mese'},
-                    {header: 'Anno', key: 'anno'},
-                    {header: 'N.Righe.M', key: 'nRigheM'},
-                    {header: 'N.Ricette.M', key: 'nRicetteM'},
-                    {header: 'N.Prest.M', key: 'nPrestM'},
-                    {header: 'TOT.NETTO.M', key: 'totNetto'},
-                    {header: 'TOT.TICKET.M', key: 'totTicketM'},
-                    {header: 'TOT.LORDO.M', key: 'totLordoM'},
-                    {header: 'TipoDati.TS', key: 'tipoDatiTS'},
-                    {header: 'N.Ricette.TS', key: 'nRicetteTS'},
-                    {header: 'N.Prest.TS', key: 'nPrestTS'},
-                    {header: 'TOT.NETTO.TS', key: 'totNettoTS'},
-                    {header: 'TOT.TICKET.TS', key: 'totTicketTS'},
-                    {header: 'TOT.LORDO.TS', key: 'totLordoTS'},
-                    {header: 'Data Verifica TS', key: 'dataVerificaTS'},
-                    {header: 'Diff.N.Ricette', key: 'diffNRicette'},
-                    {header: 'Diff.N.Prest', key: 'diffNPrest'},
-                    {header: 'Diff.Netto', key: 'diffNetto'},
-                    {header: 'Diff.Ticket', key: 'diffTicket'},
-                    {header: 'Diff.Lordo', key: 'diffLordo'},
-                ];
+                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].columns = sheetColumn;
             }
             if (distretto !== "") {
                 filteredData = data.filter(p => p.idDistretto.toString() === distretto.toString())
-                nomeFile = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() + ".html";
+                nomeFile = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase();
             } else {
                 filteredData = filteredData.sort(p => p.idDistretto)
-                nomeFile = "out.html"
+                nomeFile = "out"
             }
             if (filteredData.length > 0) {
                 for (let struttureFile of filteredData) {
@@ -565,36 +566,128 @@ export class FlussoM {
                             struttureFile.totaleNetto,
                             struttureFile.totaleTicket,
                             struttureFile.totaleLordo,
-                            //!struttureFile.controlloTs.error ? ...[
                             struttureFile.controlloTs?.out.is_definitivo === true ? "COMPLETI" : (struttureFile.hasOwnProperty("controlloTs") ? "INCOMPLETI" : "NON PRESENTI"),
                             struttureFile.controlloTs?.out.numero_ricette ?? "-",
                             struttureFile.controlloTs?.out.numeroPrestazioni ?? "-",
                             struttureFile.controlloTs?.out.netto_mese_totale ?? "-",
                             struttureFile.controlloTs?.out.ticket_totale ?? "-",
                             struttureFile.controlloTs?.out.importo_totale ?? "-",
-                            struttureFile.controlloTs?.out.dataOra ?? "-",
-                            //"<td colspan='5'>Dati non disponibili</td>") +
-                            //(struttureFile.differenze !== null ? (
+                            struttureFile.controlloTs?.out.dataOra ? moment(struttureFile.controlloTs?.out.dataOra,"YYYY/MM/DD-HH:mm:ss").toDate() : "-",
                             struttureFile.differenze?.differenzaRicette ?? "-",
                             struttureFile.differenze?.differenzaPrestazioni ?? "-",
                             struttureFile.differenze?.differenzaTotaleNetto ?? "-",
                             struttureFile.differenze?.differenzaTicket ?? "-",
                             struttureFile.differenze?.differenzaTotale ?? "-",
-                            //    ) : ("<td colspan='4'>Dati non disponibili</td>")) +
                         ]
                     )
                 }
-                if (salvaSuFile) {
+                if (salvaFileHtml) {
                     const __dirname = path.resolve();
                     let rawdata = fs.readFileSync(path.resolve(__dirname, "src/grid/flussoM-mese.html")).toLocaleString();
                     rawdata = rawdata.replace("[xxx]", JSON.stringify(gridData));
                     rawdata = rawdata.replace("<h1></h1>",
-                        "<h1>Distretto di " + nomeFile.substring(0, nomeFile.length - 5) + "</h1>"
+                        "<h1>Distretto di " + this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() + "</h1>"
                     )
-                    fs.writeFileSync(this._settings.out_folder + path.sep + nomeFile, rawdata);
+                    fs.writeFileSync(this._settings.out_folder + path.sep + nomeFile + ".html", rawdata);
+                }
+                if (salvaFileExcel) {
+                    let tempWorkBook = new ExcelJS.Workbook();
+                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {properties: {defaultColWidth: 15}});
+                    let tempTable = {
+                        name: 'prestazioni',
+                        ref: 'A1',
+                        headerRow: true,
+                        totalsRow: true,
+                        style: {
+                            theme: 'TableStyleMedium5',
+                            showRowStripes: true,
+                            showColumnStripes: true
+                        },
+                        columns: [
+                            {name: 'Id', key: 'id',totalsRowLabel: 'Totali:' },
+                            {name: 'Nome', key: 'nome'},
+                            {name: 'Distretto', key: 'distretto'},
+                            {name: 'Mese', key: 'mese'},
+                            {name: 'Anno', key: 'anno'},
+                            {name: 'N.Righe.M', key: 'nRigheM'},
+                            {name: 'N.Ricette.M', key: 'nRicetteM'},
+                            {name: 'N.Prest.M', key: 'nPrestM'},
+                            {name: 'TOT.NETTO.M', key: 'totNetto',totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"', width: 18 }},
+                            {name: 'TOT.TICKET.M', key: 'totTicketM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'TOT.LORDO.M', key: 'totLordoM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'TipoDati.TS', key: 'tipoDatiTS'},
+                            {name: 'N.Ricette.TS', key: 'nRicetteTS', totalsRowFunction: 'sum'},
+                            {name: 'N.Prest.TS', key: 'nPrestTS', totalsRowFunction: 'sum'},
+                            {name: 'TOT.NETTO.TS', key: 'totNettoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'TOT.TICKET.TS', key: 'totTicketTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'TOT.LORDO.TS', key: 'totLordoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
+                            {name: 'Diff.N.Ricette', key: 'diffNRicette', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
+                            {name: 'Diff.N.Prest', key: 'diffNPrest', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
+                            {name: 'Diff.Netto', key: 'diffNetto', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'Diff.Ticket', key: 'diffTicket', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                            {name: 'Diff.Lordo', key: 'diffLordo', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                        ],
+                        rows: [ ],
+                    };
+                    //tempSheet.columns = sheetColumn;
+                    for (let dato of gridData) {
+                        let tempRow = {
+                            'id': dato[0],
+                            'nome': dato[1],
+                            'distretto': dato[2],
+                            'mese': dato[3],
+                            'anno': dato[4],
+                            'nRigheM': dato[5],
+                            'nRicetteM': dato[6],
+                            'nPrestM': dato[7],
+                            'totNetto': dato[8],
+                            'totTicketM': dato[9],
+                            'totLordoM': dato[10],
+                            'tipoDatiTS': dato[11],
+                            'nRicetteTS': dato[12],
+                            'nPrestTS': dato[13],
+                            'totNettoTS': dato[14],
+                            'totTicketTS': dato[15],
+                            'totLordoTS': dato[16],
+                            'dataVerificaTS': dato[17],
+                            'diffNRicette': dato[18],
+                            'diffNPrest': dato[19],
+                            'diffNetto': dato[20],
+                            'diffTicket': dato[21],
+                            'diffLordo': dato[22],
+                        }
+
+                        //tempSheet.getRow(1).font= { bold: true };
+                        //tempSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+                        //sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].insertRow(2, tempRow);
+                        tempTable.rows.push(dato);
+                        //tempSheet.insertRow(2,tempRow);
+                    }
+
+                    tempSheet.addTable(tempTable)
+
+                    tempSheet.getColumn(2).width = 50;
+                    tempSheet.getColumn(18).width = 20;
+                    for (let i = 1; i<=tempSheet.rowCount; i++) {
+                        let font = (i === 1 || i === tempSheet.rowCount) ? (i === 1 ? '424242' : "BDBDBD") : "000000"
+                        let bg = (i === 1 || i === tempSheet.rowCount) ? (i === 1 ? 'BDBDBD' : "424242") : ((i % 2 === 0) ? "EEEEEE" : "D6D6D6")
+                        console.log(i + " " + font + " " + bg)
+                            tempSheet.getRow(i).font = {bold: (i === 1 || i === tempSheet.rowCount), color: {'argb': font}};
+                            tempSheet.getRow(i).fill = {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                fgColor: {'argb': bg},
+                            };
+                    }
+                    tempSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+                    await tempWorkBook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile + ".xlsx" )
                 }
             }
         }
+        //await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "CONSEGNE_GLOBALI" + ".xlsx");
     }
 
     scriviStatsFlussoM (fileData,sovrascrivi=true, ext = ".mstats") {
@@ -816,8 +909,8 @@ export class FlussoM {
                     {
                         mese: (value.datiDaFile?.mese ?? value.mesePrevalente),
                         anno: (value.datiDaFile?.anno ?? value.annoPrevalente),
-                        codiceRegione: "190",
-                        codiceAsl: "205",
+                        codiceRegione: this._settings.codiceRegione,
+                        codiceAsl: this._settings.codiceAzienda,
                         codiceStruttura: value.codiceStruttura
                     };
             let outTS = []
