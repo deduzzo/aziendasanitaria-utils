@@ -7,14 +7,16 @@ export class ImpostazioniFlussoM {
      * @param {String} out_folder Path assoluto della cartella in cui si salveranno i dati dell'elaborazione (ATTENZIONE: la cartella verrà cancellata se esiste)
      * @param {String} flowlookDBFilePath Path assoluto del file Flowlook.mdb
      * @param {StruttureDistrettiPerProvincia} datiStruttureRegione Istanza della classe ImpostazioneFlusso
+     * @param {ImpostazioniMail} impostazioniMail Impostazioni mail
      */
-    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione) {
+    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione, impostazioniMail) {
         this._codiceAzienda = codiceAzienda;
         this._codiceRegione = codiceRegione;
         this._in_folder = in_folder;
         this._out_folder = out_folder;
         this._flowlookDBFilePath = flowlookDBFilePath;
         this._datiStruttureRegione = datiStruttureRegione;
+        this._impostazioniMail = impostazioniMail;
 
         this._extensions = ['.txt'];
         this._ts_username = ""
@@ -110,5 +112,13 @@ export class ImpostazioniFlussoM {
 
     set flowlookDBTable(value) {
         this._flowlookDBTable = value;
+    }
+
+    get impostazioniMail() {
+        return this._impostazioniMail;
+    }
+
+    set impostazioniMail(value) {
+        this._impostazioniMail = value;
     }
 }

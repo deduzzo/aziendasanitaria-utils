@@ -9,6 +9,18 @@ const distretti = {
     9: "S.Agata"
 }
 
+const recapitiDistretti =
+    {
+        1: ["convest.menord@asp.messina.it", "distretto.mesud@asp.messina.it"],
+        3: ["distretto.taormina@asp.messina.it"],
+        4: ["distretto.milazzo@asp.messina.it"],
+        5: ["distretto.lipari@asp.messina.it"],
+        6: ["distretto.barcellona@asp.messina.it"],
+        7: ["distretto.patti@asp.messina.it"],
+        8: ["distretto.mistretta@asp.messina.it"],
+        9: ["distretto.sagata@asp.messina.it"]
+    }
+
 const comuniDistretti = {
     "083027": 1, "083048": 1, "083072": 1, "083076": 1, "083094": 1, "083105": 1, "083061": 1,
     "083032": 3, "083090": 3, "083089": 3, "083097": 3, "083017": 3,
@@ -24,4 +36,4 @@ const struttureDistrettiMap = {
 
 }
 
-export {struttureDistrettiMap,distretti,comuniDistretti}
+export {struttureDistrettiMap,distretti,comuniDistretti, recapitiDistretti}

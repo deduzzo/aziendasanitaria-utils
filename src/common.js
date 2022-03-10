@@ -41,12 +41,19 @@ const getAllFilesRecursive = (dirPath, extensions,filterFileName = null, arrayOf
 
 /**
  * @param {ImpostazioniMail} settings Impostazioni mail
- * @param {String} destinatario Destinatario
+ * @param {Array} destinatari Destinatari in array
  * @param {String} oggetto Oggetto Mail
  * @param {String} corpo Corpo mail in HTML
  * @param {Array} pathAllegati Array Path Allegati
  */
-const inviaMail = async (settings, destinatario, oggetto, corpo,  pathAllegati = []) => {
+const inviaMail = async (settings, destinatari, oggetto, corpo,  pathAllegati = []) => {
+    const arrayDestinatariToString = (allDest) => {
+        let out = "";
+        for (let dest of allDest)
+            out+= dest + ","
+        console.log(out.substring(0,out.length-1))
+        return out.substring(0,out.length-1);
+    }
     let transporter = nodemailer.createTransport({
         host: settings.host,
         port: settings.porta,
@@ -58,7 +65,7 @@ const inviaMail = async (settings, destinatario, oggetto, corpo,  pathAllegati =
 // send mail with defined transport object
     let mail = {
         from: settings.mittente,
-        to: destinatario, // list of receivers
+        to: arrayDestinatariToString(destinatari), // list of receivers
         subject: oggetto, // Subject line
         html: corpo, // html body
     }
@@ -72,9 +79,13 @@ const inviaMail = async (settings, destinatario, oggetto, corpo,  pathAllegati =
             })
     })
 
-    let info = await transporter.sendMail({...mail});
-    console.log("Message sent: %s", info.messageId);
-    return info.messageId;
+    let info = null;
+    try {
+        info = await transporter.sendMail({...mail});
+        console.log("Message sent: %s", info.messageId);
+        return {error: false, messageId: info.messageId};
+    }
+    catch (ex) {return {error: true, errorTxt: ex}}
 }
 
 const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) =>
@@ -84,4 +95,4 @@ const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) =>
 
 
 
-export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi}
+export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail}

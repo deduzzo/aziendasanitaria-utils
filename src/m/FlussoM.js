@@ -499,35 +499,42 @@ export class FlussoM {
         }
     }
 
-    async generaGridJSTable(salvaFileHtml = true, salvaFileExcel = true) {
+    async generaReportDaStats(salvaFileHtml = true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
         let strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
-        const sheetColumn = [
-            {header: 'Id', key: 'id' },
-            {header: 'Nome', key: 'nome', width: 60},
-            {header: 'Distretto', key: 'distretto', width: 15},
-            {header: 'Mese', key: 'mese'},
-            {header: 'Anno', key: 'anno'},
-            {header: 'N.Righe.M', key: 'nRigheM',width: 15,},
-            {header: 'N.Ricette.M', key: 'nRicetteM',width: 15,},
-            {header: 'N.Prest.M', key: 'nPrestM',width: 15,},
-            {header: 'TOT.NETTO.M', key: 'totNetto',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'TOT.TICKET.M', key: 'totTicketM',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'TOT.LORDO.M', key: 'totLordoM',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'TipoDati.TS', key: 'tipoDatiTS',width: 15},
-            {header: 'N.Ricette.TS', key: 'nRicetteTS',width: 15,},
-            {header: 'N.Prest.TS', key: 'nPrestTS',width: 15,},
-            {header: 'TOT.NETTO.TS', key: 'totNettoTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'TOT.TICKET.TS', key: 'totTicketTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'TOT.LORDO.TS', key: 'totLordoTS',width: 18, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
-            {header: 'Diff.N.Ricette', key: 'diffNRicette',width: 18, style: { numFmt: '#0;[Red]\-#0' }},
-            {header: 'Diff.N.Prest', key: 'diffNPrest',width: 18, style: { numFmt: '#0;[Red]\-#0' }},
-            {header: 'Diff.Netto', key: 'diffNetto',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'Diff.Ticket', key: 'diffTicket',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-            {header: 'Diff.Lordo', key: 'diffLordo',width: 15, style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-        ];
+        const table = {
+            name: '',
+            ref: 'A2',
+            headerRow: true,
+            totalsRow: true,
+            columns: [
+                {name: 'Id', key: 'id',totalsRowLabel: 'Totali:' },
+                {name: 'Nome', key: 'nome'},
+                {name: 'Distretto', key: 'distretto'},
+                {name: 'Mese', key: 'mese'},
+                {name: 'Anno', key: 'anno'},
+                {name: 'N.Righe.M', key: 'nRigheM',totalsRowFunction: 'sum'},
+                {name: 'N.Ricette.M', key: 'nRicetteM',totalsRowFunction: 'sum'},
+                {name: 'N.Prest.M', key: 'nPrestM',totalsRowFunction: 'sum',},
+                {name: 'TOT.NETTO.M', key: 'totNetto',totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"', width: 18 }},
+                {name: 'TOT.TICKET.M', key: 'totTicketM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'TOT.LORDO.M', key: 'totLordoM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'TipoDati.TS', key: 'tipoDatiTS'},
+                {name: 'N.Ricette.TS', key: 'nRicetteTS', totalsRowFunction: 'sum'},
+                {name: 'N.Prest.TS', key: 'nPrestTS', totalsRowFunction: 'sum'},
+                {name: 'TOT.NETTO.TS', key: 'totNettoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'TOT.TICKET.TS', key: 'totTicketTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'TOT.LORDO.TS', key: 'totLordoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
+                {name: 'Diff.N.Ricette', key: 'diffNRicette', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
+                {name: 'Diff.N.Prest', key: 'diffNPrest', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
+                {name: 'Diff.Netto', key: 'diffNetto', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'Diff.Ticket', key: 'diffTicket', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'Diff.Lordo', key: 'diffLordo', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+            ],
+            rows: [ ],
+        };
         let data = [];
         for (let file of files) {
             let rawdata = fs.readFileSync(file);
@@ -540,10 +547,6 @@ export class FlussoM {
             let nomeFile;
             let filteredData = []
             let gridData = [];
-            if (salvaFileExcel) {
-                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase());
-                sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].columns = sheetColumn;
-            }
             if (distretto !== "") {
                 filteredData = data.filter(p => p.idDistretto.toString() === distretto.toString())
                 nomeFile = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase();
@@ -592,102 +595,49 @@ export class FlussoM {
                 }
                 if (salvaFileExcel) {
                     let tempWorkBook = new ExcelJS.Workbook();
-                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {properties: {defaultColWidth: 15}});
-                    let tempTable = {
-                        name: 'prestazioni',
-                        ref: 'A1',
-                        headerRow: true,
-                        totalsRow: true,
-                        style: {
-                            theme: 'TableStyleMedium5',
-                            showRowStripes: true,
-                            showColumnStripes: true
-                        },
-                        columns: [
-                            {name: 'Id', key: 'id',totalsRowLabel: 'Totali:' },
-                            {name: 'Nome', key: 'nome'},
-                            {name: 'Distretto', key: 'distretto'},
-                            {name: 'Mese', key: 'mese'},
-                            {name: 'Anno', key: 'anno'},
-                            {name: 'N.Righe.M', key: 'nRigheM'},
-                            {name: 'N.Ricette.M', key: 'nRicetteM'},
-                            {name: 'N.Prest.M', key: 'nPrestM'},
-                            {name: 'TOT.NETTO.M', key: 'totNetto',totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"', width: 18 }},
-                            {name: 'TOT.TICKET.M', key: 'totTicketM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'TOT.LORDO.M', key: 'totLordoM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'TipoDati.TS', key: 'tipoDatiTS'},
-                            {name: 'N.Ricette.TS', key: 'nRicetteTS', totalsRowFunction: 'sum'},
-                            {name: 'N.Prest.TS', key: 'nPrestTS', totalsRowFunction: 'sum'},
-                            {name: 'TOT.NETTO.TS', key: 'totNettoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'TOT.TICKET.TS', key: 'totTicketTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'TOT.LORDO.TS', key: 'totLordoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
-                            {name: 'Diff.N.Ricette', key: 'diffNRicette', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
-                            {name: 'Diff.N.Prest', key: 'diffNPrest', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
-                            {name: 'Diff.Netto', key: 'diffNetto', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'Diff.Ticket', key: 'diffTicket', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                            {name: 'Diff.Lordo', key: 'diffLordo', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                        ],
-                        rows: [ ],
-                    };
-                    //tempSheet.columns = sheetColumn;
-                    for (let dato of gridData) {
-                        let tempRow = {
-                            'id': dato[0],
-                            'nome': dato[1],
-                            'distretto': dato[2],
-                            'mese': dato[3],
-                            'anno': dato[4],
-                            'nRigheM': dato[5],
-                            'nRicetteM': dato[6],
-                            'nPrestM': dato[7],
-                            'totNetto': dato[8],
-                            'totTicketM': dato[9],
-                            'totLordoM': dato[10],
-                            'tipoDatiTS': dato[11],
-                            'nRicetteTS': dato[12],
-                            'nPrestTS': dato[13],
-                            'totNettoTS': dato[14],
-                            'totTicketTS': dato[15],
-                            'totLordoTS': dato[16],
-                            'dataVerificaTS': dato[17],
-                            'diffNRicette': dato[18],
-                            'diffNPrest': dato[19],
-                            'diffNetto': dato[20],
-                            'diffTicket': dato[21],
-                            'diffLordo': dato[22],
-                        }
-
-                        //tempSheet.getRow(1).font= { bold: true };
-                        //tempSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-
-                        //sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()].insertRow(2, tempRow);
+                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() , {properties: {defaultColWidth: 15}});
+                    sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {properties: {defaultColWidth: 15}});
+                    let tempTable = {...table};
+                    tempTable.rows = []
+                    for (let dato of gridData)
                         tempTable.rows.push(dato);
-                        //tempSheet.insertRow(2,tempRow);
-                    }
+                    tempTable.name = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase();
+                    [tempSheet,sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()]].forEach((wk) =>
+                    {
+                        wk.addTable(tempTable)
 
-                    tempSheet.addTable(tempTable)
+                        wk.getColumn(2).width = 50;
+                        [18,12,3].forEach(i => wk.getColumn(i).width = 20);
+                        [1,3,4,5,12,18].forEach(i => wk.getColumn(i).alignment = { vertical: 'middle', horizontal: 'center' });
 
-                    tempSheet.getColumn(2).width = 50;
-                    tempSheet.getColumn(18).width = 20;
-                    for (let i = 1; i<=tempSheet.rowCount; i++) {
-                        let font = (i === 1 || i === tempSheet.rowCount) ? (i === 1 ? '424242' : "BDBDBD") : "000000"
-                        let bg = (i === 1 || i === tempSheet.rowCount) ? (i === 1 ? 'BDBDBD' : "424242") : ((i % 2 === 0) ? "EEEEEE" : "D6D6D6")
-                        console.log(i + " " + font + " " + bg)
-                            tempSheet.getRow(i).font = {bold: (i === 1 || i === tempSheet.rowCount), color: {'argb': font}};
-                            tempSheet.getRow(i).fill = {
+                        wk.getRow(2).alignment = { vertical: 'middle', horizontal: 'center' };
+                        wk.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+                        for (let i = 1; i<=wk.rowCount; i++) {
+                            let font = (i <3 || i === wk.rowCount) ? (i <3 ? '424242' : "BDBDBD") : "000000"
+                            let bg = (i <3 || i === wk.rowCount) ? (i <3 ? 'BDBDBD' : "424242") : ((i % 2 === 0) ? "EEEEEE" : "D6D6D6")
+                            wk.getRow(i).font = {bold: (i === 1 || i === wk.rowCount), color: {'argb': font}};
+                            wk.getRow(i).fill = {
                                 type: 'pattern',
                                 pattern: 'solid',
                                 fgColor: {'argb': bg},
                             };
-                    }
-                    tempSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-
+                        }
+                        wk.mergeCells('A1:C1');
+                        wk.getCell('A1').value = "DATI STRUTTURA"
+                        wk.mergeCells('D1:E1');
+                        wk.getCell('D1').value = "MESE/ANNO"
+                        wk.mergeCells('F1:K1');
+                        wk.getCell('F1').value = "DATI DA FLUSSO M"
+                        wk.mergeCells('L1:R1');
+                        wk.getCell('L1').value = "DATI DA SITO SOGEI TESSERA SANITARIA"
+                        wk.mergeCells('S1:W1');
+                        wk.getCell('S1').value = "DIFFERENZE"
+                    })
                     await tempWorkBook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile + ".xlsx" )
                 }
             }
         }
-        //await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "CONSEGNE_GLOBALI" + ".xlsx");
+        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "CONSEGNE_GLOBALI" + ".xlsx");
     }
 
     scriviStatsFlussoM (fileData,sovrascrivi=true, ext = ".mstats") {
@@ -896,8 +846,31 @@ export class FlussoM {
         return {error: errors.length !== 0, errors: errors}
     }
 
+    async inviaMailAiDistretti(distretti, nomeFileCompleto) {
+        let errors = []
+        for (let distretto of distretti) {
+            distretto = distretto.toUpperCase();
+            let out = await common.inviaMail(
+                this._settings.impostazioniMail,
+                ["roberto.dedomenico@asp.messina.it","stefano.fabio@asp.messina.it"],
+                "Risultato Elaborazione FLUSSO M distretto di " + distretto,
+                "Salve, per quanto di competenza e per le opportune verifiche,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese corrente.<br />" +
+                "<br /><br >" +
+                    "Distinti Saluti.<br />" +
+                    "<i><b>De Domenico Roberto</b><br />" +
+                    "Referente Flusso M</i>" +
+                "<br />",
+                [this._settings.out_folder + path.sep + distretto +".xlsx"]
+            );
+            if (!out.error)
+                console.log(out.messageId);
+            else
+                errors.push(out.errorTxt);
+        }
+        return {error: errors.length === 0, errors:errors};
+    }
 
-    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false) {
+    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false, generaReportHtml = true, generaReportExcel=true) {
         let ris = await this.elaboraFlussi();
         let duplicati
         if (ris.errori.length === 0)
@@ -921,10 +894,10 @@ export class FlussoM {
             if (scriviSuCartella)
                 await this.#scriviFlussoMSuCartella(ris.ok, outTS);
             if (generaStats) {
-                this.generaGridJSTable();
+                await this.generaReportDaStats(generaReportHtml, generaReportExcel);
             }
             //controllo post
-            console.log("Elaborazione completata, di seguito gli errori trovati")
+            console.log("Elaborazione completata, di seguito i warning trovati")
             console.table(this.verificaErroriDaStats(this._settings.out_folder))
             console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
             console.table(duplicati?.stats || "Controllo non effettuato");
@@ -1004,20 +977,6 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async provaExcel() {
-
-
-        const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet("prova");
-        sheet.columns = [
-            { header: 'Id', key: 'id', width: 10 },
-            { header: 'Name', key: 'name', width: 32 },
-            { header: 'D.O.B.', key: 'DOB', width: 10, headerCount:2},
-            { header: 'bau', key: 'bau', width: 32 },
-        ];
-        sheet.insertRow(2, {id: 1, name: "prova", DOB: "ciao", bau: "asdasd asdasdasdasd"});
-        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "prova22.xlsx");
-    }
 
     async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE] ) {
         let strutture = this.#loadStruttureFromFlowlookDB();
