@@ -390,7 +390,7 @@ export class FlussoM {
         const buffer = fs.readFileSync(this._settings.flowlookDBFilePath);
         const reader = new MDBReader(buffer);
 
-        const strutture = reader.getTable(this._settings.flowlookDBTable).getData();
+        const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
         let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione);
         let mancanti = []
         let struttureOut = {}
@@ -412,7 +412,7 @@ export class FlussoM {
 
 
     async elaboraFlussi() {
-        let fileOut = {ripetuti: [], ok: {}, errori: []}
+        let fileOut = {ripetuti: [], ok: {}, errori: [], warning: []}
         //1- ottieni tutti i file txt della cartella
         let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
         let numFiles = allFiles.length;
@@ -422,10 +422,14 @@ export class FlussoM {
             let md5 = md5File.sync(file);
             if (!fileOut.ok.hasOwnProperty(md5)) {
                 let ricetta = await this.#ottieniStatDaFileFlussoM(file)
-                if (!ricetta.errore)
+                if (!ricetta.errore && !ricetta.warning)
                     fileOut.ok[ricetta.out.hash] = _.omit(ricetta.out, ["ricette", "nonOk"])
-                else
-                    fileOut.errori.push(ricetta.out)
+                else {
+                    if (ricetta.warning)
+                        fileOut.warning.push("WARNING!!: " + ricetta.warning)
+                    else
+                        fileOut.errori.push(ricetta.out)
+                }
                 console.log("elaborazione: " + ++progress + " di " + numFiles)
             } else {
                 console.log("elaborazione: " + ++progress + " di " + numFiles + "\n File già presente")
@@ -438,17 +442,22 @@ export class FlussoM {
     async #ottieniStatDaFileFlussoM(file) {
         let strutture = this.#loadStruttureFromFlowlookDB();
         let ricetteInFile = await this.#elaboraFileFlussoM(file, this._starts);
+        let warn = "";
         if (ricetteInFile.error) {
             console.log("file " + file + " con errori");
             return {errore: true, out: ricetteInFile};
         } else {
             let verificaDateStruttura = this.#checkMeseAnnoStruttura(Object.values(ricetteInFile.ricette))
             ricetteInFile.codiceStruttura = verificaDateStruttura.codiceStruttura;
-            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura].idDistretto.toString();
+            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto.toString() ?? ricetteInFile.datiDaFile.idDistretto;
             ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
             ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
             ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
-            return {errore: false, out: ricetteInFile}
+            if (!strutture.hasOwnProperty(verificaDateStruttura.codiceStruttura)) {
+                console.log("STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente sul FLOWLOOK")
+                warn = "STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente sul FLOWLOOK"
+            }
+            return {errore: false, warning: (warn === "" ? false : warn), out: ricetteInFile}
         }
     }
 
@@ -595,7 +604,7 @@ export class FlussoM {
                 }
                 if (salvaFileExcel) {
                     let tempWorkBook = new ExcelJS.Workbook();
-                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() , {properties: {defaultColWidth: 15}});
+                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() , {properties: {defaultColWidth: 15,showGridLines:true}});
                     sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {properties: {defaultColWidth: 15}});
                     let tempTable = {...table};
                     tempTable.rows = []
@@ -870,12 +879,12 @@ export class FlussoM {
         return {error: errors.length === 0, errors:errors};
     }
 
-    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, eseguiComunqueConDuplicati = false, generaReportHtml = true, generaReportExcel=true) {
+    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, bloccaConWarning=true, bloccaConDuplicati = false, controllaDuplicatiAnno = true, generaReportHtml = true, generaReportExcel=true) {
         let ris = await this.elaboraFlussi();
         let duplicati
         if (ris.errori.length === 0)
-            duplicati = await this.trovaRicetteDuplicate(this._settings.in_folder,false);
-        if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || eseguiComunqueConDuplicati)) {
+            duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(this._settings.in_folder) : this._settings.in_folder,false);
+        if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || !bloccaConDuplicati) && (ris.warning.length >0 && !bloccaConWarning)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
                 strutturePerControlloTS[value.codiceStruttura + "-" + (value.datiDaFile?.mese ?? value.mesePrevalente) + (value.datiDaFile?.anno ?? value.annoPrevalente)] =
@@ -899,14 +908,22 @@ export class FlussoM {
             //controllo post
             console.log("Elaborazione completata, di seguito i warning trovati")
             console.table(this.verificaErroriDaStats(this._settings.out_folder))
+            console.table(ris.warning)
             console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
             console.table(duplicati?.stats || "Controllo non effettuato");
             return true;
-        } else {
+        } else if (ris.errori.length>0) {
             console.log("Errori rilevati")
             console.table(ris.errori);
+            console.log("Warning rilevati")
+            console.table(ris.warning);
             console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
             console.table(duplicati?.stats || "Controllo non effettuato");
+            return false;
+        }
+        else {
+            console.log("Warning rilevati")
+            console.table(ris.warning);
             return false;
         }
     }
@@ -975,6 +992,94 @@ export class FlussoM {
         }
         console.log("FINE");
         console.log(errors);
+    }
+
+    async calcolaVolumiFlussoM(path = this._settings.out_folder) {
+
+        const contaPrestazioni = (riga, outt, perStruttura, filter = []) => {
+            for (const prestazione of riga.prestazioni) {
+                var chiave = perStruttura ? (riga.codiceStruttura + "-" + prestazione.prestID.toUpperCase()) : prestazione.prestID.toUpperCase();
+                if ((filter.length > 0 && filter.includes(prestazione.prestID.toUpperCase())) || filter.length === 0) {
+                    const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? 1 : 0;
+                    const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? 1 : 0;
+                    const erroreAccesso = riga.riga99.tipoAccesso === "" ? 1 : 0;
+                    if (erroreAccesso === 1)
+                        console.log("ciao");
+                    if (outt.hasOwnProperty(chiave))
+                        outt[chiave] = {
+                            count: outt[chiave].count + 1,
+                            primiAccessi: outt[chiave].primiAccessi + isPrimoAccesso,
+                            altriAccessi: outt[chiave].altriAccessi + isSecondoAccesso,
+                            erroriAccesso: outt[chiave].erroriAccesso + erroreAccesso
+                        }
+                    else
+                        outt[chiave] = {
+                            count: 1,
+                            primiAccessi: isPrimoAccesso,
+                            altriAccessi: isSecondoAccesso,
+                            erroriAccesso: erroreAccesso
+                        }
+                }
+            }
+        }
+
+        const iniziaElaborazione = async (filePath, out, elaboraPerStruttura, filter) => {
+            console.log(filePath);
+            const fileStream = fs.createReadStream(filePath);
+
+            const rl = readline.createInterface({
+                input: fileStream,
+                crlfDelay: Infinity
+            });
+
+            var i = 0;
+            //var ricette = {};
+            var ricettaTemp = [];
+            for await (const line of rl) {
+                // todo: controllo dimensione riga
+                var t = this.#mRowToJson(line,this._starts);
+                ricettaTemp.push(t);
+
+                if (t.progrRicetta === "99") {
+                    let rt = this.#buildRicetteFromMRows(ricettaTemp);
+                    contaPrestazioni(rt, out,elaboraPerStruttura,filter);
+                    ricettaTemp = [];
+                    i++;
+                }
+                i++;
+            }
+            console.log("elaborati nel file:" + i);
+            return i;
+
+        };
+
+        const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
+        const reader = new MDBReader(buffer);
+
+        const tabellaBranche = reader.getTable(this._settings.flowlookDBTableBranche);
+        const tabellaCatalogoUnicoRegionale = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale);
+        const tabellaPrestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore)
+
+        var catalogoUnico = tabellaCatalogoUnicoRegionale.getData();
+        var branche = tabellaBranche.getData();
+        var prestazioni = tabellaPrestazioni.getData();
+
+        let risultato = {}
+        let perStruttura = {}
+        let totale = 0;
+
+        const prestazioniRiferimento = [];
+        const prestazioniPerStruttura = [];
+
+        let allFiles = common.getAllFilesRecursive(path, this._settings.extensions);
+        for (const file of allFiles) {
+            console.log(file);
+            totale+= await iniziaElaborazione(file,risultato,false,prestazioniRiferimento);
+        }
+        console.log("totale definitivo: " + totale);
+        console.log(risultato);
+        console.log(perStruttura);
+
     }
 
 

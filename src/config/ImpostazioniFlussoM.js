@@ -22,7 +22,10 @@ export class ImpostazioniFlussoM {
         this._ts_username = ""
         this._ts_password = ""
         this._stat_folder_name = ".stats";
-        this._flowlookDBTable = "tSTS11";
+        this._flowlookDBTableSTS11 = "tSTS11";
+        this._flowlookDBTableBranche = "tBranche";
+        this._flowlookDBTableCatalogoUnicoRegionale = "tCatalogoUnicoRegionale";
+        this._flowlookDBTableNomenclatore = "tNomenclatore";
     }
 
 
@@ -106,11 +109,11 @@ export class ImpostazioniFlussoM {
         this._stat_folder_name = value;
     }
 
-    get flowlookDBTable() {
+    get flowlookDBTableSTS11() {
         return this._flowlookDBTable;
     }
 
-    set flowlookDBTable(value) {
+    set flowlookDBTableSTS11(value) {
         this._flowlookDBTable = value;
     }
 
@@ -120,5 +123,29 @@ export class ImpostazioniFlussoM {
 
     set impostazioniMail(value) {
         this._impostazioniMail = value;
+    }
+
+    get flowlookDBTableBranche() {
+        return this._flowlookDBTableBranche;
+    }
+
+    set flowlookDBTableBranche(value) {
+        this._flowlookDBTableBranche = value;
+    }
+
+    get flowlookDBTableCatalogoUnicoRegionale() {
+        return this._flowlookDBTableCatalogoUnicoRegionale;
+    }
+
+    set flowlookDBTableCatalogoUnicoRegionale(value) {
+        this._flowlookDBTableCatalogoUnicoRegionale = value;
+    }
+
+    get flowlookDBTableNomenclatore() {
+        return this._flowlookDBTableNomenclatore;
+    }
+
+    set flowlookDBTableNomenclatore(value) {
+        this._flowlookDBTableNomenclatore = value;
     }
 }
