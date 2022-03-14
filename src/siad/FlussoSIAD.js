@@ -10,7 +10,7 @@ export class FlussoSIAD {
 
     }
 
-    count (path) {
+    contaPrestazioni (path) {
 
         let data = {};
         var totalePreseInCarico = 0;
