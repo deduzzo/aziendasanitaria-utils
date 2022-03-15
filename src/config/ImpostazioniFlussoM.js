@@ -26,6 +26,7 @@ export class ImpostazioniFlussoM {
         this._flowlookDBTableBranche = "tBranche";
         this._flowlookDBTableCatalogoUnicoRegionale = "tCatalogoUnicoRegionale";
         this._flowlookDBTableNomenclatore = "tNomenclatore";
+        this._tCatalogoUnicoRegionalePrestazioneBranca = "tCatalogoUnicoRegionale_Prestazione_Branca"
     }
 
 
@@ -110,11 +111,11 @@ export class ImpostazioniFlussoM {
     }
 
     get flowlookDBTableSTS11() {
-        return this._flowlookDBTable;
+        return this._flowlookDBTableSTS11;
     }
 
     set flowlookDBTableSTS11(value) {
-        this._flowlookDBTable = value;
+        this._flowlookDBTableSTS11 = value;
     }
 
     get impostazioniMail() {
@@ -147,5 +148,14 @@ export class ImpostazioniFlussoM {
 
     set flowlookDBTableNomenclatore(value) {
         this._flowlookDBTableNomenclatore = value;
+    }
+
+
+    get flowLookDBCatalogoUnicoRegionalePrestazioneBranca() {
+        return this._tCatalogoUnicoRegionalePrestazioneBranca;
+    }
+
+    set flowLookDBCatalogoUnicoRegionalePrestazioneBranca(value) {
+        this._tCatalogoUnicoRegionalePrestazioneBranca = value;
     }
 }

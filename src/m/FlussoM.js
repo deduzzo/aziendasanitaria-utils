@@ -47,7 +47,7 @@ export class FlussoM {
         regione: {id: 1, length: 3, type: "string", required: true},
         asID: {id: 2, length: 3, type: "string", required: true}, // codice azienda sanitaria
         arseID: {id: 3, length: 6, type: "string", required: true}, // codice regionale struttura erogatrice STS11
-        brancaID: {id: 4, length: 2, type: "string", required: true}, // codice branca STS21
+        brancaID: {id: 4, length: 2, type: "int", required: true}, // codice branca STS21
         mpID: {id: 5, length: 16, type: "string", required: true}, // codice medico prescrittore
         cognome: {id: 6, length: 30, type: "string", required: false}, // cognome utente
         nome: {id: 7, length: 20, type: "string", required: false}, // nome utente
@@ -84,7 +84,7 @@ export class FlussoM {
         let from = 0;
         for (let key in starts)
         {
-            obj[key] = row.substr(from, starts[key].length).trim();
+            obj[key] = row.substr(from, starts[key].length).trim().toUpperCase();
             if (starts[key].type === "date") {
                 if (moment(obj[key], "DDMMYYYY").isValid())
                     obj[key] = moment(obj[key], "DDMMYYYY");
@@ -994,27 +994,91 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async calcolaVolumiFlussoM(path = this._settings.out_folder) {
+    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStruttureFiltrate = [], listaPrestazioniFiltrate = []) {
 
-        const contaPrestazioni = (riga, outt, perStruttura, filter = []) => {
+
+        const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
+        const reader = new MDBReader(buffer);
+
+        const branche = reader.getTable(this._settings.flowlookDBTableBranche).getData();
+        const prestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore).getData()
+        const prestazioniBranche = reader.getTable(this._settings.flowLookDBCatalogoUnicoRegionalePrestazioneBranca).getData()
+        const catalogoUnico = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale).getData()
+        const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData()
+
+        let prestazioniBrancheMap = {}
+        let catalogoMap = {}
+        let brancheMap = {}
+        let tabellaStruttureMap = {}
+
+        tabellaStrutture.forEach(s => tabellaStruttureMap[s["CodiceStruttura"]] = s["DenominazioneStruttura"]);
+
+        branche.forEach(b => brancheMap[b["IdBranca"]] = b["Descrizione"]);
+
+        prestazioniBranche.forEach(p=> {
+            if (!prestazioniBrancheMap.hasOwnProperty(p['CodicePrestazione']))
+                prestazioniBrancheMap[p['CodicePrestazione']] = []
+            prestazioniBrancheMap[p['CodicePrestazione']].push(parseInt(p['CodiceBranca'].toString()));
+            }
+        )
+        catalogoUnico.forEach(p=> {
+            catalogoMap[p['CodicePrestazione']] = {descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'], tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',','.')) }
+
+            catalogoMap[p['CodicePrestazione']].branche = {toArray : [], toMap:[]}
+
+            for (let i = 1;i<5; i++)
+            {
+                if (p['Branca ' + i.toString()] !== "" && p['Branca ' + i.toString()]) {
+                    catalogoMap[p['CodicePrestazione']].branche.toArray.push(parseInt(p['Branca ' + i.toString()].toString()))
+                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({id: parseInt(p['Branca ' + i.toString()].toString()), descrizione:p['Descrizione Branca ' + i.toString()]})
+                }
+                else break;
+            }
+
+        })
+
+        const includePrest = (elencoPrestazioni, prest) => {
+            for (let p of elencoPrestazioni)
+                if (prest.startsWith(p))
+                    return true;
+            return false;
+        }
+
+        const contaPrestazioni = (riga, outt, filterStrutt = [], filterPrest = []) => {
             for (const prestazione of riga.prestazioni) {
-                var chiave = perStruttura ? (riga.codiceStruttura + "-" + prestazione.prestID.toUpperCase()) : prestazione.prestID.toUpperCase();
-                if ((filter.length > 0 && filter.includes(prestazione.prestID.toUpperCase())) || filter.length === 0) {
-                    const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? 1 : 0;
-                    const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? 1 : 0;
-                    const erroreAccesso = riga.riga99.tipoAccesso === "" ? 1 : 0;
-                    if (erroreAccesso === 1)
-                        console.log("ciao");
-                    if (outt.hasOwnProperty(chiave))
-                        outt[chiave] = {
-                            count: outt[chiave].count + 1,
-                            primiAccessi: outt[chiave].primiAccessi + isPrimoAccesso,
-                            altriAccessi: outt[chiave].altriAccessi + isSecondoAccesso,
-                            erroriAccesso: outt[chiave].erroriAccesso + erroreAccesso
+
+                if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
+                    if (!outt.hasOwnProperty("erroriBranche"))
+                        outt.erroriBranche = []
+                    outt.erroriBranche.push(prestazione)
+                    prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
+                }
+                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
+                {
+                    if (!outt.hasOwnProperty("erroriPrezzi"))
+                        outt.erroriPrezzi = []
+                    outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
+                }
+
+                if ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID)) || filterPrest.length === 0) {
+                    const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
+                    const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
+                    const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
+
+                    if (!outt.hasOwnProperty(prestazione.brancaID))
+                        outt[prestazione.brancaID] = {}
+                    if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
+                        outt[prestazione.brancaID][prestazione.prestID] = {}
+                    if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID))
+                        outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
+                            count: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + 1,
+                            primiAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso,
+                            altriAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso,
+                            erroriAccesso: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso
                         }
                     else
-                        outt[chiave] = {
-                            count: 1,
+                        outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
+                            count: prestazione.quant,
                             primiAccessi: isPrimoAccesso,
                             altriAccessi: isSecondoAccesso,
                             erroriAccesso: erroreAccesso
@@ -1023,7 +1087,7 @@ export class FlussoM {
             }
         }
 
-        const iniziaElaborazione = async (filePath, out, elaboraPerStruttura, filter) => {
+        const iniziaElaborazione = async (filePath, out, struttureFilter) => {
             console.log(filePath);
             const fileStream = fs.createReadStream(filePath);
 
@@ -1033,52 +1097,72 @@ export class FlussoM {
             });
 
             var i = 0;
-            //var ricette = {};
             var ricettaTemp = [];
             for await (const line of rl) {
-                // todo: controllo dimensione riga
                 var t = this.#mRowToJson(line,this._starts);
                 ricettaTemp.push(t);
 
                 if (t.progrRicetta === "99") {
                     let rt = this.#buildRicetteFromMRows(ricettaTemp);
-                    contaPrestazioni(rt, out,elaboraPerStruttura,filter);
+                    contaPrestazioni(rt, out,struttureFilter, listaPrestazioniFiltrate);
                     ricettaTemp = [];
                     i++;
                 }
-                i++;
             }
-            console.log("elaborati nel file:" + i);
+            console.log("ricette elaborate nel file nel file:" + i);
             return i;
-
         };
 
-        const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
-        const reader = new MDBReader(buffer);
-
-        const tabellaBranche = reader.getTable(this._settings.flowlookDBTableBranche);
-        const tabellaCatalogoUnicoRegionale = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale);
-        const tabellaPrestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore)
-
-        var catalogoUnico = tabellaCatalogoUnicoRegionale.getData();
-        var branche = tabellaBranche.getData();
-        var prestazioni = tabellaPrestazioni.getData();
-
         let risultato = {}
-        let perStruttura = {}
         let totale = 0;
 
-        const prestazioniRiferimento = [];
-        const prestazioniPerStruttura = [];
-
-        let allFiles = common.getAllFilesRecursive(path, this._settings.extensions);
+        let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await iniziaElaborazione(file,risultato,false,prestazioniRiferimento);
+            totale+= await iniziaElaborazione(file,risultato,listaStruttureFiltrate);
         }
-        console.log("totale definitivo: " + totale);
+        console.log("ricette elaborate" + totale);
         console.log(risultato);
-        console.log(perStruttura);
+
+        const workbook = new ExcelJS.Workbook();
+        let sheet = workbook.addWorksheet("VOLUMI");
+
+        sheet.columns = [
+            {header: 'Progressivo', key: 'progressivo'},
+            {header: 'Cod. Branca', key: 'idBranca'},
+            {header: 'DescrizioneBranca', key: 'descrizioneBranca'},
+            {header: 'CodStruttura', key: 'codStruttura'},
+            {header: 'Den. Struttura', key: 'denomStruttura'},
+            {header: 'CodPrestazione', key: 'codPrest'},
+            {header: 'Descr. Prestazione', key: 'descPrest'},
+            {header: '1°Accesso', key: 'primoAccesso'},
+            {header: 'Altri Accessi', key: 'altriAccessi'},
+            {header: 'Totale', key: 'totaleAccessi'}
+        ];
+
+        for (let branca in risultato)
+            if (branca !== "erroriBranche" && branca !== "erroriPrezzi") {
+                for (let prest in risultato[branca])
+                    for (let strutID in risultato[branca][prest]) {
+                        console.log("branca: " + branca + " prest:" + prest + " struttura: " + strutID);
+                        sheet.insertRow(2,
+                            {
+                                progressivo: "x",
+                                idBranca: parseInt(branca),
+                                descrizioneBranca: brancheMap[branca],
+                                codStruttura: strutID,
+                                denomStruttura: tabellaStruttureMap[strutID],
+                                codPrest: prest,
+                                descPrest: catalogoMap[prest].descrizione,
+                                primoAccesso: risultato[branca][prest][strutID].primiAccessi,
+                                altriAccessi: risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi,
+                                totaleAccessi: risultato[branca][prest][strutID].count
+                            });
+                    }
+            }
+
+        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "VOLUMI.xlsx");
+
 
     }
 
