@@ -18,7 +18,7 @@
   - [x] Calcolo differenze e congruità tra i dati del Flusso e quelli del Progetto TS
   - [x] Generazione Report in formato HTML ed Excel
   - [x] Invio Report tramite mail a diversi destinatari (es. suddivisi per distretto o altra suddivisione)
-  - [ ] Calcolo volumi
+  - [x] Calcolo volumi
   - [ ] Creazione DB SqlLite
 ### Flusso SIAD
   - [x] Conteggio Prestazioni

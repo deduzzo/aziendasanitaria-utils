@@ -33,7 +33,11 @@ const comuniDistretti = {
 }
 
 const struttureDistrettiMap = {
-
 }
 
-export {struttureDistrettiMap,distretti,comuniDistretti, recapitiDistretti}
+const listaPrestazioniVolumi = ["897","8901","8913","9502","8926","87371","87372","8741","88011","88012","88013","88014","88015","88016",
+    "8703","88381","88382","88385","88911","88912","88954","88955","8893","88714","88723","88735","88741","88751","88761",
+    "88731","88732","8878","88772","4523","4542","4524","4513","4516","8952","8950","8941","8944","95411","89371","89372",
+    "9511","93081"]
+
+export {struttureDistrettiMap,distretti,comuniDistretti, recapitiDistretti, listaPrestazioniVolumi}

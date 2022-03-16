@@ -994,7 +994,7 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStruttureFiltrate = [], listaPrestazioniFiltrate = []) {
+    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStruttureDaScartare = [], listaPrestazioniFiltrate = []) {
 
 
         const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
@@ -1047,20 +1047,24 @@ export class FlussoM {
         const contaPrestazioni = (riga, outt, filterStrutt = [], filterPrest = []) => {
             for (const prestazione of riga.prestazioni) {
 
-                if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
-                    if (!outt.hasOwnProperty("erroriBranche"))
-                        outt.erroriBranche = []
-                    outt.erroriBranche.push(prestazione)
-                    prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
-                }
-                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
-                {
-                    if (!outt.hasOwnProperty("erroriPrezzi"))
-                        outt.erroriPrezzi = []
-                    outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
-                }
+                if (
+                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID)) || filterPrest.length === 0) &&
+                    ((filterStrutt.length >0 && !filterStrutt.includes(prestazione.arseID)) || filterStrutt.length ===0)
+                ) {
 
-                if ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID)) || filterPrest.length === 0) {
+                    if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
+                        if (!outt.hasOwnProperty("erroriBranche"))
+                            outt.erroriBranche = []
+                        outt.erroriBranche.push(prestazione)
+                        prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
+                    }
+                    if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
+                    {
+                        if (!outt.hasOwnProperty("erroriPrezzi"))
+                            outt.erroriPrezzi = []
+                        outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
+                    }
+
                     const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
                     const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
                     const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
@@ -1119,7 +1123,7 @@ export class FlussoM {
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await iniziaElaborazione(file,risultato,listaStruttureFiltrate);
+            totale+= await iniziaElaborazione(file,risultato,listaStruttureDaScartare);
         }
         console.log("ricette elaborate" + totale);
         console.log(risultato);

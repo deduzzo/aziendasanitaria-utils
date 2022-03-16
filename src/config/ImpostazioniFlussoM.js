@@ -9,14 +9,14 @@ export class ImpostazioniFlussoM {
      * @param {StruttureDistrettiPerProvincia} datiStruttureRegione Istanza della classe ImpostazioneFlusso
      * @param {ImpostazioniMail} impostazioniMail Impostazioni mail
      */
-    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione, impostazioniMail) {
+    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione) {
         this._codiceAzienda = codiceAzienda;
         this._codiceRegione = codiceRegione;
         this._in_folder = in_folder;
         this._out_folder = out_folder;
         this._flowlookDBFilePath = flowlookDBFilePath;
         this._datiStruttureRegione = datiStruttureRegione;
-        this._impostazioniMail = impostazioniMail;
+        this._impostazioniMail = null;
 
         this._extensions = ['.txt'];
         this._ts_username = ""

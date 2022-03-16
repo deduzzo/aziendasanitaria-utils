@@ -5,11 +5,12 @@ export class StruttureDistrettiPerProvincia {
      * @param {Object} struttureDistrettiMap Eventuali strutture con dati diversi da quelli standard {"stsStruttura": idDistretto}
      * @param {Object} recapitiDistretti Array contenente le e-mail per ogni distretto
      */
-    constructor(distretti,comuniDistretti, struttureDistrettiMap, recapitiDistretti) {
+    constructor(distretti,comuniDistretti, struttureDistrettiMap, recapitiDistretti,prestazioniPerVolumi = []) {
         this._distretti = distretti;
         this._comuniDistretti = comuniDistretti;
         this._struttureDistrettiMap = struttureDistrettiMap;
         this._recapitiDistretti = recapitiDistretti;
+        this._prestazioniPerVolumi = prestazioniPerVolumi;
     }
 
     get distretti() {
@@ -42,6 +43,14 @@ export class StruttureDistrettiPerProvincia {
 
     set recapitiDistretti(value) {
         this._recapitiDistretti = value;
+    }
+
+    get prestazioniPerVolumi() {
+        return this._prestazioniPerVolumi;
+    }
+
+    set prestazioniPerVolumi(value) {
+        this._prestazioniPerVolumi = value;
     }
 }
 
