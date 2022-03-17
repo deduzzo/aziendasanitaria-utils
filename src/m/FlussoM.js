@@ -1001,7 +1001,7 @@ export class FlussoM {
         const reader = new MDBReader(buffer);
 
         const branche = reader.getTable(this._settings.flowlookDBTableBranche).getData();
-        const prestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore).getData()
+        //const prestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore).getData()
         const prestazioniBranche = reader.getTable(this._settings.flowLookDBCatalogoUnicoRegionalePrestazioneBranca).getData()
         const catalogoUnico = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale).getData()
         const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData()
@@ -1037,10 +1037,12 @@ export class FlussoM {
 
         })
 
-        const includePrest = (elencoPrestazioni, prest) => {
+        const includePrest = (elencoPrestazioni, prest, invert = false) => {
             for (let p of elencoPrestazioni)
-                if (prest.startsWith(p))
-                    return true;
+                if (prest.startsWith(p) && !invert)
+                    return p;
+                else if (p.startsWith(prest) && invert)
+                    return p;
             return false;
         }
 
@@ -1048,8 +1050,9 @@ export class FlussoM {
             for (const prestazione of riga.prestazioni) {
 
                 if (
-                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID)) || filterPrest.length === 0) &&
-                    ((filterStrutt.length >0 && !filterStrutt.includes(prestazione.arseID)) || filterStrutt.length ===0)
+                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID) !== false) || filterPrest.length === 0) &&
+                    ((filterStrutt.length >0 && !filterStrutt.includes(prestazione.arseID)) || filterStrutt.length ===0) &&
+                    ( prestazione.prestID !== "897" && prestazione.prestID !=="8901" )
                 ) {
 
                     if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
@@ -1088,11 +1091,52 @@ export class FlussoM {
                             erroriAccesso: erroreAccesso
                         }
                 }
+                else if (prestazione.prestID === "897" || prestazione.prestID ==="8901")
+                {
+                    prestazione.tipoAccesso = riga.riga99.tipoAccesso;
+                    if (!outt.hasOwnProperty("xxx"))
+                        outt["xxx"] = {};
+                    if (!outt["xxx"].hasOwnProperty(prestazione.prestID))
+                        outt["xxx"][prestazione.prestID] = []
+                    outt["xxx"][prestazione.prestID].push(prestazione);
+                }
             }
         }
 
+        const risolviProblemiPrestazioni = (risultato) => {
+            let keysPrest = []
+            for (let key in risultato)
+                for (let key2 in risultato[key])
+                    for (let key3 in risultato[key][key2])
+                        keysPrest.push(key3 + "-" + key2 + "-" +key)
+            let nonTrovati = [];
+            for (let keyD of Object.values(risultato["xxx"]))
+                for (let ricD of keyD) {
+                    let risP = includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
+                    if (risP) {
+                       let vals = risP.split("-");
+                       const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
+                       const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
+                       const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
+                       // 0-> id struttura, 1-> prest, 2 -> branca
+                       risultato[vals[2]][vals[1]][vals[0]] = {
+                           count: risultato[vals[2]][vals[1]][vals[0]].count + 1,
+                           primiAccessi: risultato[vals[2]][vals[1]][vals[0]].primiAccessi + isPrimoAccesso,
+                           altriAccessi: risultato[vals[2]][vals[1]][vals[0]].altriAccessi + isSecondoAccesso,
+                           erroriAccesso: risultato[vals[2]][vals[1]][vals[0]].erroriAccesso + erroreAccesso
+                       }
+                    }
+                    else nonTrovati.push(ricD)
+                }
+            delete risultato["xxx"];
+            if (nonTrovati.length === 0) {
+               return {errore: false}
+            }
+            else
+                return {errore: true, nonTrovati: nonTrovati}
+        }
+
         const iniziaElaborazione = async (filePath, out, struttureFilter) => {
-            console.log(filePath);
             const fileStream = fs.createReadStream(filePath);
 
             const rl = readline.createInterface({
@@ -1125,13 +1169,19 @@ export class FlussoM {
             console.log(file);
             totale+= await iniziaElaborazione(file,risultato,listaStruttureDaScartare);
         }
-        console.log("ricette elaborate" + totale);
-        console.log(risultato);
+        let problemi = risolviProblemiPrestazioni(risultato);
+        console.log("Risoluzione problemi prestazioni " + (!problemi.errore ? "OK" : "CON ERRORI"))
+        if (problemi.errore) {
+            console.log("Errori:")
+            console.log(problemi.nonTrovati)
+        }
+        console.log("Ricette totali elaborate " + totale);
 
         const workbook = new ExcelJS.Workbook();
-        let sheet = workbook.addWorksheet("VOLUMI");
+        let sheet1 = workbook.addWorksheet("VOLUMI TOTALI");
+        let sheet2 = workbook.addWorksheet("VOLUMI per IDPREST");
 
-        sheet.columns = [
+        sheet1.columns = [
             {header: 'Progressivo', key: 'progressivo'},
             {header: 'Cod. Branca', key: 'idBranca'},
             {header: 'DescrizioneBranca', key: 'descrizioneBranca'},
@@ -1144,12 +1194,41 @@ export class FlussoM {
             {header: 'Totale', key: 'totaleAccessi'}
         ];
 
+        sheet2.columns = [
+            {header: 'Cod. Branca', key: 'idBranca'},
+            {header: 'DescrizioneBranca', key: 'descrizioneBranca'},
+            {header: 'CodPrestazione', key: 'codPrest'},
+            {header: 'Descr. Prestazione', key: 'descPrest'},
+            {header: '1°Accesso', key: 'primoAccesso'},
+            {header: 'Altri Accessi', key: 'altriAccessi'},
+            {header: 'Totale', key: 'totaleAccessi'}
+        ];
+
+        let perPrestazione = {}
         for (let branca in risultato)
             if (branca !== "erroriBranche" && branca !== "erroriPrezzi") {
                 for (let prest in risultato[branca])
                     for (let strutID in risultato[branca][prest]) {
-                        console.log("branca: " + branca + " prest:" + prest + " struttura: " + strutID);
-                        sheet.insertRow(2,
+                        if (!perPrestazione.hasOwnProperty(prest))
+                            perPrestazione[prest] = {
+                                primoAccesso: 0,
+                                altriAccessi: 0,
+                                totaleAccessi:0,
+                                idBranca: parseInt(branca),
+                                descrizioneBranca: brancheMap[branca],
+                                descPrest: catalogoMap[prest].descrizione,
+                                codPrest: prest,
+                        }
+                        perPrestazione[prest] = {
+                            idBranca: perPrestazione[prest].idBranca,
+                            descrizioneBranca: perPrestazione[prest].descrizioneBranca,
+                            descPrest: perPrestazione[prest].descPrest,
+                            codPrest: perPrestazione[prest].codPrest,
+                            primoAccesso: perPrestazione[prest].primoAccesso + risultato[branca][prest][strutID].primiAccessi,
+                            altriAccessi: perPrestazione[prest].altriAccessi + (risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi),
+                            totaleAccessi: perPrestazione[prest].totaleAccessi + risultato[branca][prest][strutID].count
+                        }
+                        sheet1.insertRow(2,
                             {
                                 progressivo: "x",
                                 idBranca: parseInt(branca),
@@ -1164,9 +1243,23 @@ export class FlussoM {
                             });
                     }
             }
+        for (let prest in perPrestazione)
+        {
+            sheet2.insertRow(2,
+                {
+                    idBranca: perPrestazione[prest].idBranca,
+                    descrizioneBranca: perPrestazione[prest].descrizioneBranca,
+                    codPrest: perPrestazione[prest].codPrest,
+                    descPrest: perPrestazione[prest].descPrest,
+                    primoAccesso: perPrestazione[prest].primoAccesso,
+                    altriAccessi: perPrestazione[prest].altriAccessi,
+                    totaleAccessi: perPrestazione[prest].totaleAccessi,
+                });
+
+        }
 
         await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "VOLUMI.xlsx");
-
+        console.log("File " + this._settings.out_folder + path.sep + "VOLUMI.xlsx salvato")
 
     }
 
