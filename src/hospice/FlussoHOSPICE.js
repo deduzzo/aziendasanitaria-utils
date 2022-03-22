@@ -6,6 +6,9 @@ import { promisify } from 'util';
 import moment from "moment";
 
 export class FlussoHOSPICE {
+    /**
+     * @param {ImpostazioniFlussoHospice} settings - Settings
+     */
     constructor(settings) {
         this._settings = settings;
     }

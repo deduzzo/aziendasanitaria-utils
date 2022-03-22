@@ -24,3 +24,5 @@
   - [x] Conteggio Prestazioni
 ### Flusso Hospice
   - [x] Calcolo numero giornate di degenza
+### Flusso ARS ex FAR
+  - [x] Calcolo numero ammissioni

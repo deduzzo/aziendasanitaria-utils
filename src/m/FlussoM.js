@@ -884,7 +884,7 @@ export class FlussoM {
         let duplicati
         if (ris.errori.length === 0)
             duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(this._settings.in_folder) : this._settings.in_folder,false);
-        if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || !bloccaConDuplicati) && (ris.warning.length >0 && !bloccaConWarning)) {
+        if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || !bloccaConDuplicati) && (ris.warning.length == 0 || !bloccaConWarning)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
                 strutturePerControlloTS[value.codiceStruttura + "-" + (value.datiDaFile?.mese ?? value.mesePrevalente) + (value.datiDaFile?.anno ?? value.annoPrevalente)] =
@@ -913,7 +913,7 @@ export class FlussoM {
             console.table(duplicati?.stats || "Controllo non effettuato");
             return true;
         } else if (ris.errori.length>0) {
-            console.log("Errori rilevati")
+            console.log("Interrotto. Errori rilevati")
             console.table(ris.errori);
             console.log("Warning rilevati")
             console.table(ris.warning);
