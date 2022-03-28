@@ -994,8 +994,7 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStruttureDaScartare = [], listaPrestazioniFiltrate = []) {
-
+    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStrutture = [], listaPrestazioni = [], escludiStrutture=false, escludiPrestazioni = false) {
 
         const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
         const reader = new MDBReader(buffer);
@@ -1004,7 +1003,7 @@ export class FlussoM {
         //const prestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore).getData()
         const prestazioniBranche = reader.getTable(this._settings.flowLookDBCatalogoUnicoRegionalePrestazioneBranca).getData()
         const catalogoUnico = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale).getData()
-        const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData()
+        const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData().filter( p => p["CodiceAzienda"] === this._settings.codiceAzienda)
 
         let prestazioniBrancheMap = {}
         let catalogoMap = {}
@@ -1046,12 +1045,11 @@ export class FlussoM {
             return false;
         }
 
-        const contaPrestazioni = (riga, outt, filterStrutt = [], filterPrest = []) => {
+        const contaPrestazioni = (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs) => {
             for (const prestazione of riga.prestazioni) {
-
                 if (
-                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID) !== false) || filterPrest.length === 0) &&
-                    ((filterStrutt.length >0 && !filterStrutt.includes(prestazione.arseID)) || filterStrutt.length ===0) &&
+                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
+                    ((filterStrutt.length >0 && filterStrutt.includes(prestazione.arseID)) !== escludiSt || filterStrutt.length ===0) &&
                     ( prestazione.prestID !== "897" && prestazione.prestID !=="8901" )
                 ) {
 
@@ -1136,7 +1134,7 @@ export class FlussoM {
                 return {errore: true, nonTrovati: nonTrovati}
         }
 
-        const iniziaElaborazione = async (filePath, out, struttureFilter) => {
+        const iniziaElaborazione = async (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest) => {
             const fileStream = fs.createReadStream(filePath);
 
             const rl = readline.createInterface({
@@ -1152,7 +1150,7 @@ export class FlussoM {
 
                 if (t.progrRicetta === "99") {
                     let rt = this.#buildRicetteFromMRows(ricettaTemp);
-                    contaPrestazioni(rt, out,struttureFilter, listaPrestazioniFiltrate);
+                    contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest);
                     ricettaTemp = [];
                     i++;
                 }
@@ -1167,7 +1165,7 @@ export class FlussoM {
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await iniziaElaborazione(file,risultato,listaStruttureDaScartare);
+            totale+= await iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni);
         }
         let problemi = risolviProblemiPrestazioni(risultato);
         console.log("Risoluzione problemi prestazioni " + (!problemi.errore ? "OK" : "CON ERRORI"))
