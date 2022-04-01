@@ -5,9 +5,10 @@ import * as xml2js from "xml2js";
 import { promisify } from 'util';
 import moment from "moment";
 
+
 export class FlussoHOSPICE {
     /**
-     * @param {ImpostazioniFlussoHospice} settings - Settings
+     * @param {ImpostazioniFlussoHOSPICE} settings - Settings
      */
     constructor(settings) {
         this._settings = settings;
@@ -38,6 +39,13 @@ export class FlussoHOSPICE {
         return somma
     }
 
+    async #calcolaPazientiDaFile(file) {
+        const parser = new xml2js.Parser({attrkey: "ATTR"});
+        let xml_string = fs.readFileSync(file, "utf8");
+        const result = await promisify(parser.parseString)(xml_string);
+        return result["HspAttivita"]["Assistenza"].length;
+    }
+
     async calcolaGiornate() {
         let fileOut = {}
         let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
@@ -46,6 +54,20 @@ export class FlussoHOSPICE {
             let md5 = md5File.sync(file);
             if (!fileOut.hasOwnProperty(md5)) {
                 fileOut[md5] = await this.#calcolaGiornateDaFile(file)
+                somma+= fileOut[md5];
+            }
+        }
+        return somma;
+    }
+
+    async calcolaUtenti() {
+        let fileOut = {}
+        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
+        let somma = 0;
+        for (let file of allFiles) {
+            let md5 = md5File.sync(file);
+            if (!fileOut.hasOwnProperty(md5)) {
+                fileOut[md5] = await this.#calcolaPazientiDaFile(file)
                 somma+= fileOut[md5];
             }
         }

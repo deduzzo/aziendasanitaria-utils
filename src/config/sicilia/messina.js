@@ -11,12 +11,12 @@ const distretti = {
 
 const recapitiDistretti =
     {
-        1: ["convest.menord@asp.messina.it", "distretto.mesud@asp.messina.it"],
+        1: ["convest.menord@asp.messina.it","distretto.mesud@asp.messina.it"],
         3: ["distretto.taormina@asp.messina.it"],
-        4: ["distretto.milazzo@asp.messina.it"],
+        4: ["distretto.milazzo@asp.messina.it", "rosangela.basile@asp.messina.it"],
         5: ["distretto.lipari@asp.messina.it"],
         6: ["distretto.barcellona@asp.messina.it"],
-        7: ["distretto.patti@asp.messina.it"],
+        7: ["distretto.patti@asp.messina.it","g.catania@asp.messina.it"],
         8: ["distretto.mistretta@asp.messina.it"],
         9: ["distretto.sagata@asp.messina.it"]
     }

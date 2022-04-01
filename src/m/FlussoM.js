@@ -855,21 +855,40 @@ export class FlussoM {
         return {error: errors.length !== 0, errors: errors}
     }
 
-    async inviaMailAiDistretti(distretti, nomeFileCompleto) {
+    async inviaMailAiDistretti(distretti, meseAnno= "",mailGlobale= "",nomeFileCompleto = "CONSEGNE_GLOBALI") {
         let errors = []
-        for (let distretto of distretti) {
-            distretto = distretto.toUpperCase();
+        for (let idDistretto in distretti) {
+            console.log(this._settings.datiStruttureRegione.recapitiDistretti[idDistretto] + distretti[idDistretto].toUpperCase());
             let out = await common.inviaMail(
                 this._settings.impostazioniMail,
-                ["roberto.dedomenico@asp.messina.it","stefano.fabio@asp.messina.it"],
-                "Risultato Elaborazione FLUSSO M distretto di " + distretto,
-                "Salve, per quanto di competenza e per le opportune verifiche,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese corrente.<br />" +
+                [...this._settings.datiStruttureRegione.recapitiDistretti[idDistretto], "roberto.dedomenico@asp.messina.it"],
+                "Risultato Elaborazione FLUSSO M distretto di " + distretti[idDistretto].toUpperCase() +" " + meseAnno,
+                "Salve, per quanto di competenza e per le opportune verifiche,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese " + (meseAnno !=="" ? ("di " + meseAnno) : "corrente.") + " .<br />" +
                 "<br /><br >" +
                     "Distinti Saluti.<br />" +
                     "<i><b>De Domenico Roberto</b><br />" +
                     "Referente Flusso M</i>" +
                 "<br />",
-                [this._settings.out_folder + path.sep + distretto +".xlsx"]
+                [this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".xlsx",this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".html"]
+            );
+            if (!out.error)
+                console.log(out.messageId);
+            else
+                errors.push(out.errorTxt);
+        }
+        if (mailGlobale !== "")
+        {
+            let out = await common.inviaMail(
+                this._settings.impostazioniMail,
+                [mailGlobale, "roberto.dedomenico@asp.messina.it"],
+                "Risultato Elaborazione FLUSSO M " + meseAnno,
+                "Salve,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese " + (meseAnno !== "" ? ("di " + meseAnno) : "corrente.") + " .<br />" +
+                "<br /><br >" +
+                "Distinti Saluti.<br />" +
+                "<i><b>De Domenico Roberto</b><br />" +
+                "Referente Flusso M</i>" +
+                "<br />",
+                [this._settings.out_folder + path.sep + nomeFileCompleto +".xlsx"]
             );
             if (!out.error)
                 console.log(out.messageId);
