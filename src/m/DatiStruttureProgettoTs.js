@@ -54,7 +54,7 @@ export class DatiStruttureProgettoTs {
             console.log("loaded")
         } catch (ex) {
             out.error = true;
-            out.errortext = "Generic error";
+            out.errortext = "Generic error1";
         }
         if (!out.error)
             for (let val of Object.values(arrayStrutture)) {
@@ -62,7 +62,7 @@ export class DatiStruttureProgettoTs {
                 maxRetry = maxRetryOriginal;
                 out = {error: false, out: {}}
                 do {
-                    try {
+                    //try {
                         let map = {
                             _MESE: common.mesi[mese],
                             _ANNO: anno,
@@ -127,23 +127,31 @@ export class DatiStruttureProgettoTs {
                             let i = 3;
                             for (let branca in out.out.totali_per_branca) {
                                 await page.click("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i++ + ") > td:nth-child(8) > a");
-                                await page.waitForSelector('body > div:nth-child(5) > table:nth-child(6)');
-                                let numeroPrestazioniBranca = await page.evaluate(() => {
-                                    let num = document.querySelector("body > div:nth-child(5) > table:nth-child(13)").rows.length;
-                                    console.log("quanti " + num)
-                                    return document.querySelector("body > div:nth-child(5) > table:nth-child(13) > tbody > tr:nth-child(" + num.toString() + ") > td:nth-child(3)").innerText;
-                                });
-                                out.out.totali_per_branca[branca].numeroPrestazioni = parseInt(numeroPrestazioniBranca);
-                                numeroPrestazioni += parseInt(numeroPrestazioniBranca);
+                                await page.waitForSelector('body > div:nth-child(5) > table:nth-child(13)');
+                                await page.waitForTimeout(200);
+                                let numeroPrestazioniBranca = 0;
+                                try  {
+                                    numeroPrestazioniBranca = await page.evaluate(() => {
+                                        let num = document.querySelector("body > div:nth-child(5) > table:nth-child(13)").rows.length;
+                                        console.log("quanti " + num)
+                                        return document.querySelector("body > div:nth-child(5) > table:nth-child(13) > tbody > tr:nth-child(" + num.toString() + ") > td:nth-child(3)").innerText;
+                                    });
+                                } catch (ex) {
+                                    console.log(ex);
+                                }
+                                numeroPrestazioniBranca = parseInt(numeroPrestazioniBranca.toString().trim())
+                                out.out.totali_per_branca[branca].numeroPrestazioni = numeroPrestazioniBranca;
+                                numeroPrestazioni += numeroPrestazioniBranca;
                                 await page.goBack()
+                                await page.waitForSelector('body > div:nth-child(5) > table:nth-child(6)');
                             }
                             out.out.numeroPrestazioni = numeroPrestazioni
                             out.out.dataOra = moment().format("YYYY/MM/DD-HH:mm:ss");
                         }
-                    } catch (ex) {
+                    /*} catch (ex) {
                         out.error = true;
-                        out.errortext = "Generic error";
-                    }
+                        out.errortext = "Generic error2";
+                    }*/
                 } while (out.error && out.errortext !== "no_data" && --maxRetry > 0)
                 ris[codiceStruttura + "-" + mese + anno] = out;
                 console.log("Struttura " + codiceStruttura + " mese " + mese + " anno " + anno + " elaborata");
