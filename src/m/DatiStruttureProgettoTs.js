@@ -15,7 +15,7 @@ export class DatiStruttureProgettoTs {
         }
 
 
-    _urlProspettoContabileV1 = "https://sistemats4.sanita.finanze.it/SimossLiqV2Web/caricaDettaglioProspettiContabiliS.do?" +
+    _urlProspettoContabileV1 = "https://sistemats4.sanita.finanze.it/SimossLiqV2Web/caricaDettaglioProspettiContabiliSFatt.do?" +
         "tipoStampa=html&annoSped=<anno>&meseSped=<mese>&tipoPeriodo=s&codReg=<cod_reg>&codAsl=<cod_asl>" +
         "&tipoErogazione=tutti&tipoRicerca=&codSsa=<cod_struttura>&tutte=n&aslAccorpata=<cod_asl>"
 
