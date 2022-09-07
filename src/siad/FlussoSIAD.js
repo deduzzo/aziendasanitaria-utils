@@ -1,5 +1,7 @@
 import * as xml2js from 'xml2js'
 import fs from 'fs';
+import reader from 'xlsx';
+import path, {parse} from "path";
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -77,6 +79,65 @@ export class FlussoSIAD {
             console.log(totaleAccessi);
             console.log(totalePalliativa);
         });
+    }
+    generaFlussoRettifica(pathFile,folderOut,codRegione, codASL)
+    {
+        //objRettifica = [{chiave: xx, pic:xxx, conclusione: xxx, motivazione: xxx} .... ]
+        // Reading our test file
+        const file = reader.readFile(pathFile);
+
+        let data = [];
+
+        const sheets = file.SheetNames;
+        console.log(sheets);
+
+        for (let i = 0; i < sheets.length; i++) {
+            const temp = reader.utils.sheet_to_json(
+                file.Sheets[file.SheetNames[i]]);
+            temp.forEach((res) => {
+                data.push(res);
+            });
+        }
+        console.log(data[0]);
+
+        let outData = {};
+        for(let dato of data)
+        {
+            let annoPIC = dato["Anno Presa In Carico"];
+            let annoRivalutazione = dato["Ultima Data Rivalutazione "].length >2 ? parseInt(dato["Ultima Data Rivalutazione "].substring(0,4)) : 0;
+            let annoUltimaErogazione = dato["Ultima Data Erogazione"].length > 2 ? parseInt(dato["Ultima Data Erogazione"].substring(0,4)) : 0
+            let annoFineSospensione = dato.hasOwnProperty("Data Fine Sospensione") ? (dato["Data Fine Sospensione"].length >2 ? parseInt(dato["Data Fine Sospensione"].substring(0,4)): 0): 0;
+            let anno = Math.max(annoPIC,annoRivalutazione,annoUltimaErogazione,annoFineSospensione)
+
+            //console.log(dato);
+            let tempRiga = {Trasmissione: {$: {"tipo":"I"}},
+                Erogatore: {CodiceRegione: codRegione,CodiceASL:codASL},
+                Eventi: {
+                    PresaInCarico: {
+                        $: {"data": dato["Data  Presa In Carico"]},
+                        Id_Rec: dato["Id Record"]
+                    },
+                    Conclusione: {
+                        $: {"dataAD": anno + "-12-31"},
+                        Motivazione: 99
+                    }
+                }
+            };
+            if (!outData.hasOwnProperty(anno))
+                outData[anno] = [];
+            outData[anno].push(tempRiga);
+        }
+
+        var builder = new xml2js.Builder();
+        for (let chiave of Object.keys(outData))
+        {
+            var obj = {FlsAssDom_2: {$: {"xmlns": "http://flussi.mds.it/flsassdom_2"},Assistenza: outData[chiave]}}
+            var xml = builder.buildObject(obj);
+            fs.writeFileSync(folderOut + path.sep + chiave.toString() + ".xml", xml);
+        }
+
+        //console.log(xml);
+
     }
 
 }
