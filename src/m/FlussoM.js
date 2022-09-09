@@ -79,24 +79,7 @@ export class FlussoM {
     };
 
 
-    #mRowToJson(row,starts ){
-        var obj = {}
-        let from = 0;
-        for (let key in starts)
-        {
-            obj[key] = row.substr(from, starts[key].length).trim().toUpperCase();
-            if (starts[key].type === "date") {
-                if (moment(obj[key], "DDMMYYYY").isValid())
-                    obj[key] = moment(obj[key], "DDMMYYYY");
-            }
-            else if (starts[key].type === "double")
-                obj[key] = obj[key] === "" ? 0 : parseFloat(obj[key].replace(',', '.'));
-            else if (starts[key].type === "int")
-                obj[key] = parseInt(obj[key]);
-            from+= starts[key].length;
-        }
-        return obj;
-    };
+
 
     #calcolaNumPrestazioni (righe) {
         let quanti = 0;
@@ -293,15 +276,6 @@ export class FlussoM {
         return errors;
     }
 
-
-    #verificaLunghezzaRiga () {
-        let lunghezza = 0;
-        for (let val of Object.values(this._starts))
-            lunghezza += val.length;
-        return lunghezza;
-    }
-
-
     async #elaboraFileFlussoM(filePath) {
         console.log("Elaboro " + filePath + " ...");
         const fileStream = fs.createReadStream(filePath);
@@ -316,14 +290,14 @@ export class FlussoM {
             numPrestazioni: 0,
             totalePrestazioniCalcolate: 0
         }
-        let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
         let error = null;
         for await (const line of rl) {
             if (line.length !== lunghezzaRiga) {
                 error = i;
                 break;
             } else {
-                var t = this.#mRowToJson(line, this._starts);
+                var t =  common.mRowToJson(line, this._starts);
                 ricettaTemp.push(t);
                 if (t.progrRicetta === "99") {
                     var rt = this.#buildRicetteFromMRows(ricettaTemp);
@@ -666,7 +640,7 @@ export class FlussoM {
             cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
             common.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
         }
-        let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
 
         const calcolaMeseAnnoPrestazioni = (righeRicetta) =>
         {
@@ -729,7 +703,7 @@ export class FlussoM {
                     error = i;
                     break;
                 } else {
-                    let t = this.#mRowToJson(line, this._starts);
+                    let t = common.mRowToJson(line, this._starts);
                     ricettaTempString+= (line + "\n");
                     ricettaTemp.push(t);
                     if (t.progrRicetta === "99") {
@@ -814,7 +788,7 @@ export class FlussoM {
         if (!fs.existsSync(outFolder)){
             fs.mkdirSync(outFolder, { recursive: true });
         }
-        let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
         const outputFile =nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
         var logger = fs.createWriteStream(outputFile, {
             flags: 'a' // 'a' means appending (old data will be preserved)
@@ -1002,7 +976,7 @@ export class FlussoM {
     }
 
     async verificaCorrettezzaFileMInCartella(pathCartella) {
-        let lunghezzaRiga = this.#verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
         let errors = [];
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (var file of allFiles) {
@@ -1164,7 +1138,7 @@ export class FlussoM {
             var i = 0;
             var ricettaTemp = [];
             for await (const line of rl) {
-                var t = this.#mRowToJson(line,this._starts);
+                var t =  common.mRowToJson(line, this._starts);
                 ricettaTemp.push(t);
 
                 if (t.progrRicetta === "99") {

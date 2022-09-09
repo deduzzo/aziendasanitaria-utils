@@ -2,6 +2,7 @@ import path from "path";
 import fs from 'fs';
 import * as nodemailer from "nodemailer";
 import fsExtra from 'fs-extra'
+import moment from "moment/moment.js";
 
 const mesi = {
     "01": "Gennaio",
@@ -93,6 +94,32 @@ const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) =>
     fsExtra.emptyDirSync(cartella);
 }
 
+const mRowToJson = (row,starts ) =>{
+    var obj = {}
+    let from = 0;
+    for (let key in starts)
+    {
+        obj[key] = row.substr(from, starts[key].length).trim().toUpperCase();
+        if (starts[key].type === "date") {
+            if (moment(obj[key], "DDMMYYYY").isValid())
+                obj[key] = moment(obj[key], "DDMMYYYY");
+        }
+        else if (starts[key].type === "double")
+            obj[key] = obj[key] === "" ? 0 : parseFloat(obj[key].replace(',', '.'));
+        else if (starts[key].type === "int")
+            obj[key] = parseInt(obj[key]);
+        from+= starts[key].length;
+    }
+    return obj;
+};
+
+const verificaLunghezzaRiga = (starts) => {
+    let lunghezza = 0;
+    for (let val of Object.values(starts))
+        lunghezza += val.length;
+    return lunghezza;
+}
 
 
-export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail}
+
+export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson}

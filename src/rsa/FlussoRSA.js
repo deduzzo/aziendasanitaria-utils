@@ -61,11 +61,77 @@ export class FlussoRSA {
         numeroAutorizzazione : {id: 22, length: 6, type: "string", required: true},
         dataAutorizzazione : {id: 23, length: 8, type: "date", required: true},
         modalitaDimissione : {id: 24, length: 1, type: "int", required: false},
-        dataDimissione : {id: 25, length: 8, type: "int", required: true},
+        dataDimissione : {id: 25, length: 8, type: "date", required: true},
         tariffaRSA: {id: 26, length: 6, type: "double", required: true},
         tariffaACaricoUtente: {id: 27, length: 6, type: "double", required: true},
         quotaRiscossa: {id: 28, length: 8, type: "double", required: true},
     };
+
+
+    async #elaboraFileFlussoRSA(filePath) {
+        console.log("Elaboro " + filePath + " ...");
+        const fileStream = fs.createReadStream(filePath);
+
+        const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+        var i = 0;
+        let rows = []
+        let dimissioni = {};
+        let pazienti = {};
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let error = null;
+        for await (const line of rl) {
+            if (line.length !== lunghezzaRiga) {
+                error = i;
+                break;
+            } else {
+                var t = common.mRowToJson(line, this._starts);
+                rows.push(t);
+                if (!isNaN(t.dataDimissione)) {
+                    if (!dimissioni.hasOwnProperty(t.cf)) {
+                        dimissioni[t.cf] = 1;
+                    } else
+                        dimissioni[t.cf] = dimissioni[t.cf] + 1;
+                }
+                if (!pazienti.hasOwnProperty(t.cf))
+                    pazienti[t.cf] = [t];
+                else
+                    pazienti[t.cf].push(t);
+                i++;
+            }
+        }
+        if (error === null) {
+            return {
+                nomeFile: path.basename(filePath),
+                datiDaFile: rows,
+                absolutePath: filePath,
+                hash: md5File.sync(filePath),
+                numeroDimissioni: Object.keys(dimissioni).length,
+                dimissioni: dimissioni,
+                numeroPazienti:  Object.keys(pazienti).length,
+                pazienti: pazienti,
+                numeroRighe: i,
+            }
+
+        } else
+            return {
+                error: true,
+                rowError: i + 1,
+                nomeFile: path.basename(filePath),
+                absolutePath: filePath,
+                hash: md5File.sync(filePath)
+            }
+    }
+
+
+
+    async elaboraDegenti() {
+        let files = common.getAllFilesRecursive(this._settings.in_folder, ".txt", "RSA")
+        console.log(files.length)
+        for (let file of files) {
+            let out = await this.#elaboraFileFlussoRSA(file)
+            console.log(out);
+        }
+    }
 
 
 }
