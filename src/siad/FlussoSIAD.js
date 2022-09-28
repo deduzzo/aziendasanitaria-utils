@@ -2,6 +2,7 @@ import * as xml2js from 'xml2js'
 import fs from 'fs';
 import reader from 'xlsx';
 import path, {parse} from "path";
+import moment from 'moment';
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -80,7 +81,8 @@ export class FlussoSIAD {
             console.log(totalePalliativa);
         });
     }
-    generaFlussoRettifica(pathFile,folderOut,codRegione, codASL)
+
+    generaFlussoRettificaChiusure(pathFile,folderOut,codRegione, codASL)
     {
         //objRettifica = [{chiave: xx, pic:xxx, conclusione: xxx, motivazione: xxx} .... ]
         // Reading our test file
@@ -134,6 +136,128 @@ export class FlussoSIAD {
             var obj = {FlsAssDom_2: {$: {"xmlns": "http://flussi.mds.it/flsassdom_2"},Assistenza: outData[chiave]}}
             var xml = builder.buildObject(obj);
             fs.writeFileSync(folderOut + path.sep + chiave.toString() + ".xml", xml);
+        }
+
+        //console.log(xml);
+
+    }
+
+    generaFlussoRettificaCancellazione(pathFile,folderOut,codRegione, codASL)
+    {
+        const file = reader.readFile(pathFile);
+
+        let data = [];
+
+        const sheets = file.SheetNames;
+        console.log(sheets);
+
+        for (let i = 0; i < sheets.length; i++) {
+            const temp = reader.utils.sheet_to_json(
+                file.Sheets[file.SheetNames[i]]);
+            temp.forEach((res) => {
+                data.push(res);
+            });
+        }
+        console.log(data[0]);
+
+        let outData = {};
+        for(let dato of data)
+        {
+            let annoPIC = dato["Anno Presa In Carico"];
+            let annoUltimaErogazione = dato["Ultima Data Erogazione"].length > 2 ? dato["Ultima Data Erogazione"].substring(0,4) : "0"
+            let mesePic = dato["Data  Presa In Carico"].length > 2 ? dato["Data  Presa In Carico"].substring(5,7) : "0"
+            if (mesePic.length === 1) mesePic = "0" + mesePic;
+            //console.log(dato);
+            let tempRiga = {Trasmissione: {$: {"tipo":"C"}},
+                Assistito: {
+                    DatiAnagrafici: {
+                        CUNI:  dato["Id Record"].substring(16,32),
+                        validitaCI: 0,
+                        tipologiaCI: 0,
+                        AnnoNascita: 1950,
+                        Genere: 2,
+                        Cittadinanza: "IT",
+                        StatoCivile: 1,
+                        Residenza: {
+                            Regione: codRegione,
+                            ASL: codASL,
+                            Comune: "000000"
+                        },
+                    }
+                },
+                Conviventi: {
+                    NucleoFamiliare: 0,
+                    AssistenteNonFamiliare: 1,
+                },
+                Erogatore: {CodiceRegione: codRegione,CodiceASL:codASL},
+                Eventi: {
+                    PresaInCarico: {
+                        $: {"data": dato["Data  Presa In Carico"], "soggettoRichiedente": 2},
+                        Id_Rec: dato["Id Record"]
+                    },
+                    Valutazione: {
+                        $: {"data": dato["Data  Presa In Carico"]},
+                        Patologia: {
+                            Prevalente: "000",
+                            Concomitante: "000",
+                        },
+                        Anatomia: 0,
+                        GradoMobilita: 0,
+                        Disturbi: {
+                            Cognitivi: 0,
+                            Comportamentali: 0
+                        },
+                        SupportoSociale: 0,
+                        RischioInfettivo: 0,
+                        DrenaggioPosturale: 0,
+                        OssigenoTerapia: 0,
+                        Ventiloterapia: 0,
+                        Tracheostomia: 0,
+                        Alimentazione: {
+                            Assistita: 0,
+                            Enterale: 0,
+                            Parenterale: 0
+                        },
+                        GestioneStomia: 0,
+                        ElimiUrinariaIntestinale: 0,
+                        AlterRitmoSonnoVeglia: 0,
+                        IntEduTerapeutica: 0,
+                        CuraUlcereCutanee12Grado: 0,
+                        CuraUlcereCutanee34Grado: 0,
+                        PrelieviVenosiNonOcc: 0,
+                        ECG: 0,
+                        Telemetria: 0,
+                        TerSottocutIntraMuscInfus: 0,
+                        GestioneCatetere: 0,
+                        Trasfusioni: 0,
+                        ControlloDolore: 0,
+                        AssistStatoTerminaleOnc: 0,
+                        AssistStatoTerminaleNonOnc: 0,
+                        TrattamentiRiab: {
+                            Neurologico: 0,
+                            Ortopedico: 0,
+                            DiMantenimento: 0
+                        },
+                        SupervisioneContinua: 0,
+                        AssistenzaIADL: 0,
+                        AssistenzaADL: 0,
+                        SupportoCareGiver: 0
+                    }
+                }
+            };
+            if (annoUltimaErogazione == "0") {
+                if (!outData.hasOwnProperty(annoPIC+ "_" + mesePic))
+                    outData[annoPIC+ "_" + mesePic] = [];
+                outData[annoPIC+ "_" + mesePic].push(tempRiga);
+            }
+        }
+
+        var builder = new xml2js.Builder();
+        for (let chiave of Object.keys(outData))
+        {
+            var obj = {FlsAssDom_1: {$: {"xmlns": "http://flussi.mds.it/flsassdom_1"},Assistenza: outData[chiave]}}
+            var xml = builder.buildObject(obj);
+            fs.writeFileSync(folderOut + path.sep + codRegione + codASL + "_000_" + chiave.substring(0,4) + "_" + chiave.substring(5,7) +"_SIAD_AAD_al_" + moment().date() + "_" + ((moment().month() +1) <10 ? ("0" + (moment().month() +1)) : (moment().month() +1)) + "_" + moment().year() +   ".xml", xml);
         }
 
         //console.log(xml);
