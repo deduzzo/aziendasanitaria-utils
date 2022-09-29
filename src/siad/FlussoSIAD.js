@@ -198,50 +198,50 @@ export class FlussoSIAD {
                     Valutazione: {
                         $: {"data": dato["Data  Presa In Carico"]},
                         Patologia: {
-                            Prevalente: "000",
-                            Concomitante: "000",
+                            Prevalente: "715",
+                            Concomitante: "437",
                         },
-                        Anatomia: 0,
-                        GradoMobilita: 0,
+                        Autonomia: 2,
+                        GradoMobilita: 2,
                         Disturbi: {
-                            Cognitivi: 0,
-                            Comportamentali: 0
+                            Cognitivi: 3,
+                            Comportamentali: 1
                         },
-                        SupportoSociale: 0,
-                        RischioInfettivo: 0,
-                        DrenaggioPosturale: 0,
-                        OssigenoTerapia: 0,
-                        Ventiloterapia: 0,
-                        Tracheostomia: 0,
+                        SupportoSociale: 1,
+                        RischioInfettivo: 2,
+                        DrenaggioPosturale: 2,
+                        OssigenoTerapia: 2,
+                        Ventiloterapia: 2,
+                        Tracheostomia: 2,
                         Alimentazione: {
-                            Assistita: 0,
-                            Enterale: 0,
-                            Parenterale: 0
+                            Assistita: 2,
+                            Enterale: 2,
+                            Parenterale: 2
                         },
-                        GestioneStomia: 0,
-                        ElimiUrinariaIntestinale: 0,
-                        AlterRitmoSonnoVeglia: 0,
-                        IntEduTerapeutica: 0,
-                        CuraUlcereCutanee12Grado: 0,
-                        CuraUlcereCutanee34Grado: 0,
-                        PrelieviVenosiNonOcc: 0,
-                        ECG: 0,
-                        Telemetria: 0,
-                        TerSottocutIntraMuscInfus: 0,
-                        GestioneCatetere: 0,
-                        Trasfusioni: 0,
-                        ControlloDolore: 0,
-                        AssistStatoTerminaleOnc: 0,
-                        AssistStatoTerminaleNonOnc: 0,
+                        GestioneStomia: 2,
+                        ElimiUrinariaIntestinale: 2,
+                        AlterRitmoSonnoVeglia: 2,
+                        IntEduTerapeutica: 2,
+                        CuraUlcereCutanee12Grado: 2,
+                        CuraUlcereCutanee34Grado: 2,
+                        PrelieviVenosiNonOcc: 2,
+                        ECG: 2,
+                        Telemetria: 2,
+                        TerSottocutIntraMuscInfus: 2,
+                        GestioneCatetere: 2,
+                        Trasfusioni: 2,
+                        ControlloDolore: 2,
+                        AssistStatoTerminaleOnc: 2,
+                        AssistStatoTerminaleNonOnc: 2,
                         TrattamentiRiab: {
-                            Neurologico: 0,
-                            Ortopedico: 0,
-                            DiMantenimento: 0
+                            Neurologico: 2,
+                            Ortopedico: 2,
+                            DiMantenimento: 1
                         },
-                        SupervisioneContinua: 0,
-                        AssistenzaIADL: 0,
-                        AssistenzaADL: 0,
-                        SupportoCareGiver: 0
+                        SupervisioneContinua: 2,
+                        AssistenzaIADL: 1,
+                        AssistenzaADL: 1,
+                        SupportoCareGiver: 2
                     }
                 }
             };
