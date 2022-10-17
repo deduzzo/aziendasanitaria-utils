@@ -1,5 +1,5 @@
 import moment from 'moment';
-import path  from 'path';
+import path, {parse} from 'path';
 import readline from 'readline';
 import md5File from 'md5-file';
 import fs from 'fs';
@@ -290,6 +290,7 @@ export class FlussoM {
             numPrestazioni: 0,
             totalePrestazioniCalcolate: 0
         }
+        let prestMap = {}
         let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
         let error = null;
         for await (const line of rl) {
@@ -305,6 +306,7 @@ export class FlussoM {
                     ricette[rt.id] = rt;
                     totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
                     totale.numPrestazioni = totale.numPrestazioni + rt.numPrestazioni;
+                    this.#calcolaTotaliPrestazioni(rt.prestazioni, prestMap)
                     totale.totale = totale.totale + rt.totale;
                     totale.ticket = totale.ticket + rt.totaleTicket;
                     ricettaTemp = [];
@@ -313,6 +315,7 @@ export class FlussoM {
             }
         }
         if (error === null) {
+            totale.prestazioniMap = prestMap;
             totale.totalePrestazioniCalcolate = parseFloat(totale.totalePrestazioniCalcolate.toFixed(2));
             totale.totale = parseFloat(totale.totale.toFixed(2));
             totale.ticket = parseFloat(totale.ticket.toFixed(2));
@@ -329,6 +332,7 @@ export class FlussoM {
                 numPrestazioni: totale.numPrestazioni,
                 totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
                 calcolaPrestazioniPerMese: calcolaPrestazioniPerMese,
+                prestazioni: totale.prestazioniMap,
                 numeroRighe: i,
                 numeroRicette: Object.values(ricette).length,
                 ricette: ricette,
@@ -342,6 +346,24 @@ export class FlussoM {
                 absolutePath: filePath,
                 hash: md5File.sync(filePath)
             }
+    }
+    #calcolaTotaliPrestazioni (allPrest,mapPrest) {
+        for (let prest of allPrest) {
+            let key = prest.dataErog.year().toString() + ((prest.dataErog.month() + 1).toString().length === 1 ? ("0" + (prest.dataErog.month() + 1).toString()) : (prest.dataErog.month() + 1).toString());
+
+            if (!mapPrest.hasOwnProperty(key))
+                mapPrest[key] = {}
+
+            if (mapPrest[key].hasOwnProperty(prest.prestID)) {
+                mapPrest[key][prest.prestID].num = mapPrest[key][prest.prestID].num + prest.quant;
+                mapPrest[key][prest.prestID].totale = parseFloat((mapPrest[key][prest.prestID].totale + (prest.totale * prest.quant)).toFixed(2));
+            } else {
+                mapPrest[key][prest.prestID] = {}
+                mapPrest[key][prest.prestID].num = prest.quant;
+                mapPrest[key][prest.prestID].totale = parseFloat((prest.totale * prest.quant).toFixed(2));
+            }
+        }
+        return mapPrest;
     }
 
     #controllaNomeFileFlussoM (nome) {
@@ -1029,138 +1051,15 @@ export class FlussoM {
 
         })
 
-        const includePrest = (elencoPrestazioni, prest, invert = false) => {
-            for (let p of elencoPrestazioni)
-                if (prest.startsWith(p) && !invert)
-                    return p;
-                else if (p.startsWith(prest) && invert)
-                    return p;
-            return false;
-        }
-
-        const contaPrestazioni = (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs) => {
-            for (const prestazione of riga.prestazioni) {
-                if (
-                    ((filterPrest.length > 0 && includePrest(filterPrest,prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
-                    ((filterStrutt.length >0 && filterStrutt.includes(prestazione.arseID)) !== escludiSt || filterStrutt.length ===0) &&
-                    ( prestazione.prestID !== "897" && prestazione.prestID !=="8901" )
-                ) {
-
-                    if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
-                        if (!outt.hasOwnProperty("erroriBranche"))
-                            outt.erroriBranche = []
-                        outt.erroriBranche.push(prestazione)
-                        prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
-                    }
-                    if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
-                    {
-                        if (!outt.hasOwnProperty("erroriPrezzi"))
-                            outt.erroriPrezzi = []
-                        outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
-                    }
-
-                    const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
-                    const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
-                    const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
-
-                    if (!outt.hasOwnProperty(prestazione.brancaID))
-                        outt[prestazione.brancaID] = {}
-                    if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
-                        outt[prestazione.brancaID][prestazione.prestID] = {}
-                    if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID))
-                        outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
-                            count: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + 1,
-                            primiAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso,
-                            altriAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso,
-                            erroriAccesso: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso
-                        }
-                    else
-                        outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
-                            count: prestazione.quant,
-                            primiAccessi: isPrimoAccesso,
-                            altriAccessi: isSecondoAccesso,
-                            erroriAccesso: erroreAccesso
-                        }
-                }
-                else if (prestazione.prestID === "897" || prestazione.prestID ==="8901")
-                {
-                    prestazione.tipoAccesso = riga.riga99.tipoAccesso;
-                    if (!outt.hasOwnProperty("xxx"))
-                        outt["xxx"] = {};
-                    if (!outt["xxx"].hasOwnProperty(prestazione.prestID))
-                        outt["xxx"][prestazione.prestID] = []
-                    outt["xxx"][prestazione.prestID].push(prestazione);
-                }
-            }
-        }
-
-        const risolviProblemiPrestazioni = (risultato) => {
-            let keysPrest = []
-            for (let key in risultato)
-                for (let key2 in risultato[key])
-                    for (let key3 in risultato[key][key2])
-                        keysPrest.push(key3 + "-" + key2 + "-" +key)
-            let nonTrovati = [];
-            for (let keyD of Object.values(risultato["xxx"]))
-                for (let ricD of keyD) {
-                    let risP = includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
-                    if (risP) {
-                       let vals = risP.split("-");
-                       const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
-                       const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
-                       const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
-                       // 0-> id struttura, 1-> prest, 2 -> branca
-                       risultato[vals[2]][vals[1]][vals[0]] = {
-                           count: risultato[vals[2]][vals[1]][vals[0]].count + 1,
-                           primiAccessi: risultato[vals[2]][vals[1]][vals[0]].primiAccessi + isPrimoAccesso,
-                           altriAccessi: risultato[vals[2]][vals[1]][vals[0]].altriAccessi + isSecondoAccesso,
-                           erroriAccesso: risultato[vals[2]][vals[1]][vals[0]].erroriAccesso + erroreAccesso
-                       }
-                    }
-                    else nonTrovati.push(ricD)
-                }
-            delete risultato["xxx"];
-            if (nonTrovati.length === 0) {
-               return {errore: false}
-            }
-            else
-                return {errore: true, nonTrovati: nonTrovati}
-        }
-
-        const iniziaElaborazione = async (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest) => {
-            const fileStream = fs.createReadStream(filePath);
-
-            const rl = readline.createInterface({
-                input: fileStream,
-                crlfDelay: Infinity
-            });
-
-            var i = 0;
-            var ricettaTemp = [];
-            for await (const line of rl) {
-                var t =  common.mRowToJson(line, this._starts);
-                ricettaTemp.push(t);
-
-                if (t.progrRicetta === "99") {
-                    let rt = this.#buildRicetteFromMRows(ricettaTemp);
-                    contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest);
-                    ricettaTemp = [];
-                    i++;
-                }
-            }
-            console.log("ricette elaborate nel file nel file:" + i);
-            return i;
-        };
-
         let risultato = {}
         let totale = 0;
 
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni);
+            totale+= await this.#iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni);
         }
-        let problemi = risolviProblemiPrestazioni(risultato);
+        let problemi = this.#risolviProblemiPrestazioni(risultato);
         console.log("Risoluzione problemi prestazioni " + (!problemi.errore ? "OK" : "CON ERRORI"))
         if (problemi.errore) {
             console.log("Errori:")
@@ -1255,8 +1154,137 @@ export class FlussoM {
     }
 
 
+
+
+    #includePrest (elencoPrestazioni, prest, invert = false) {
+        for (let p of elencoPrestazioni)
+            if (prest.startsWith(p) && !invert)
+                return p;
+            else if (p.startsWith(prest) && invert)
+                return p;
+        return false;
+    }
+
+    #contaPrestazioni (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs) {
+        for (const prestazione of riga.prestazioni) {
+            if (
+                ((filterPrest.length > 0 && this.#includePrest(filterPrest,prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
+                ((filterStrutt.length >0 && filterStrutt.includes(prestazione.arseID)) !== escludiSt || filterStrutt.length ===0) &&
+                ( prestazione.prestID !== "897" && prestazione.prestID !=="8901" )
+            ) {
+
+                if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
+                    if (!outt.hasOwnProperty("erroriBranche"))
+                        outt.erroriBranche = []
+                    outt.erroriBranche.push(prestazione)
+                    prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
+                }
+                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
+                {
+                    if (!outt.hasOwnProperty("erroriPrezzi"))
+                        outt.erroriPrezzi = []
+                    outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
+                }
+
+                const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
+                const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
+                const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
+
+                if (!outt.hasOwnProperty(prestazione.brancaID))
+                    outt[prestazione.brancaID] = {}
+                if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
+                    outt[prestazione.brancaID][prestazione.prestID] = {}
+                if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID))
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
+                        count: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + 1,
+                        primiAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso,
+                        altriAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso,
+                        erroriAccesso: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso
+                    }
+                else
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
+                        count: prestazione.quant,
+                        primiAccessi: isPrimoAccesso,
+                        altriAccessi: isSecondoAccesso,
+                        erroriAccesso: erroreAccesso
+                    }
+            }
+            else if (prestazione.prestID === "897" || prestazione.prestID ==="8901")
+            {
+                prestazione.tipoAccesso = riga.riga99.tipoAccesso;
+                if (!outt.hasOwnProperty("xxx"))
+                    outt["xxx"] = {};
+                if (!outt["xxx"].hasOwnProperty(prestazione.prestID))
+                    outt["xxx"][prestazione.prestID] = []
+                outt["xxx"][prestazione.prestID].push(prestazione);
+            }
+        }
+    }
+
+
+
+    async #iniziaElaborazione (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest) {
+        const fileStream = fs.createReadStream(filePath);
+
+        const rl = readline.createInterface({
+            input: fileStream,
+            crlfDelay: Infinity
+        });
+
+        var i = 0;
+        var ricettaTemp = [];
+        for await (const line of rl) {
+            var t =  common.mRowToJson(line, this._starts);
+            ricettaTemp.push(t);
+
+            if (t.progrRicetta === "99") {
+                let rt = this.#buildRicetteFromMRows(ricettaTemp);
+                this.#contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest);
+                ricettaTemp = [];
+                i++;
+            }
+        }
+        console.log("ricette elaborate nel file nel file:" + i);
+        return i;
+    };
+
+
+    #risolviProblemiPrestazioni (risultato) {
+        let keysPrest = []
+        for (let key in risultato)
+            for (let key2 in risultato[key])
+                for (let key3 in risultato[key][key2])
+                    keysPrest.push(key3 + "-" + key2 + "-" +key)
+        let nonTrovati = [];
+        for (let keyD of Object.values(risultato["xxx"]))
+            for (let ricD of keyD) {
+                let risP = this.#includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
+                if (risP) {
+                    let vals = risP.split("-");
+                    const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
+                    const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
+                    const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
+                    // 0-> id struttura, 1-> prest, 2 -> branca
+                    risultato[vals[2]][vals[1]][vals[0]] = {
+                        count: risultato[vals[2]][vals[1]][vals[0]].count + 1,
+                        primiAccessi: risultato[vals[2]][vals[1]][vals[0]].primiAccessi + isPrimoAccesso,
+                        altriAccessi: risultato[vals[2]][vals[1]][vals[0]].altriAccessi + isSecondoAccesso,
+                        erroriAccesso: risultato[vals[2]][vals[1]][vals[0]].erroriAccesso + erroreAccesso
+                    }
+                }
+                else nonTrovati.push(ricD)
+            }
+        delete risultato["xxx"];
+        if (nonTrovati.length === 0) {
+            return {errore: false}
+        }
+        else
+            return {errore: true, nonTrovati: nonTrovati}
+    }
+
+
     async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE] ) {
-        let strutture = this.#loadStruttureFromFlowlookDB();
+        const strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
         for (let file of files) {
@@ -1348,6 +1376,63 @@ export class FlussoM {
             }
         }
         for (let tab of cosaGenerare) {
+            for (let dato in outData[tab]) {
+                sheets[tab].insertRow(2, outData[tab][dato]);
+            }
+        }
+
+        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile);
+        console.log(error)
+    }
+
+
+    async generaReportPrestazioni(anno,strutture = []) {
+        //let strutture = this.#loadStruttureFromFlowlookDB();
+        let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        let tabs = {
+            1: '1 - Gennaio', 2: '2 - Febbraio', 3: '3 - Marzo', 4: '4 - Aprile', 5: '5 - Maggio', 6:'6 - Giugno',
+            7: '7 - Luglio', 8: '8 - Agosto', 9: '9 - Settembre', 10: '10 - Ottobre', 11: '11 - Novembre', 12: '12 - Dicembre'
+        }
+        let data = [];
+        for (let file of files) {
+            let rawdata = fs.readFileSync(file);
+            let dati = JSON.parse(rawdata);
+            data.push(dati)
+        }
+
+        const workbook = new ExcelJS.Workbook();
+        let sheets = [];
+
+        for (let sheet of Object.values(tabs)) {
+            sheets[sheet] = workbook.addWorksheet(sheet);
+                sheets[sheet].columns = [
+                    {header: 'Id Struttura', key: 'id'},
+                    {header: 'Prestazione', key: 'idPrest'},
+                    {header: 'Branca', key: 'idBranca'},
+                    {header: 'totale', key: 'totalePrest'},
+                    {header: 'importo', key: 'importo'},
+                ];
+        }
+
+        //const cell = worksheet.getCell('C3');
+        //cell.value = new Date(1968, 5, 1);
+
+        let error = [];
+        let outData = {}
+        let prestazioniMap = {}
+        for (let file of data) {
+            if (prestazioniMap.hasOwnProperty(file.codiceStruttura))
+                prestazioniMap[file.codiceStruttura] ={}
+            const validKeys = Object.keys(file.prestazioni).filter(k => k.startsWith(anno.toString()));
+            for (let key of validKeys)
+            {
+                const prestMese =
+            }
+            console.log(file);
+        }
+
+
+        for (let tab of Object.values(tabs)) {
             for (let dato in outData[tab]) {
                 sheets[tab].insertRow(2, outData[tab][dato]);
             }
