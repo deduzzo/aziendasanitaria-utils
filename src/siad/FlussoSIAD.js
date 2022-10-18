@@ -101,33 +101,46 @@ export class FlussoSIAD {
             });
         }
         console.log(data[0]);
-
+        let i = 0 ;
+        let k = 0;
+        let a2021 = 0;
         let outData = {};
+        let chiavi = {}
         for(let dato of data)
         {
-            let annoPIC = dato["Anno Presa In Carico"];
-            let annoRivalutazione = dato["Ultima Data Rivalutazione "].length >2 ? parseInt(dato["Ultima Data Rivalutazione "].substring(0,4)) : 0;
-            let annoUltimaErogazione = dato["Ultima Data Erogazione"].length > 2 ? parseInt(dato["Ultima Data Erogazione"].substring(0,4)) : 0
-            let annoFineSospensione = dato.hasOwnProperty("Data Fine Sospensione") ? (dato["Data Fine Sospensione"].length >2 ? parseInt(dato["Data Fine Sospensione"].substring(0,4)): 0): 0;
-            let anno = Math.max(annoPIC,annoRivalutazione,annoUltimaErogazione,annoFineSospensione)
-
-            //console.log(dato);
-            let tempRiga = {Trasmissione: {$: {"tipo":"I"}},
-                Erogatore: {CodiceRegione: codRegione,CodiceASL:codASL},
-                Eventi: {
-                    PresaInCarico: {
-                        $: {"data": dato["Data  Presa In Carico"]},
-                        Id_Rec: dato["Id Record"]
-                    },
-                    Conclusione: {
-                        $: {"dataAD": anno + "-12-31"},
-                        Motivazione: 99
-                    }
+            if (dato["Data Conclusione"].startsWith("--")) {
+                let annoPIC = parseInt(dato["Anno Presa In Carico"]);
+                let annoRivalutazione = !dato["Ultima Data Rivalutazione "].startsWith("--") ? parseInt(dato["Ultima Data Rivalutazione "].substring(0, 4)) : annoPIC;
+                let annoUltimaErogazione = !dato["Ultima Data Erogazione"].startsWith("--") ? parseInt(dato["Ultima Data Erogazione"].substring(0, 4)) : annoPIC
+                let annoFineSospensione = dato.hasOwnProperty("Data Fine Sospensione") ? (!dato["Data Fine Sospensione"].startsWith("--") ? parseInt(dato["Data Fine Sospensione"].substring(0, 4)) : 0) : annoPIC;
+                let anno = Math.max(annoPIC, annoRivalutazione, annoUltimaErogazione, annoFineSospensione)
+                if (anno >2013 && anno <2022) {
+                    console.log("Elaboro record " + ++i)
+                    if (anno === 2021) a2021 ++;
+                    //console.log(dato);
+                    let tempRiga = {
+                        Trasmissione: {$: {"tipo": "I"}},
+                        Erogatore: {CodiceRegione: codRegione, CodiceASL: codASL},
+                        Eventi: {
+                            PresaInCarico: {
+                                $: {"data": dato["Data  Presa In Carico"]},
+                                Id_Rec: dato["Id Record"]
+                            },
+                            Conclusione: {
+                                $: {"dataAD": anno + "-12-31"},
+                                Motivazione: 99
+                            }
+                        }
+                    };
+                    if (!outData.hasOwnProperty(anno))
+                        outData[anno] = [];
+                    outData[anno].push(tempRiga);
                 }
-            };
-            if (!outData.hasOwnProperty(anno))
-                outData[anno] = [];
-            outData[anno].push(tempRiga);
+                else
+                    console.log("Record non elaborato " + ++k)
+            }
+            else
+                console.log("Record non elaborato " + ++k)
         }
 
         var builder = new xml2js.Builder();
@@ -135,9 +148,10 @@ export class FlussoSIAD {
         {
             var obj = {FlsAssDom_2: {$: {"xmlns": "http://flussi.mds.it/flsassdom_2"},Assistenza: outData[chiave]}}
             var xml = builder.buildObject(obj);
-            fs.writeFileSync(folderOut + path.sep + chiave.toString() + ".xml", xml);
+            fs.writeFileSync(folderOut + path.sep + codRegione + codASL + "_000_" + chiave.substring(0,4) + "_12_SIAD_APS_al_" + moment().date() + "_" + ((moment().month() +1) <10 ? ("0" + (moment().month() +1)) : (moment().month() +1)) + "_" + moment().year() +   ".xml", xml);
         }
-
+        console.log("Chiusi: " + i + " - Non elaborati: " + k )
+        console.log("2021: " + a2021)
         //console.log(xml);
 
     }
@@ -165,6 +179,7 @@ export class FlussoSIAD {
         {
             let annoPIC = dato["Anno Presa In Carico"];
             let annoUltimaErogazione = dato["Ultima Data Erogazione"].length > 2 ? dato["Ultima Data Erogazione"].substring(0,4) : "0"
+            let dataConclusione = dato["Data Conclusione"].length > 2 ? dato["Data Conclusione"] : "0"
             let mesePic = dato["Data  Presa In Carico"].length > 2 ? dato["Data  Presa In Carico"].substring(5,7) : "0"
             if (mesePic.length === 1) mesePic = "0" + mesePic;
             //console.log(dato);
@@ -245,7 +260,7 @@ export class FlussoSIAD {
                     }
                 }
             };
-            if (annoUltimaErogazione == "0") {
+            if (annoUltimaErogazione === "0") {
                 if (!outData.hasOwnProperty(annoPIC+ "_" + mesePic))
                     outData[annoPIC+ "_" + mesePic] = [];
                 outData[annoPIC+ "_" + mesePic].push(tempRiga);

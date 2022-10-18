@@ -1426,7 +1426,8 @@ export class FlussoM {
             const validKeys = Object.keys(file.prestazioni).filter(k => k.startsWith(anno.toString()));
             for (let key of validKeys)
             {
-                const prestMese =
+                const prestMese = null;
+                // da continuare
             }
             console.log(file);
         }
