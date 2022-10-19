@@ -1386,8 +1386,7 @@ export class FlussoM {
     }
 
 
-    async generaReportPrestazioni(anno,strutture = []) {
-        //let strutture = this.#loadStruttureFromFlowlookDB();
+    async generaReportPrestazioni(anno,struttureFilter = [], fileUnico = false) {
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let tabs = {
             1: '1 - Gennaio', 2: '2 - Febbraio', 3: '3 - Marzo', 4: '4 - Aprile', 5: '5 - Maggio', 6:'6 - Giugno',
@@ -1400,46 +1399,119 @@ export class FlussoM {
             data.push(dati)
         }
 
-        const workbook = new ExcelJS.Workbook();
-        let sheets = [];
-
-        for (let sheet of Object.values(tabs)) {
-            sheets[sheet] = workbook.addWorksheet(sheet);
-                sheets[sheet].columns = [
-                    {header: 'Id Struttura', key: 'id'},
-                    {header: 'Prestazione', key: 'idPrest'},
-                    {header: 'Branca', key: 'idBranca'},
-                    {header: 'totale', key: 'totalePrest'},
-                    {header: 'importo', key: 'importo'},
-                ];
-        }
 
         //const cell = worksheet.getCell('C3');
         //cell.value = new Date(1968, 5, 1);
 
         let error = [];
-        let outData = {}
         let prestazioniMap = {}
         for (let file of data) {
-            if (prestazioniMap.hasOwnProperty(file.codiceStruttura))
+            if (!prestazioniMap.hasOwnProperty(file.codiceStruttura))
                 prestazioniMap[file.codiceStruttura] ={}
-            const validKeys = Object.keys(file.prestazioni).filter(k => k.startsWith(anno.toString()));
+            // solo se si considera il fatturato
+            //const validKeys = Object.keys(file.prestazioni).filter(k => k.startsWith(anno.toString()));
+            const validKeys = Object.keys(file.prestazioni);
             for (let key of validKeys)
             {
-                const prestMese = null;
-                // da continuare
+                // solo se si considera il fatturato
+                //let kt = parseInt(key.substring(4,6));
+                let kt = parseInt(file.datiDaFile.mese);
+                if (!prestazioniMap[file.codiceStruttura].hasOwnProperty(kt))
+                    prestazioniMap[file.codiceStruttura][kt] = file.prestazioni[key];
+                else
+                    for (let pkey in file.prestazioni[key])
+                    {
+                        if (!prestazioniMap[file.codiceStruttura][kt].hasOwnProperty(pkey))
+                            prestazioniMap[file.codiceStruttura][kt][pkey] = file.prestazioni[key][pkey];
+                        else {
+                            prestazioniMap[file.codiceStruttura][kt][pkey].num = prestazioniMap[file.codiceStruttura][kt][pkey].num + file.prestazioni[key][pkey].num;
+                            prestazioniMap[file.codiceStruttura][kt][pkey].totale = prestazioniMap[file.codiceStruttura][kt][pkey].totale + file.prestazioni[key][pkey].totale;
+                        }
+                    }
             }
-            console.log(file);
         }
 
+        const strutture = this.#loadStruttureFromFlowlookDB();
 
-        for (let tab of Object.values(tabs)) {
-            for (let dato in outData[tab]) {
-                sheets[tab].insertRow(2, outData[tab][dato]);
+        const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
+        const reader = new MDBReader(buffer);
+
+        const branche = reader.getTable(this._settings.flowlookDBTableBranche).getData();
+        const prestazioniBranche = reader.getTable(this._settings.flowLookDBCatalogoUnicoRegionalePrestazioneBranca).getData()
+        const catalogoUnico = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale).getData()
+
+        let brancheMap = {}
+        let catalogoMap = {}
+        branche.forEach(b => brancheMap[b["IdBranca"]] = b["Descrizione"]);
+
+        let prestazioniBrancheMap = {}
+        prestazioniBranche.forEach(p=> {
+                if (!prestazioniBrancheMap.hasOwnProperty(p['CodicePrestazione']))
+                    prestazioniBrancheMap[p['CodicePrestazione']] = []
+                prestazioniBrancheMap[p['CodicePrestazione']].push(parseInt(p['CodiceBranca'].toString()));
             }
-        }
+        )
 
-        await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile);
+        catalogoUnico.forEach(p=> {
+            catalogoMap[p['CodicePrestazione']] = {descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'], tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',','.')) }
+
+            catalogoMap[p['CodicePrestazione']].branche = {toArray : [], toMap:[]}
+
+            for (let i = 1;i<5; i++)
+            {
+                if (p['Branca ' + i.toString()] !== "" && p['Branca ' + i.toString()]) {
+                    catalogoMap[p['CodicePrestazione']].branche.toArray.push(parseInt(p['Branca ' + i.toString()].toString()))
+                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({id: parseInt(p['Branca ' + i.toString()].toString()), descrizione:p['Descrizione Branca ' + i.toString()]})
+                }
+                else break;
+            }
+
+        })
+
+
+        let i = 0;
+        for (let codStr in prestazioniMap) {
+            console.log("Progresso " + ++i + " di " + Object.keys(prestazioniMap).length);
+            const workbook = new ExcelJS.Workbook()
+            let sheets= [];
+
+            for (let sheet of Object.values(tabs)) {
+                sheets[sheet] = workbook.addWorksheet(sheet);
+                sheets[sheet].columns = [
+                    {header: 'Id Struttura', key: 'id'},
+                    {header: 'Descrizione', key: 'descrStruttura'},
+                    {header: 'ID Prestazione', key: 'idPrest'},
+                    {header: 'Descr. Prest', key: 'descPrest'},
+                    {header: 'Branca', key: 'branche'},
+                    {header: 'totale', key: 'totalePrest'},
+                    {header: 'importo', key: 'importo'},
+                ];
+            }
+
+
+
+            for (let tab in tabs) {
+                for (let dato in prestazioniMap[codStr][tab]) {
+                    let brancheTxt = "";
+
+                    prestazioniBrancheMap[dato].forEach(p=> brancheTxt+= " (" + p + ") " + brancheMap[p] + " - ")
+
+                    sheets[tabs[tab]].insertRow(2,
+                        {
+                            id:codStr,
+                            descrStruttura: strutture[codStr].denominazione,
+                            idPrest: dato,
+                            descPrest: catalogoMap[dato].descrizione,
+                            branche: brancheTxt.substring(0,brancheTxt.length-3),
+                            totalePrest: prestazioniMap[codStr][tab][dato].num,
+                            importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
+                        });
+                }
+            }
+            await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + codStr + "_" + anno.toString() + ".xlsx");
+        }
+        //if (fileUnico)
+        //    await workbook.xlsx.writeFile(this._settings.out_folder + path.sep +  anno.toString() + ".xlsx");
         console.log(error)
     }
 
