@@ -865,7 +865,7 @@ export class FlussoM {
                     "<i><b>De Domenico Roberto</b><br />" +
                     "Referente Flusso M</i>" +
                 "<br />",
-                [this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".xlsx",this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".html"]
+                [this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".xlsx"]//,this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".html"]
             );
             if (!out.error)
                 console.log(out.messageId);
