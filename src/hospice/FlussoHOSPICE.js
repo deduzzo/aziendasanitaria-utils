@@ -28,14 +28,19 @@ export class FlussoHOSPICE {
         let xml_string = fs.readFileSync(file, "utf8");
         const result = await promisify(parser.parseString)(xml_string);
         let somma = 0;
-        //let out = {}
+        let out = "";
         for (let assistenza of result["HspAttivita"]["Assistenza"])
         {
             let inizio = moment(assistenza["PresaInCarico"][0]["DataRicovero"][0], "YYYY-MM-DD");
             let fine = moment(assistenza["Conclusione"][0]["DataDimissione"][0], "YYYY-MM-DD");
             let differenza = Math.round(moment.duration(fine.diff(inizio)).asDays());
-            somma+= differenza >0 ? differenza : 1;
+            let dif = differenza >0 ? differenza : 1;
+            out+= 'id: ' + assistenza["PresaInCarico"][0]["Id_Rec"][0] + ' inizio: '+ inizio.format('DD/MM/YYYY') + ' fine: '+ fine.format('DD/MM/YYYY') + ' giorni:  '+dif + '\n';
+            somma+= dif;
         }
+
+        out+= "\n\n TOTALE:" + somma;
+
         return somma
     }
 
