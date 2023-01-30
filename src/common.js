@@ -3,6 +3,7 @@ import fs from 'fs';
 import * as nodemailer from "nodemailer";
 import fsExtra from 'fs-extra'
 import moment from "moment/moment.js";
+import puppeteer from 'puppeteer';
 
 const mesi = {
     "01": "Gennaio",
@@ -120,6 +121,48 @@ const verificaLunghezzaRiga = (starts) => {
     return lunghezza;
 }
 
+const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
+    // arraystrutture: {mese, anno, codiceRegione, codiceAsl, codiceStruttura}
+    const maxRetryOriginal = 5;
+    let maxRetry = maxRetryOriginal;
+    let out = {error: false, out: {}}
+    let datiAssistito = {};
+    const browser = await puppeteer.launch({headless: false});
+    const page = await browser.newPage();
+    try {
+        await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
+        await page.type("#j_username", user);
+        await page.type("#j_password", password);
+        await page.click("#login > fieldset > input:nth-child(11)");
+        await page.waitForSelector('#dettaglio_utente')
+        console.log("loaded")
+    } catch (ex) {
+        out.error = true;
+        out.errortext = "Generic error1";
+    }
+    if (!out.error) {
+        await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
+        await page.type("body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]", user);
+        await page.click('#go');
+        await page.waitForSelector(' body > div:nth-child(12)');
+        let datiAssistito = await page.evaluate(() => {
+            let datiAssistito = {
+                'codiceFiscale': document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss59 > div").innerHTML.replaceAll('&nbsp;', '').trim(),
+                'cognome': document.querySelector("body > div:nth-child(12) > div:nth-child(5) > div.cellaAss59 > div").innerHTML.replaceAll('&nbsp;', '').trim(),
+                'nome': document.querySelector('body > div:nth-child(12) > div:nth-child(7) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').trim(),
+                'sesso': document.querySelector('body > div:nth-child(12) > div:nth-child(9) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').trim(),
+                'dataNascita': document.querySelector('body > div:nth-child(12) > div:nth-child(11) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').trim(),
+                'comuneNascita': document.querySelector('body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').trim().substring(0, document.querySelector('body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').indexOf('(') - 1),
+                'provinciaNascita': document.querySelector('body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').trim().substring(document.querySelector('body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').indexOf('(') + 1, document.querySelector('body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div').innerHTML.replaceAll('&nbsp;', '').indexOf(')'))
+            };
+            return datiAssistito;
+        });
+        console.log(datiAssistito);
+        await browser.close()
+    }
+    return datiAssistito;
+}
 
 
-export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson}
+
+export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson,ottieniDatiAssistito}

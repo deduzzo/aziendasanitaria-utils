@@ -39,6 +39,13 @@ export class FlussoARSFAR {
         return risp;
     }
 
+    async #estrapolaDatiDaFileACC (file) {
+        let out = {}
+        const parser = new xml2js.Parser({attrkey: "ATTR"});
+        let xml_string = fs.readFileSync(file, "utf8");
+        const result = await promisify(parser.parseString)(xml_string);
+    }
+
     async calcolaAmmissioniFromPath(pathFile = this._settings.in_folder) {
         let fileOut = {}
         let allFilesACC = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
@@ -67,5 +74,49 @@ export class FlussoARSFAR {
         console.log("somma2:" + somma2 + ", quanti: " + quanti1)
         return somma1;
     }
+
+    async estrapolaDatiPerRelazione(pathFile = this._settings.in_folder) {
+        const parser = new xml2js.Parser({attrkey: "ATTR"});
+        let fileOut = {}
+        let totaleRicoveri={totale: 0,uomini: 0, donne: 0};
+        let provenienzaRicoverati = {}
+        let etaRicoverati ={}
+        let giorniDegenza = 0;
+        let assistitiSpese = {} // {cf: "XXXXXX",spesa:x,....}
+        let allFilesACC = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
+        let allFilesEVE = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.att)
+        for (let file of allFilesACC) {
+            let md5 = md5File.sync(file);
+            if (!fileOut.hasOwnProperty(md5)) {
+                fileOut[md5] = md5;
+                let xml_string = fs.readFileSync(file, "utf8");
+                const result = await promisify(parser.parseString)(xml_string);
+                for (let assistenza of result["Tracciato1"]["FlsResSemires_1"]) {
+                    console.log(assistenza);
+                    let sesso = assistenza["AssistitoAmmissione"][0]['Assistito'][0]['DatiAnagrafici'][0]["Genere"][0] === "2" ? "F" : "M"
+                    let provenienza = assistenza["AssistitoAmmissione"][0]['Ammissione'][0]["TipoStrutturaProvenienza"][0];
+                    let eta = new Date().getFullYear() - parseInt(assistenza["AssistitoAmmissione"][0]['Assistito'][0]['DatiAnagrafici'][0]["AnnoNascita"][0])
+                    totaleRicoveri = {totale: totaleRicoveri.totale +1,uomini: sesso === "M" ? totaleRicoveri.uomini +1 : totaleRicoveri.uomini,donne: sesso === "F" ? totaleRicoveri.donne +1 : totaleRicoveri.donne }
+                    if (!provenienzaRicoverati.hasOwnProperty(provenienza))
+                        provenienzaRicoverati[provenienza] = 1;
+                    else
+                        provenienzaRicoverati[provenienza] =  provenienzaRicoverati[provenienza] + 1;
+                    if (!etaRicoverati.hasOwnProperty(eta))
+                        etaRicoverati[eta] = 1;
+                    else
+                        etaRicoverati[eta] = etaRicoverati[eta] +1
+                }
+            }
+        }
+        for (let file of allFilesEVE) {
+            let md5 = md5File.sync(file);
+            if (!fileOut.hasOwnProperty(md5)) {
+                fileOut[md5] = md5;
+            }
+        }
+        return {'totaleRicoveri': totaleRicoveri, 'provenienzaRicoverati': provenienzaRicoverati, 'etaRicoverati': etaRicoverati};
+    }
+
+
 
 }

@@ -68,6 +68,79 @@ export class FlussoRSA {
     };
 
 
+    async calcolaDatiPerRelazione(fromDate,filePath =this._settings.in_folder,){
+        fromDate = moment(fromDate, "DDMMYYYY");
+        let files = common.getAllFilesRecursive(filePath, ".txt", "RSA")
+        var i = 0;
+        let rows = []
+        let ricoverati = [];
+        let totaleRicoveri={totale: 0,uomini: 0, donne: 0};
+        let provenienzaRicoverati = {}
+        let etaRicoverati ={ tutti: {},maggiori90: 0,tra80e90: 0, minori80:0}
+        let giorniDegenza = {totale: 0, perAssistito:{}};
+        let assistitiSpese = {} // {cf: "XXXXXX",spesa:x,....}
+        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let error = null;
+        for (let file of files) {
+            console.log("Elaboro " + file + " ...");
+            const fileStream = fs.createReadStream(file);
+
+            const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+            for await (const line of rl) {
+                if (line.length !== lunghezzaRiga) {
+                    error = i;
+                    break;
+                } else {
+                    var t = common.mRowToJson(line, this._starts);
+                    rows.push(t);
+                    let sesso = t.sesso === "2" ? "F" : "M"
+                    let eta =  new Date().getFullYear() - t.dataNascita.get('year');
+                    if (!provenienzaRicoverati.hasOwnProperty(t.provenienzaAssistito))
+                        provenienzaRicoverati[t.provenienzaAssistito] = 1;
+                    else
+                        provenienzaRicoverati[t.provenienzaAssistito] = provenienzaRicoverati[t.provenienzaAssistito] +1;
+                    if (!ricoverati.hasOwnProperty(t.cf + "_" + t.dataIngresso.format("DD/MM/yyyy"))) {
+                        ricoverati.push(t.cf + "_" + t.dataIngresso.format("DD/MM/yyyy"));
+                        totaleRicoveri = {totale: totaleRicoveri.totale +1,uomini: sesso === "M" ? totaleRicoveri.uomini +1 : totaleRicoveri.uomini,donne: sesso === "F" ? totaleRicoveri.donne +1 : totaleRicoveri.donne }
+                        if (!etaRicoverati.tutti.hasOwnProperty(eta))
+                            etaRicoverati.tutti[eta] = 1;
+                        else
+                            etaRicoverati.tutti[eta] = etaRicoverati.tutti[eta] +1
+                        if (eta<80)
+                            etaRicoverati.minori80 = etaRicoverati.minori80 +1;
+                        else if (eta>90)
+                            etaRicoverati.maggiori90 = etaRicoverati.maggiori90 +1;
+                        else
+                            etaRicoverati.tra80e90 = etaRicoverati.tra80e90 +1;
+                    }
+                    if (!isNaN(t.dataDimissione) && t.dataDimissione !== "") {
+                        let dateToTest = t.dataIngresso.isSameOrBefore(fromDate) ? fromDate : t.dataIngresso
+                        giorniDegenza.totale = giorniDegenza.totale + dateToTest.diff(t.dataDimissione,'days')
+                        if (giorniDegenza.perAssistito.hasOwnProperty(t.cf))
+                            giorniDegenza.perAssistito[t.cf] = giorniDegenza.perAssistito[t.cf] + t.dataDimissione.diff(dateToTest,'days')
+                        else
+                            giorniDegenza.perAssistito[t.cf] = t.dataDimissione.diff(dateToTest,'days')
+                    }
+                }
+            }
+            i++;
+        }
+        const addString = (accumulator, a) => {
+            return accumulator + parseInt(a);
+        }
+        totaleRicoveri['percUomini'] =  (totaleRicoveri.uomini * 100) /totaleRicoveri.totale;
+        totaleRicoveri['percDonne'] =  (totaleRicoveri.donne * 100) /totaleRicoveri.totale;
+        let etaMedia =  [...Object.keys(etaRicoverati.tutti)].reduce(addString,0) / Object.keys(etaRicoverati.tutti).length;
+        let degenzaMedia =  [...Object.values(giorniDegenza.perAssistito)].reduce(addString,0) / Object.values(giorniDegenza.perAssistito).length;
+        return {
+            'totaleRicoveri': totaleRicoveri,
+            'provenienzaRicoverati': provenienzaRicoverati,
+            'etaRicoverati': etaRicoverati,
+            'etaMedia': etaMedia,
+            'degenzaMedia': degenzaMedia
+        };
+    }
+
     async #elaboraFileFlussoRSA(filePath) {
         console.log("Elaboro " + filePath + " ...");
         const fileStream = fs.createReadStream(filePath);
