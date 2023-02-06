@@ -4,6 +4,8 @@ import reader from 'xlsx';
 import path from "path";
 import moment from 'moment';
 import {common} from "../common.js";
+import {utility} from "../utility.js";
+import {readDateTime} from "mdb-reader/lib/data/datetime.js";
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -96,6 +98,77 @@ export class FlussoSIAD {
         console.log("Totali accessi: " + (totaleAccessiPalliativa + totaleAccessiGeriatrica));
         console.log("Totali accessi Geriatrica: " + totaleAccessiGeriatrica);
         console.log("Totali accessi Palliativa: " + totaleAccessiPalliativa);
+    }
+
+    statisticheChiaviValide(pathFile) {
+        let outData = {};
+        const nomeFile = "chiavivalidepulito.xls";
+
+        let dataTracciato1 = [];
+        const file = reader.readFile(pathFile + path.sep + nomeFile,);
+        const sheets = file.SheetNames;
+        for (let i = 0; i < sheets.length; i++) {
+            console.log(file.SheetNames[i]);
+            const temp = reader.utils.sheet_to_json(
+                file.Sheets[file.SheetNames[i]]);
+            dataTracciato1 = [...dataTracciato1, ...temp]
+        }
+
+        let chiaviValide = {}
+        let i = 0;
+        let quanti = dataTracciato1.length;
+        for (let dato of dataTracciato1) {
+            if ( typeof (dato['Data Conclusione'] === 'number')) {
+                if (chiaviValide.hasOwnProperty(dato['Id Record'].substring(16, 32))) {
+                    chiaviValide[dato['Id Record'].substring(16, 32)].count = chiaviValide[dato['Id Record'].substring(16, 32)].count + 1
+                    chiaviValide[dato['Id Record'].substring(16, 32)].rows.push(dato);
+                }
+                else {
+                    chiaviValide[dato['Id Record'].substring(16, 32)] = { count: 1, rows: [dato] };
+                }
+                if (i++ % 1000 === 0)
+                    console.log("Elaborazione " + i +" di " + quanti);
+            }
+        }
+        Object.keys(chiaviValide).forEach((chiave) => {
+            outData = this.generaRigheChiusura(chiaviValide[chiave].rows,outData);
+        })
+
+    }
+
+    generaRigheChiusura(rows,outData)
+    {
+        if (rows.length === 1) {
+            let dato = rows[0];
+            let annoPIC = parseInt(dato["Anno Presa In Carico"]);
+            let annoRivalutazione = !dato["Ultima Data Rivalutazione "].startsWith("--") ? parseInt(dato["Ultima Data Rivalutazione "].substring(0, 4)) : annoPIC;
+            let annoUltimaErogazione = !dato["Ultima Data Erogazione"].startsWith("--") ? parseInt(dato["Ultima Data Erogazione"].substring(0, 4)) : annoPIC
+            let annoFineSospensione = dato.hasOwnProperty("Data Fine Sospensione") ? (!dato["Data Fine Sospensione"].startsWith("--") ? parseInt(dato["Data Fine Sospensione"].substring(0, 4)) : 0) : annoPIC;
+            let anno = Math.max(annoPIC, annoRivalutazione, annoUltimaErogazione, annoFineSospensione)
+            let tempRiga = {
+                Trasmissione: {$: {"tipo": "I"}},
+                Erogatore: {CodiceRegione: dato["Codice Regione"], CodiceASL: dato["Codice ASL"]},
+                Eventi: {
+                    PresaInCarico: {
+                        $: {"data": dato["Data  Presa In Carico"]},
+                        Id_Rec: dato["Id Record"]
+                    },
+                    Conclusione: {
+                        $: {"dataAD": anno + "-12-31"},
+                        Motivazione: 99
+                    }
+                }
+            };
+            if (!outData.hasOwnProperty(anno))
+                outData[anno] = [];
+            outData[anno].push(tempRiga);
+        }
+        else
+        {
+            console.log(rows);
+        }
+
+        return outData;
     }
 
     generaFlussoRettificaChiusure(pathFile, folderOut, codRegione, codASL) {

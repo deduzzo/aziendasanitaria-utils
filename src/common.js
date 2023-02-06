@@ -165,4 +165,6 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
 
 
 
+
+
 export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson,ottieniDatiAssistito}

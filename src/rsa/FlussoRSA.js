@@ -5,10 +5,6 @@ import md5File from 'md5-file';
 import fs from 'fs';
 import {common} from "../common.js";
 import _ from 'lodash';
-import MDBReader from "mdb-reader";
-import {DatiStruttureProgettoTs} from "../m/DatiStruttureProgettoTs.js";
-import ExcelJS from "exceljs"
-import loki from 'lokijs';
 
 export class FlussoRSA {
     /**
@@ -17,6 +13,17 @@ export class FlussoRSA {
     constructor(settings, starts = this._startsFlussoRSAv1) {
         this._settings = settings;
         this._starts = starts
+    }
+
+    static  tipoStrutturaProvenienza = {
+        1: "Abitazione",
+        2: "Struttura Protetta socio-sanitaria",
+        3: "Struttura Sociale",
+        4: "Struttura Ospedaliera",
+        5: "Struttura di Riabilitazione",
+        6: "Altra Struttura della stessa ASL chiusa amministrativamente",
+        7: "Apertura amministrativa per riassetto territoriale ASL",
+        9: "Altro"
     }
 
     get settings() {
@@ -115,7 +122,7 @@ export class FlussoRSA {
                     }
                     if (!isNaN(t.dataDimissione) && t.dataDimissione !== "") {
                         let dateToTest = t.dataIngresso.isSameOrBefore(fromDate) ? fromDate : t.dataIngresso
-                        giorniDegenza.totale = giorniDegenza.totale + dateToTest.diff(t.dataDimissione,'days')
+                        giorniDegenza.totale = giorniDegenza.totale + t.dataDimissione.diff(dateToTest,'days')
                         if (giorniDegenza.perAssistito.hasOwnProperty(t.cf))
                             giorniDegenza.perAssistito[t.cf] = giorniDegenza.perAssistito[t.cf] + t.dataDimissione.diff(dateToTest,'days')
                         else
@@ -128,11 +135,15 @@ export class FlussoRSA {
         const addString = (accumulator, a) => {
             return accumulator + parseInt(a);
         }
+
         totaleRicoveri['percUomini'] =  (totaleRicoveri.uomini * 100) /totaleRicoveri.totale;
         totaleRicoveri['percDonne'] =  (totaleRicoveri.donne * 100) /totaleRicoveri.totale;
-        let etaMedia =  [...Object.keys(etaRicoverati.tutti)].reduce(addString,0) / Object.keys(etaRicoverati.tutti).length;
-        let degenzaMedia =  [...Object.values(giorniDegenza.perAssistito)].reduce(addString,0) / Object.values(giorniDegenza.perAssistito).length;
+        let etaMedia = 0;
+        Object.keys(etaRicoverati.tutti).forEach( key => {etaMedia+= etaRicoverati.tutti[key] * key})
+        etaMedia = etaMedia / Object.values(etaRicoverati.tutti).reduce(addString,0);
+        let degenzaMedia =  Object.values(giorniDegenza.perAssistito).reduce(addString,0) / Object.values(giorniDegenza.perAssistito).length;
         return {
+             'giorniDegenzaTotali': giorniDegenza.totale,
             'totaleRicoveri': totaleRicoveri,
             'provenienzaRicoverati': provenienzaRicoverati,
             'etaRicoverati': etaRicoverati,
