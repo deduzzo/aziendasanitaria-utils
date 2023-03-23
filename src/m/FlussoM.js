@@ -387,7 +387,7 @@ export class FlussoM {
         const reader = new MDBReader(buffer);
 
         const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
-        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione);
+        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && p["Anno"] === new Date().getFullYear().toString());
         let mancanti = []
         let struttureOut = {}
         struttureFiltrate.forEach(p => {
