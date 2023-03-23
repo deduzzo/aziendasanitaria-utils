@@ -1057,7 +1057,7 @@ export class FlussoM {
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await this.#iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni);
+            totale+= await this.#iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni,prestazioniBrancheMap,catalogoMap);
         }
         let problemi = this.#risolviProblemiPrestazioni(risultato);
         console.log("Risoluzione problemi prestazioni " + (!problemi.errore ? "OK" : "CON ERRORI"))
@@ -1081,7 +1081,11 @@ export class FlussoM {
             {header: 'Descr. Prestazione', key: 'descPrest'},
             {header: '1°Accesso', key: 'primoAccesso'},
             {header: 'Altri Accessi', key: 'altriAccessi'},
-            {header: 'Totale', key: 'totaleAccessi'}
+            {header: 'Classe U', key: 'classeU'},
+            {header: 'Classe B', key: 'classeB'},
+            {header: 'Classe D', key: 'classeD'},
+            {header: 'Classe P', key: 'classeP'},
+            {header: 'No classe Prior.', key: 'classeNO'}
         ];
 
         sheet2.columns = [
@@ -1091,7 +1095,12 @@ export class FlussoM {
             {header: 'Descr. Prestazione', key: 'descPrest'},
             {header: '1°Accesso', key: 'primoAccesso'},
             {header: 'Altri Accessi', key: 'altriAccessi'},
-            {header: 'Totale', key: 'totaleAccessi'}
+            {header: 'Totale', key: 'totaleAccessi'},
+            {header: 'Classe U', key: 'classeU'},
+            {header: 'Classe B', key: 'classeB'},
+            {header: 'Classe D', key: 'classeD'},
+            {header: 'Classe P', key: 'classeP'},
+            {header: 'No classe Prior.', key: 'classeNO'}
         ];
 
         let perPrestazione = {}
@@ -1108,6 +1117,11 @@ export class FlussoM {
                                 descrizioneBranca: brancheMap[branca],
                                 descPrest: catalogoMap[prest].descrizione,
                                 codPrest: prest,
+                                classeU: 0,
+                                classeB: 0,
+                                classeD: 0,
+                                classeP:0,
+                                classeNO:0,
                         }
                         perPrestazione[prest] = {
                             idBranca: perPrestazione[prest].idBranca,
@@ -1116,7 +1130,12 @@ export class FlussoM {
                             codPrest: perPrestazione[prest].codPrest,
                             primoAccesso: perPrestazione[prest].primoAccesso + risultato[branca][prest][strutID].primiAccessi,
                             altriAccessi: perPrestazione[prest].altriAccessi + (risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi),
-                            totaleAccessi: perPrestazione[prest].totaleAccessi + risultato[branca][prest][strutID].count
+                            totaleAccessi: perPrestazione[prest].totaleAccessi + risultato[branca][prest][strutID].count,
+                            classeU: perPrestazione[prest].classeU + risultato[branca][prest][strutID].classePrior?.U,
+                            classeB: perPrestazione[prest].classeB + risultato[branca][prest][strutID].classePrior?.B,
+                            classeD: perPrestazione[prest].classeD +risultato[branca][prest][strutID].classePrior?.D,
+                            classeP: perPrestazione[prest].classeP + risultato[branca][prest][strutID].classePrior?.P,
+                            classeNO: risultato[branca][prest][strutID].count - perPrestazione[prest].classeU - perPrestazione[prest].classeB - perPrestazione[prest].classeD - perPrestazione[prest].classeP,
                         }
                         sheet1.insertRow(2,
                             {
@@ -1129,7 +1148,12 @@ export class FlussoM {
                                 descPrest: catalogoMap[prest].descrizione,
                                 primoAccesso: risultato[branca][prest][strutID].primiAccessi,
                                 altriAccessi: risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi,
-                                totaleAccessi: risultato[branca][prest][strutID].count
+                                totaleAccessi: risultato[branca][prest][strutID].count,
+                                classeU: risultato[branca][prest][strutID].classePrior?.U,
+                                classeB: risultato[branca][prest][strutID].classePrior?.B,
+                                classeD: risultato[branca][prest][strutID].classePrior?.D,
+                                classeP: risultato[branca][prest][strutID].classePrior?.P,
+                                classeNO: risultato[branca][prest][strutID].classePrior?.NO,
                             });
                     }
             }
@@ -1144,6 +1168,11 @@ export class FlussoM {
                     primoAccesso: perPrestazione[prest].primoAccesso,
                     altriAccessi: perPrestazione[prest].altriAccessi,
                     totaleAccessi: perPrestazione[prest].totaleAccessi,
+                    classeU: perPrestazione[prest].classeU,
+                    classeB: perPrestazione[prest].classeB,
+                    classeD: perPrestazione[prest].classeD,
+                    classeP: perPrestazione[prest].classeP,
+                    classeNO: perPrestazione[prest].totaleAccessi - perPrestazione[prest].classeU - perPrestazione[prest].classeB -  perPrestazione[prest].classeD - perPrestazione[prest].classeP,
                 });
 
         }
@@ -1165,7 +1194,7 @@ export class FlussoM {
         return false;
     }
 
-    #contaPrestazioni (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs) {
+    #contaPrestazioni (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs,prestazioniBrancheMap,catalogoMap) {
         for (const prestazione of riga.prestazioni) {
             if (
                 ((filterPrest.length > 0 && this.#includePrest(filterPrest,prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
@@ -1189,25 +1218,27 @@ export class FlussoM {
                 const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
                 const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
                 const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
+                const classePrior = (riga.riga99.hasOwnProperty('classePrior') &&  riga.riga99.classePrior!== null && riga.riga99.classePrior  !== "" && riga.riga99.classePrior !== "Z") ? riga.riga99.classePrior : "NO" ;
 
                 if (!outt.hasOwnProperty(prestazione.brancaID))
                     outt[prestazione.brancaID] = {}
                 if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
                     outt[prestazione.brancaID][prestazione.prestID] = {}
-                if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID))
-                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
-                        count: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + 1,
-                        primiAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso,
-                        altriAccessi: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso,
-                        erroriAccesso: outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso
-                    }
+                if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID)) {
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + prestazione.quant;
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso;
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso;
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso;
+                }
                 else
                     outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
                         count: prestazione.quant,
                         primiAccessi: isPrimoAccesso,
                         altriAccessi: isSecondoAccesso,
-                        erroriAccesso: erroreAccesso
+                        erroriAccesso: erroreAccesso,
+                        classePrior: {"U":0,"B":0,"D":0,"P":0,"NO":0}
                     }
+                outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior]= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior] + prestazione.quant;
             }
             else if (prestazione.prestID === "897" || prestazione.prestID ==="8901")
             {
@@ -1223,7 +1254,7 @@ export class FlussoM {
 
 
 
-    async #iniziaElaborazione (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest) {
+    async #iniziaElaborazione (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest, prestazioniBrancheMap,catalogoMap) {
         const fileStream = fs.createReadStream(filePath);
 
         const rl = readline.createInterface({
@@ -1239,7 +1270,7 @@ export class FlussoM {
 
             if (t.progrRicetta === "99") {
                 let rt = this.#buildRicetteFromMRows(ricettaTemp);
-                this.#contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest);
+                this.#contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest,prestazioniBrancheMap,catalogoMap);
                 ricettaTemp = [];
                 i++;
             }
@@ -1256,24 +1287,33 @@ export class FlussoM {
                 for (let key3 in risultato[key][key2])
                     keysPrest.push(key3 + "-" + key2 + "-" +key)
         let nonTrovati = [];
-        for (let keyD of Object.values(risultato["xxx"]))
-            for (let ricD of keyD) {
-                let risP = this.#includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
-                if (risP) {
-                    let vals = risP.split("-");
-                    const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
-                    const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
-                    const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
-                    // 0-> id struttura, 1-> prest, 2 -> branca
-                    risultato[vals[2]][vals[1]][vals[0]] = {
-                        count: risultato[vals[2]][vals[1]][vals[0]].count + 1,
-                        primiAccessi: risultato[vals[2]][vals[1]][vals[0]].primiAccessi + isPrimoAccesso,
-                        altriAccessi: risultato[vals[2]][vals[1]][vals[0]].altriAccessi + isSecondoAccesso,
-                        erroriAccesso: risultato[vals[2]][vals[1]][vals[0]].erroriAccesso + erroreAccesso
+        if (risultato.hasOwnProperty('xxx'))
+            for (let keyD of Object.values(risultato["xxx"]))
+                for (let ricD of keyD) {
+                    let risP = this.#includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
+                    if (risP) {
+                        let vals = risP.split("-");
+                        const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
+                        const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
+                        const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
+
+                        const classePrior = (ricD.classePrior!== null && ricD.classePrior !== "" && ricD.classePrior !== "Z") ? ricD.classePrior : "NO" ;
+                        // 0-> id struttura, 1-> prest, 2 -> branca
+                        risultato[vals[2]][vals[1]][vals[0]] = {
+                            count: risultato[vals[2]][vals[1]][vals[0]].count + ricD.quant,
+                            primiAccessi: risultato[vals[2]][vals[1]][vals[0]].primiAccessi + isPrimoAccesso,
+                            altriAccessi: risultato[vals[2]][vals[1]][vals[0]].altriAccessi + isSecondoAccesso,
+                            erroriAccesso: risultato[vals[2]][vals[1]][vals[0]].erroriAccesso + erroreAccesso
+
+                        }
+                        if (!risultato[vals[2]][vals[1]][vals[0]].hasOwnProperty('classePrior'))
+                            risultato[vals[2]][vals[1]][vals[0]].classePrior= {"U":0,"B":0,"D":0,"P":0,"NO":0}
+                        risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] = risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] + ricD.quant;
+                    //}
+
                     }
+                    else nonTrovati.push(ricD)
                 }
-                else nonTrovati.push(ricD)
-            }
         delete risultato["xxx"];
         if (nonTrovati.length === 0) {
             return {errore: false}
