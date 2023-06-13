@@ -1081,6 +1081,7 @@ export class FlussoM {
             {header: 'Descr. Prestazione', key: 'descPrest'},
             {header: '1°Accesso', key: 'primoAccesso'},
             {header: 'Altri Accessi', key: 'altriAccessi'},
+            {header: 'Totale', key: 'totaleAccessi'},
             {header: 'Classe U', key: 'classeU'},
             {header: 'Classe B', key: 'classeB'},
             {header: 'Classe D', key: 'classeD'},
@@ -1123,6 +1124,7 @@ export class FlussoM {
                                 classeP:0,
                                 classeNO:0,
                         }
+                       console.log(risultato[branca][prest][strutID].classePrior);
                         perPrestazione[prest] = {
                             idBranca: perPrestazione[prest].idBranca,
                             descrizioneBranca: perPrestazione[prest].descrizioneBranca,
@@ -1131,10 +1133,10 @@ export class FlussoM {
                             primoAccesso: perPrestazione[prest].primoAccesso + risultato[branca][prest][strutID].primiAccessi,
                             altriAccessi: perPrestazione[prest].altriAccessi + (risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi),
                             totaleAccessi: perPrestazione[prest].totaleAccessi + risultato[branca][prest][strutID].count,
-                            classeU: perPrestazione[prest].classeU + risultato[branca][prest][strutID].classePrior?.U,
-                            classeB: perPrestazione[prest].classeB + risultato[branca][prest][strutID].classePrior?.B,
-                            classeD: perPrestazione[prest].classeD +risultato[branca][prest][strutID].classePrior?.D,
-                            classeP: perPrestazione[prest].classeP + risultato[branca][prest][strutID].classePrior?.P,
+                            classeU: perPrestazione[prest].classeU +  (risultato[branca][prest][strutID].classePrior.hasOwnProperty('U') ? risultato[branca][prest][strutID].classePrior.U : 0),
+                            classeB: perPrestazione[prest].classeB + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('B') ? risultato[branca][prest][strutID].classePrior.B : 0),
+                            classeD: perPrestazione[prest].classeD + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('D') ? risultato[branca][prest][strutID].classePrior.D : 0),
+                            classeP: perPrestazione[prest].classeP +  (risultato[branca][prest][strutID].classePrior.hasOwnProperty('P') ? risultato[branca][prest][strutID].classePrior.P : 0),
                             classeNO: risultato[branca][prest][strutID].count - perPrestazione[prest].classeU - perPrestazione[prest].classeB - perPrestazione[prest].classeD - perPrestazione[prest].classeP,
                         }
                         sheet1.insertRow(2,
@@ -1149,11 +1151,11 @@ export class FlussoM {
                                 primoAccesso: risultato[branca][prest][strutID].primiAccessi,
                                 altriAccessi: risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi,
                                 totaleAccessi: risultato[branca][prest][strutID].count,
-                                classeU: risultato[branca][prest][strutID].classePrior?.U,
-                                classeB: risultato[branca][prest][strutID].classePrior?.B,
-                                classeD: risultato[branca][prest][strutID].classePrior?.D,
-                                classeP: risultato[branca][prest][strutID].classePrior?.P,
-                                classeNO: risultato[branca][prest][strutID].classePrior?.NO,
+                                classeU: risultato[branca][prest][strutID].classePrior.U,
+                                classeB: risultato[branca][prest][strutID].classePrior.B,
+                                classeD: risultato[branca][prest][strutID].classePrior.D,
+                                classeP: risultato[branca][prest][strutID].classePrior.P,
+                                classeNO: risultato[branca][prest][strutID].classePrior.NO,
                             });
                     }
             }
@@ -1219,7 +1221,6 @@ export class FlussoM {
                 const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
                 const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
                 const classePrior = (riga.riga99.hasOwnProperty('classePrior') &&  riga.riga99.classePrior!== null && riga.riga99.classePrior  !== "" && riga.riga99.classePrior !== "Z") ? riga.riga99.classePrior : "NO" ;
-
                 if (!outt.hasOwnProperty(prestazione.brancaID))
                     outt[prestazione.brancaID] = {}
                 if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
