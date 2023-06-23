@@ -1,6 +1,6 @@
 import moment from 'moment-timezone'
 import excel from "excel-date-to-js";
-
+import CodiceFiscaleUtils, {Parser} from '@marketto/codice-fiscale-utils';
 const tz = "Europe/Rome";
 
 const parseDateExcel = (excelTimestamp) => {
@@ -38,4 +38,25 @@ const nowToUnixDate = () => {
     return moment().unix();
 }
 
-export const utility = {nowToUnixDate, dataFromUnixToString, dataFromStringToUnix, parseDateExcel, compareDate}
+const replacer = (key, value) => {
+    if (value instanceof Map) {
+        return {
+            dataType: 'Map',
+            value: Array.from(value.entries()), // or with spread: value: [...value]
+        };
+    } else {
+        return value;
+    }
+}
+
+
+const getAgeFromCF = (codiceFiscale) => {
+    // Estrai la data di nascita dal codice fiscale
+    const birthdate = moment(Parser.cfToBirthDate(codiceFiscale));
+
+    let years = moment().diff(birthdate, 'years',false);
+
+    return years;
+}
+
+export const utility = {nowToUnixDate, dataFromUnixToString, dataFromStringToUnix, parseDateExcel, compareDate,getAgeFromCF,replacer}

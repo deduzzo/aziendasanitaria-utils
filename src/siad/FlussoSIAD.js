@@ -22,6 +22,7 @@ export class FlussoSIAD {
     contaPrestazioni() {
 
         let data = {};
+        let dataOver65 = {};
         const parser = new xml2js.Parser({attrkey: "ATTR"});
 
         let files = common.getAllFilesRecursive(this._settings.in_folder, ".xml", "APS");
@@ -36,10 +37,18 @@ export class FlussoSIAD {
                     for (var i = 0; i < assistenze.length; i++) {
                         let chiaveAssistito = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
                         let assistito = chiaveAssistito.substr(chiaveAssistito.length - 16, chiaveAssistito.length - 1)
+                        let eta = utility.getAgeFromCF(assistito);
                         if (!data.hasOwnProperty(assistito))
                             data[assistito] = {'preseInCarico': 1, 'accessi': 0, 'palliativa': false};
                         else {
                             data[assistito]['preseInCarico'] = data[assistito]['preseInCarico'] + 1;
+                        }
+                        if (eta >= 65) {
+                            if (!dataOver65.hasOwnProperty(assistito))
+                                dataOver65[assistito] = {'preseInCarico': 1, 'accessi': 0, 'palliativa': false};
+                            else {
+                                dataOver65[assistito]['preseInCarico'] = dataOver65[assistito]['preseInCarico'] + 1;
+                            }
                         }
 
                         // accessi
@@ -51,10 +60,14 @@ export class FlussoSIAD {
                                     if (parseInt(assistenze[i]['Eventi'][0]['Erogazione'][k]['TipoOperatore'][0]) === 5) {
                                         //palliativa?
                                         data[assistito]['palliativa'] = true;
+                                        if (eta >65)
+                                            dataOver65[assistito]['palliativa'] = true;
                                     }
                                     //console.log(accessi);
                                     //console.log(assistenze[i]['Eventi'][0]['Erogazione'][k]['ATTR']['numAccessi']);
                                     data[assistito]['accessi'] = data[assistito]['accessi'] + parseInt(assistenze[i]['Eventi'][0]['Erogazione'][k]['ATTR']['numAccessi']);
+                                    if (eta >65)
+                                        dataOver65[assistito]['accessi'] = dataOver65[assistito]['accessi'] + parseInt(assistenze[i]['Eventi'][0]['Erogazione'][k]['ATTR']['numAccessi']);
                                 }
                             }
                         } else {
@@ -77,6 +90,13 @@ export class FlussoSIAD {
         var totaleAccessiPalliativa = 0;
         var totaleAccessiGeriatrica = 0;
 
+        var chiavi65 = Object.keys(dataOver65);
+        var totalePreseInCarico65 = 0;
+        var totalePreseIncaricoAlmenoUnAccesso65 = 0;
+        var totalePalliativa65 = 0;
+        var totaleAccessiPalliativa65 = 0;
+        var totaleAccessiGeriatrica65 = 0;
+
         for (var i = 0; i < chiavi.length; i++) {
             //console.log(data[chiavi[i]])
             if (data[chiavi[i]]['accessi'] > 0) {
@@ -91,6 +111,19 @@ export class FlussoSIAD {
             }
         }
 
+        for (var i = 0; i < chiavi65.length; i++) {
+            if(dataOver65[chiavi65[i]]['accessi'] > 0) {
+                totalePreseIncaricoAlmenoUnAccesso65++;
+                totalePreseInCarico65 += dataOver65[chiavi65[i]]['preseInCarico'];
+                if (dataOver65[chiavi65[i]]['palliativa'] === true) {
+                    totalePalliativa65++;
+                    totaleAccessiPalliativa65 += dataOver65[chiavi65[i]]['accessi'];
+                }
+                else
+                    totaleAccessiGeriatrica65 += dataOver65[chiavi65[i]]['accessi'];
+            }
+        }
+
         console.log("Totale prese in carico : " + chiavi.length);
         console.log("Totale prese in carico almeno un accesso: " + totalePreseIncaricoAlmenoUnAccesso);
         console.log("Totali geriatrica: " + (totalePreseIncaricoAlmenoUnAccesso- totalePalliativa));
@@ -98,6 +131,14 @@ export class FlussoSIAD {
         console.log("Totali accessi: " + (totaleAccessiPalliativa + totaleAccessiGeriatrica));
         console.log("Totali accessi Geriatrica: " + totaleAccessiGeriatrica);
         console.log("Totali accessi Palliativa: " + totaleAccessiPalliativa);
+
+        console.log("Totale prese in carico over 65: " + chiavi65.length);
+        console.log("Totale prese in carico almeno un accesso over 65: " + totalePreseIncaricoAlmenoUnAccesso65);
+        console.log("Totali geriatrica over 65: " + (totalePreseIncaricoAlmenoUnAccesso65- totalePalliativa65));
+        console.log("Totali palliativa over 65: " + totalePalliativa65);
+        console.log("Totali accessi over 65: " + (totaleAccessiPalliativa65 + totaleAccessiGeriatrica65));
+        console.log("Totali accessi Geriatrica over 65: " + totaleAccessiGeriatrica65);
+        console.log("Totali accessi Palliativa over 65: " + totaleAccessiPalliativa65);
     }
 
     statisticheChiaviValide(pathFile) {

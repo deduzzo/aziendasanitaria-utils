@@ -9,7 +9,8 @@ import {ImpostazioniMail} from "./src/config/ImpostazioniMail.js";
 import {ImpostazioniFlussoARSFAR} from "./src/config/ImpostazioniFlussoARSFAR.js";
 import {ImpostazioniFlussoM} from "./src/config/ImpostazioniFlussoM.js";
 import {ImpostazioniFlussoRSA} from "./src/config/ImpostazioniFlussoRSA.js";
+import {DisabiliGravissimi} from "./src/disabili/disabiliGravissimi.js";
 import * as Messina from "./src/config/sicilia/messina.js"
 
-export const flussiRegioneSicilia = {FlussoM, FlussoSIAD, FlussoHOSPICE, FlussoARSFAR, FlussoRSA, ImpostazioniFlussoHOSPICE,ImpostazioniFlussoARSFAR, ImpostazioniFlussoM, ImpostazioniFlussoRSA,
+export const flussiRegioneSicilia = {DisabiliGravissimi, FlussoM, FlussoSIAD, FlussoHOSPICE, FlussoARSFAR, FlussoRSA, ImpostazioniFlussoHOSPICE,ImpostazioniFlussoARSFAR, ImpostazioniFlussoM, ImpostazioniFlussoRSA,
     ImpostazioniMail,StruttureDistrettiPerProvincia, Messina }
