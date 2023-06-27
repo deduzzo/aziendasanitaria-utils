@@ -7,45 +7,14 @@ import {utility} from "../utility.js";
 
 export class Decessi {
 
-    constructor() {
-        this._ts_username = ""
-        this._ts_password = ""
-        this._nar_username = "";
-        this._nar_password = "";
+    /**
+     *
+     * @param {ImpostazioniServiziTerzi} impostazioni
+     */
+    constructor(impostazioni) {
+        this._impostazioni = impostazioni;
     }
 
-
-    get ts_username() {
-        return this._ts_username;
-    }
-
-    set ts_username(value) {
-        this._ts_username = value;
-    }
-
-    get ts_password() {
-        return this._ts_password;
-    }
-
-    set ts_password(value) {
-        this._ts_password = value;
-    }
-
-    get nar_username() {
-        return this._nar_username;
-    }
-
-    set nar_username(value) {
-        this._nar_username = value;
-    }
-
-    get nar_password() {
-        return this._nar_password;
-    }
-
-    set nar_password(value) {
-        this._nar_password = value;
-    }
 
     async _caricaCodiciFiscali(filePath, colonnaCodiceFiscale,limit = null) {
         let codici = [];
@@ -79,8 +48,8 @@ export class Decessi {
         const page = await browser.newPage();
         try {
             await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
-            await page.type("#j_username", this.ts_username);
-            await page.type("#j_password", this.ts_password);
+            await page.type("#j_username", this._impostazioni.ts_username);
+            await page.type("#j_password", this._impostazioni.ts_password);
             await page.click("#login > fieldset > input:nth-child(11)");
             await page.waitForSelector('#dettaglio_utente')
             /*await page.waitForNavigation({
@@ -123,8 +92,8 @@ export class Decessi {
         try {
             const pageTarget = page.target();
             await page.goto('https://nar.regione.sicilia.it/NAR/');
-            await page.type("#loginform > div > input:nth-child(2)", this.nar_username);
-            await page.type("#loginform > div > input:nth-child(7)", this.nar_password);
+            await page.type("#loginform > div > input:nth-child(2)", this._impostazioni.nar_username);
+            await page.type("#loginform > div > input:nth-child(7)", this._impostazioni.nar_password);
             await page.click("#loginform > div > div > div:nth-child(1) > input");
             const newTarget = await browser.waitForTarget(target => target.opener() === pageTarget);
             await page.close();
@@ -215,8 +184,8 @@ export class Decessi {
             const page = await browser.newPage();
             try {
                 await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
-                await page.type("#j_username", this.ts_username);
-                await page.type("#j_password", this.ts_password);
+                await page.type("#j_username", this._impostazioni.ts_username);
+                await page.type("#j_password", this._impostazioni.ts_password);
                 await page.click("#login > fieldset > input:nth-child(11)");
                 await page.waitForSelector('#dettaglio_utente')
                 /*await page.waitForNavigation({
