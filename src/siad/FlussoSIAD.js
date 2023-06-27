@@ -5,7 +5,6 @@ import path from "path";
 import moment from 'moment';
 import {common} from "../common.js";
 import {utility} from "../utility.js";
-import {readDateTime} from "mdb-reader/lib/data/datetime.js";
 
 // this example reads the file synchronously
 // you can read it asynchronously also

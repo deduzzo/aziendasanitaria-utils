@@ -5,7 +5,7 @@ import path from 'path';
 import fs from "fs";
 import {utility} from "../utility.js";
 
-export class DisabiliGravissimi {
+export class Decessi {
 
     constructor() {
         this._ts_username = ""
@@ -127,6 +127,7 @@ export class DisabiliGravissimi {
             await page.type("#loginform > div > input:nth-child(7)", this.nar_password);
             await page.click("#loginform > div > div > div:nth-child(1) > input");
             const newTarget = await browser.waitForTarget(target => target.opener() === pageTarget);
+            await page.close();
             //get the new page object:
             const newPage = await newTarget.page();
             await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
@@ -135,9 +136,9 @@ export class DisabiliGravissimi {
             await newPage.waitForSelector("#oCMenubbar_0");
             for (let cf of codiciFiscali) {
                 await newPage.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
-                await newPage.waitForSelector("#ext-gen136 > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr > td > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > input");
+                await newPage.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
                 await newPage.waitForTimeout(1000);
-                await newPage.type("#ext-gen136 > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr > td > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > input", cf);
+                await newPage.type("input[name='codiceFiscaleISISTP@Filter']", cf);
                 await newPage.waitForSelector("#inside");
                 await newPage.click("#inside > table > tbody > tr > td:nth-child(2) > a");
                 await newPage.waitForSelector("#id1");
@@ -170,69 +171,108 @@ export class DisabiliGravissimi {
         return out;
     }
 
-
-    async verificaUtentiInVita(filePath, colonnaCodiceFiscale, writeFile = true,limit = null) {
-        let out = {error: false, out: {vivi: [], nonTrovati: [], morti: []}}
-        let codiciFiscali = await this._caricaCodiciFiscali(filePath, colonnaCodiceFiscale,limit);
-        console.log("codici fiscali totali:" + codiciFiscali)
-        const browser = await puppeteer.launch({headless: false});
-        const page = await browser.newPage();
-        try {
-            await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
-            await page.type("#j_username", this.ts_username);
-            await page.type("#j_password", this.ts_password);
-            await page.click("#login > fieldset > input:nth-child(11)");
-            await page.waitForSelector('#dettaglio_utente')
-            /*await page.waitForNavigation({
-                waitUntil: 'networkidle0',
-            });*/
-            console.log("loaded")
-        } catch (ex) {
-            out.error = true;
-            out.errortext = "Generic error1";
-        }
-        let i = 0;
-        if (!out.error && codiciFiscali.length > 0) {
-            for (let cfrow of codiciFiscali) {
-                let codiceFiscale = cfrow.cf;
-                i++;
-                await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
-                await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
-                await page.click('#go');
-                await page.waitForSelector("body > div:nth-child(12) > h1")
-                let datiAssistito = await page.evaluate(() => {
-                    let vivo = null;
-                    if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
-                        vivo = true;
-                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
-                        vivo = false;
-                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
-                        vivo = null;
-                    return vivo;
-                });
-                if (datiAssistito === true)
-                    out.out.vivi.push(cfrow);
-                else if (datiAssistito === false)
-                    out.out.morti.push(cfrow);
-                else
-                    out.out.nonTrovati.push(cfrow);
-                if (datiAssistito !== true)
-                    console.log(cfrow.cf + " stato:" + (datiAssistito === null ? " NON TROVATO" : " MORTO"))
-                if (datiAssistito !== true)
-                    console.log("morti:" + out.out.morti.length + ", non trovati:" + out.out.nonTrovati.length);
+    async verificaUtentiInVita(datiCodiciFiscali,path,writeFile = true, limit = null)
+    {
+        // DATI CODICI FISCALI ARRAY
+        // type: 'file' oppure 'array'
+        // data: array dei codici fiscali oppure {file: 'path file', colonnaCodiceFiscale: 'numerocolonna'}
+        let out = {error: false, data: null};
+        if (datiCodiciFiscali.hasOwnProperty('type'))
+        {
+            let outTemp = null;
+            switch (datiCodiciFiscali['type']) {
+                case "file":
+                    outTemp = await this._verificaUtentiInVita(path,datiCodiciFiscali['data']['file'],datiCodiciFiscali['data']['colonnaCodiceFiscale'],writeFile,limit);
+                    out.error = outTemp.error;
+                    out.data =  outTemp.out;
+                    break;
+                case 'array':
+                    outTemp = await this._verificaUtentiInVita(path,null,writeFile,limit,datiCodiciFiscali['data']);
+                    out.error = outTemp.error;
+                    out.data =  outTemp.out;
+                    break;
+                default:
+                    return "error"
             }
         }
-        await browser.close();
-        let cfMorti = [];
-        for(let row of out.out.morti){
-            cfMorti.push(row.cf);
+        else
+        {
+            out.error = true;
+            out.data = "Errore nella variabile dati Codice Fiscale;"
         }
-        let datiMorti = await this._verificaDatiDaNar(cfMorti);
-        let dateDecesso = await this._verificaDataDecessoDaTS(datiMorti.data);
-        if (writeFile)
-            fs.writeFileSync(filePath + path.sep + 'decessi.txt', JSON.stringify(out, utility.replacer, "\t"), 'utf8');
         return out;
     }
+
+
+    async _verificaUtentiInVita(filePath, colonnaCodiceFiscale, writeFile = true,limit = null,cfArray = null) {
+        let out = {error: false, out: {vivi: [], nonTrovati: [], morti: []}}
+        let codiciFiscali =  cfArray;
+        if (codiciFiscali === null)
+            codiciFiscali = await this._caricaCodiciFiscali(filePath, colonnaCodiceFiscale,limit);
+        console.log("codici fiscali totali:" + codiciFiscali)
+        if (codiciFiscali !== null && codiciFiscali.length >0) {
+            const browser = await puppeteer.launch({headless: false});
+            const page = await browser.newPage();
+            try {
+                await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
+                await page.type("#j_username", this.ts_username);
+                await page.type("#j_password", this.ts_password);
+                await page.click("#login > fieldset > input:nth-child(11)");
+                await page.waitForSelector('#dettaglio_utente')
+                /*await page.waitForNavigation({
+                    waitUntil: 'networkidle0',
+                });*/
+                console.log("loaded")
+            } catch (ex) {
+                out.error = true;
+                out.errortext = "Generic error1";
+            }
+            let i = 0;
+            if (!out.error && codiciFiscali.length > 0) {
+                for (let cfrow of codiciFiscali) {
+                    let codiceFiscale = colonnaCodiceFiscale ? cfrow.cf: cfrow;
+                    i++;
+                    await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
+                    await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
+                    await page.click('#go');
+                    await page.waitForSelector("body > div:nth-child(12) > h1")
+                    let datiAssistito = await page.evaluate(() => {
+                        let vivo = null;
+                        if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
+                            vivo = true;
+                        else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
+                            vivo = false;
+                        else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
+                            vivo = null;
+                        return vivo;
+                    });
+                    if (datiAssistito === true)
+                        out.out.vivi.push(cfrow);
+                    else if (datiAssistito === false)
+                        out.out.morti.push(cfrow);
+                    else
+                        out.out.nonTrovati.push(cfrow);
+                    if (datiAssistito !== true)
+                        console.log(cfrow.cf + " stato:" + (datiAssistito === null ? " NON TROVATO" : " MORTO"))
+                    if (datiAssistito !== true)
+                        console.log("morti:" + out.out.morti.length + ", non trovati:" + out.out.nonTrovati.length);
+                    if (limit && colonnaCodiceFiscale === null)
+                        if (i>limit)
+                            break;
+                }
+            }
+            await browser.close();
+            let datiMorti = await this._verificaDatiDaNar(out.out.morti);
+            let dateDecesso = await this._verificaDataDecessoDaTS(datiMorti.data);
+            if (writeFile)
+                fs.writeFileSync(filePath + path.sep + 'narTsServices.txt', JSON.stringify(out, utility.replacer, "\t"), 'utf8');
+        }
+        else
+            out = {error: true, out: "Nessun codice fiscale trovato"}
+        return out;
+    }
+
+
 
 
 }
