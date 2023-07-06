@@ -1,7 +1,5 @@
 import pdf2html from "pdf2html";
 import puppeteer from "puppeteer";
-import fs from "fs";
-import path from "path";
 import fse from "fs-extra/lib/output-file/index.js";
 
 export class MediciDiBase {
@@ -61,19 +59,23 @@ export class MediciDiBase {
 
 
     async getAssistitiByPdf(pdfPath) {
-        let out = {}
-        const html = await pdf2html.text('D:\\DATI\\Desktop\\outFolder\\test.pdf');
+        let out = {assistiti: {},medico: {}}
+        const html = await pdf2html.text(pdfPath);
         let ready = false;
         for (let line of html.split("\n")) {
-            if (!ready && line.toUpperCase().includes("ASSISTITI IN CARICO AL MEDICO DI BASE"))
+            if (!ready && line.toUpperCase().includes("ASSISTITI IN CARICO AL"))
                 ready = true;
             else if (ready) {
                 let assistitoRow = line.split(" ");
-                if (assistitoRow.length >= 9) {
+                if (assistitoRow[assistitoRow.length -2] === "Codice")
+                {
+                    out.medico.codice = assistitoRow[assistitoRow.length-1];
+                }
+                else if (assistitoRow.length >= 9) {
 
                     assistitoRow[3] = assistitoRow[3].replaceAll(assistitoRow[8], "");
                     console.log(assistitoRow);
-                    out[assistitoRow[assistitoRow.length - 1]] = {
+                    out.assistiti[assistitoRow[assistitoRow.length - 1]] = {
                         nome: assistitoRow[3],
                         cognome: assistitoRow[2],
                         sesso: assistitoRow[assistitoRow.length - 5],
@@ -87,6 +89,66 @@ export class MediciDiBase {
         }
         return out;
     }
+
+    async verificaModelli(codiciFiscali, codiceMedico) {
+        let out = {error: false, data: {}};
+        const browser = await puppeteer.launch({headless: false});
+        const page = await browser.newPage();
+        try {
+            const pageTarget = page.target();
+            await page.goto('https://nar.regione.sicilia.it/NAR/');
+            await page.type("#loginform > div > input:nth-child(2)", this._impostazioni.nar_username);
+            await page.type("#loginform > div > input:nth-child(7)", this._impostazioni.nar_password);
+            await page.click("#loginform > div > div > div:nth-child(1) > input");
+            const newTarget = await browser.waitForTarget(target => target.opener() === pageTarget);
+            await page.close();
+            //get the new page object:
+            const newPage = await newTarget.page();
+            await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
+            await newPage.waitForSelector("select[name='ufficio@Controller']");
+            //await newPage.waitForSelector("#oCMenu_fill");
+            await newPage.type("select[name='ufficio@Controller']", "UffSce");
+            await newPage.waitForTimeout(2000);
+            await newPage.click("input[name='BTN_CONFIRM']");
+            await newPage.waitForSelector("#oCMenubbar_0");
+            browser.on('targetchanged', target => console.log(target.url()));
+
+            for (let cf of codiciFiscali) {
+                await newPage.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
+                await newPage.waitForSelector("button[name='BTN_CONFIRM']");
+                await newPage.type("input[name='codiceFiscaleISISTP@Filter']", cf);
+                await newPage.waitForSelector("#inside");
+                await newPage.click("#inside > table > tbody > tr > td:nth-child(2) > a");
+                await newPage.waitForSelector("#id1");
+                let datiAssistito = await newPage.evaluate(({cf}) => {
+                    let dati = {error: false, data: {}};
+                    let tab = document.querySelector("#mediciTable")
+                    let i = 0;
+                    for (let riga of tab.rows) {
+                        if (i !== 0) {
+                            if (!dati.data.hasOwnProperty(cf))
+                                dati.data[cf] = [];
+                            dati.data[cf].push({codice: riga.cells[2].innerHTML,cognome_nome:riga.cells[3].innerHTML, categoria:riga.cells[4].innerHTML,data:riga.cells[6].innerHTML});
+                        }
+                        else
+                            i++;
+                    }
+                    return dati;
+                },{cf});
+                //timeout 1000 ms
+                console.log(datiAssistito);
+
+            }
+        } catch (ex) {
+            out.error = true;
+            out.data = "error: " + ex.message + " " + ex.stack;
+            return out;
+        }
+        await browser.close();
+        return out;
+    }
+
+
 
 
 }
