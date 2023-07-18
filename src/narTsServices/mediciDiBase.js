@@ -3,6 +3,7 @@ import puppeteer from "puppeteer";
 import fse from "fs-extra/lib/output-file/index.js";
 import ExcelJS from "exceljs";
 import path from "path";
+import {Nar} from "./Nar.js";
 
 export class MediciDiBase {
 
@@ -12,6 +13,7 @@ export class MediciDiBase {
      */
     constructor(impostazioni) {
         this._impostazioni = impostazioni;
+        this._nar = new Nar(this._impostazioni);
     }
 
     async getPffAssistitiMedici(datiMedici) {
