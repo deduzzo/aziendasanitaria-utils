@@ -8,8 +8,9 @@ export class ImpostazioniFlussoM {
      * @param {String} flowlookDBFilePath Path assoluto del file Flowlook.mdb
      * @param {StruttureDistrettiPerProvincia} datiStruttureRegione Istanza della classe ImpostazioneFlusso
      * @param {ImpostazioniMail} impostazioniMail Impostazioni mail
+     * @param {ImpostazioniServizi} impostazioniServizi Impostazioni servizi
      */
-    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione) {
+    constructor(codiceAzienda, codiceRegione, in_folder, out_folder, flowlookDBFilePath, datiStruttureRegione,impostazioniServizi) {
         this._codiceAzienda = codiceAzienda;
         this._codiceRegione = codiceRegione;
         this._in_folder = in_folder;
@@ -17,10 +18,8 @@ export class ImpostazioniFlussoM {
         this._flowlookDBFilePath = flowlookDBFilePath;
         this._datiStruttureRegione = datiStruttureRegione;
         this._impostazioniMail = null;
-
+        this._impostazioniServizi = impostazioniServizi;
         this._extensions = ['.txt'];
-        this._ts_username = ""
-        this._ts_password = ""
         this._stat_folder_name = ".stats";
         this._flowlookDBTableSTS11 = "tSTS11";
         this._flowlookDBTableBranche = "tBranche";
