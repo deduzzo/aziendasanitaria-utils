@@ -28,6 +28,8 @@ export class Decessi {
                 for (let cf of Object.keys(datiUtenti)) {
                     i++;
                     let dato = datiUtenti[cf];
+                    console.log("VERIFICA:")
+                    console.log(dato);
                     await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
                     await page.type("input[name='cognome']", dato.cognome);
                     await page.type("input[name='nome']", dato.nome);
@@ -39,11 +41,14 @@ export class Decessi {
                     await page.waitForSelector("body > div:nth-child(12) > h1")
                     datiUtenti[cf].dataDecesso = await page.evaluate(() => {
                         let data = null;
-                        if (document.querySelector("body > div:nth-child(12) > div:nth-child(15) > div.cellaAss35.bold > div").innerHTML === "Data Decesso")
-                            data = document.querySelector("body > div:nth-child(12) > div:nth-child(15) > div.cellaAss59 > div").innerHTML.replaceAll("&nbsp;", "").trim();
+                        try {
+                            if (document.querySelector("body > div:nth-child(12) > div:nth-child(15) > div.cellaAss35.bold > div").innerHTML === "Data Decesso")
+                                data = document.querySelector("body > div:nth-child(12) > div:nth-child(15) > div.cellaAss59 > div").innerHTML.replaceAll("&nbsp;", "").trim();
+                        }
+                        catch (e) { }
                         return data;
                     });
-                    console.log("codice fiscale: " + cf + " data decesso:" + (datiUtenti[cf].dataDecesso ? datiUtenti[cf].dataDecesso : "non recuperabile"));
+                    console.log("codice fiscale: " + cf + " data decesso:" + (datiUtenti[cf].dataDecesso ?? "non recuperabile"));
                 }
             }
         } catch (e) {
@@ -85,7 +90,6 @@ export class Decessi {
                         }
                         return dati;
                     });
-                    datiAssistito.data.cf = cf;
                     console.log(datiAssistito);
                     if (!datiAssistito.error)
                         out.data[cf] = datiAssistito.data;
@@ -143,7 +147,6 @@ export class Decessi {
                 await this._ts.doLogout();
                 let datiMorti = await this.#verificaDatiAssititoDaNar(out.out.morti);
                 let dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data);
-                console.log("ciao");
                 out.out.morti = dateDecesso;
                 //if (writeFile)
                 //    Common.scriviOggettoSuNuovoFileExcel(dateDecesso, "dataDecesso.xlsx");
