@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import moment from "moment-timezone";
+import fs from "fs";
 
 export class Common {
 
@@ -37,21 +38,36 @@ export class Common {
     }
 
     // function similar to creaOggettoDaFileExcel but that write in the some manner accoppiaOggettoColonna, index is stored in _index
-    static async scriviOggettoSuFileExcel(filename, accoppiateOggettoColonna, data, toWriteOnly = []) {
+    static async scriviOggettoSuFileExcel(filename, accoppiateOggettoColonna, data, filter = [],scriviHeader = false) {
         var workbook = new ExcelJS.Workbook();
         let fileExcel = await workbook.xlsx.readFile(filename);
         let worksheet = (await fileExcel).worksheets[0];
+        if (scriviHeader)
+            for (let key of Object.keys(accoppiateOggettoColonna))
+                worksheet.getRow(1).getCell(accoppiateOggettoColonna[key]).value = key;
         for (let riga of data) {
             let keys = Object.keys(riga).filter(key => key !== "_index");
             for (let key of keys) {
                 let toWrite = true;
-                if (toWriteOnly.length > 0)
-                    if (!toWriteOnly.includes(key))
+                if (filter.length > 0)
+                    if (!filter.includes(key))
                         toWrite = false;
                 if (toWrite)
                     worksheet.getRow(riga._index + 1).getCell(accoppiateOggettoColonna[key]).value = riga[key];
             }
         }
         await fileExcel.xlsx.writeFile(filename);
+    }
+
+    static async scriviOggettoSuNuovoFileExcel(filename, colonneNomiHeader, data, scriviHeader = true) {
+        var workbook = new ExcelJS.Workbook();
+        // fileExcel will be a new file
+        let worksheet = workbook.addWorksheet('dati');
+        if (scriviHeader)
+            worksheet.addRow(Object.values(colonneNomiHeader));
+        for (let riga of data) {
+            worksheet.addRow(Object.values(riga));
+        }
+        await workbook.xlsx.writeFile(filename);
     }
 }

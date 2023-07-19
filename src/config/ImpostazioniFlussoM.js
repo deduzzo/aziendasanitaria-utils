@@ -85,22 +85,6 @@ export class ImpostazioniFlussoM {
         this._extensions = value;
     }
 
-    get ts_username() {
-        return this._ts_username;
-    }
-
-    set ts_username(value) {
-        this._ts_username = value;
-    }
-
-    get ts_password() {
-        return this._ts_password;
-    }
-
-    set ts_password(value) {
-        this._ts_password = value;
-    }
-
     get stat_folder_name() {
         return this._stat_folder_name;
     }

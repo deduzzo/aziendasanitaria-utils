@@ -11,6 +11,7 @@ export class Nar {
         this._logged = false;
         this._workingPage = null;
         this._type = null;
+        this._retry = 5;
     }
 
     static PAGHE = 0;
@@ -20,12 +21,18 @@ export class Nar {
         return this._logged;
     }
 
-    get workingPage() {
-        return this._workingPage;
+    async getWorkingPage() {
+        if (!this.logged)
+            await this.doLogin()
+        if (!this.logged)
+            return null;
+        else
+            return this._workingPage;
     }
 
     async doLogin(type = Nar.NAR) {
-        if (!this._logged)
+        let retry = this._retry
+        while (!this._logged && retry > 0) {
             if (type === Nar.PAGHE || type === Nar.NAR) {
                 try {
                     this._browser = await puppeteer.launch({headless: false});
@@ -41,25 +48,28 @@ export class Nar {
                     await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
                     await newPage.waitForSelector("select[name='ufficio@Controller']");
                     //await newPage.waitForSelector("#oCMenu_fill");
-                    await newPage.type("select[name='ufficio@Controller']", type === Nar.NAR ? "UffSce" : "UffPag");
+                    await newPage.type("select[name='ufficio@Controller']", (type === Nar.NAR ? "UffOpSce" : "UffPag"));
                     await newPage.waitForTimeout(2000);
                     await newPage.click("input[name='BTN_CONFIRM']");
                     await newPage.waitForSelector("#oCMenubbar_0");
                     this._workingPage = newPage;
                     this._logged = true;
                 } catch (e) {
-                    console.log(e);
                     this._logged = false;
-                    return false;
+                    await this._browser.close();
+                    retry--;
                 }
             } else this._logged = false;
-        return true;
+        }
+        return this._logged;
     }
 
     async doLogout() {
-        await this._browser.close();
-        this.logged = false;
-        return true;
+        if (this._logged) {
+            this._logged = false;
+            await this._browser.close();
+            return true;
+        } else return false;
     }
 
 

@@ -4,17 +4,21 @@ import ExcelJS from "exceljs";
 import path from "path";
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
+import {common} from "../common.js";
 
-export class MediciDiBase {
+export class Medici {
 
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
+     * @param workingPath
      */
-    constructor(impostazioni) {
+
+    constructor(impostazioni,workingPath = null) {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
+        this._workingPath = workingPath;
     }
 
     static CF = "cf";
@@ -24,13 +28,15 @@ export class MediciDiBase {
     static DATA_FINE_RAPPORTO = "dataFineRapporto";
     static MEDICO_DI_BASE = "MDB";
 
+
+
     async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};
         try {
             if (!this._nar.logged)
                 await this._nar.doLogin();
             if (this._nar.logged) {
-                let page = this._nar.workingPage;
+                let page = this._nar.getWorkingPage();
                 for (let dati of datiMedici) {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000176");
                     await page.waitForSelector("input[name='distrCod']");
@@ -54,22 +60,47 @@ export class MediciDiBase {
         return out;
     }
 
-    async getDataFineRapporto(datiMedici, type = MediciDiBase.MEDICO_DI_BASE) {
+
+    static async caricaCodiciFiscaliDaFileExcel(filePath, colonnaCodiceFiscale, limit = null) {
+        let codici = [];
+        let i = 0;
+        var workbook = new ExcelJS.Workbook();
+        let files = common.getAllFilesRecursive(filePath, '.xlsx');
+        for (let filename of files) {
+            console.log('read file ', filename);
+            let fileExcel = await workbook.xlsx.readFile(filename);
+            let worksheets = (await fileExcel).worksheets;
+            for (let worksheet of worksheets) {
+                for (i = 0; i < worksheet.rowCount; i++) {
+                    if (i > 1)
+                        codici.push({
+                            cf: worksheet.getRow(i).getCell(colonnaCodiceFiscale).value.trim().toUpperCase(),
+                            file: filename,
+                            rownumber: i
+                        });
+                    if (limit)
+                        if (i > limit)
+                            break;
+                }
+            }
+        }
+        return codici;
+    }
+
+    async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE) {
         let out = {error: false, data: [], notFound: []};
         try {
-            if (!this._nar.logged)
-                await this._nar.doLogin(Nar.PAGHE)
-            if (this._nar.logged) {
-                let page = this._nar.workingPage;
+            let page = this._nar.getWorkingPage();
+            if (page) {
                 for (let medico of datiMedici) {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=3500000036");
                     await page.waitForSelector("input[name='cognome@Filter']");
-                    if (medico.hasOwnProperty(MediciDiBase.CF))
-                        await page.type("input[name='codiceFiscale@Filter']", medico[MediciDiBase.CF]);
-                    else (medico.hasOwnProperty(MediciDiBase.NOME) && medico.hasOwnProperty(MediciDiBase.COGNOME))
+                    if (medico.hasOwnProperty(Medici.CF))
+                        await page.type("input[name='codiceFiscale@Filter']", medico[Medici.CF]);
+                    else (medico.hasOwnProperty(Medici.NOME) && medico.hasOwnProperty(Medici.COGNOME))
                     {
-                        await page.type("input[name='cognome@Filter']", medico[MediciDiBase.COGNOME]);
-                        await page.type("input[name='nome@Filter']", medico[MediciDiBase.NOME]);
+                        await page.type("input[name='cognome@Filter']", medico[Medici.COGNOME]);
+                        await page.type("input[name='nome@Filter']", medico[Medici.NOME]);
                     }
                     try {
                         if (type !== null) {
@@ -92,7 +123,7 @@ export class MediciDiBase {
                             return out;
                         }, {timeout: 10000});
                         if (datiEstrapolatiMedico.data) {
-                            medico[MediciDiBase.DATA_FINE_RAPPORTO] = datiEstrapolatiMedico.data;
+                            medico[Medici.DATA_FINE_RAPPORTO] = datiEstrapolatiMedico.data;
                             console.log(medico);
                             out.data.push(medico);
                         }
@@ -117,7 +148,7 @@ export class MediciDiBase {
     }
 
 
-    async getAssistitiByPdf(pdfPath) {
+    async getAssistitiByListaPDF(pdfPath) {
         let out = {assistiti: {}, medico: {}}
         const html = await pdf2html.text(pdfPath);
         let ready = false;
@@ -152,7 +183,7 @@ export class MediciDiBase {
         if (!this._nar.logged)
             await this._nar.doLogin();
         if (this._nar.logged) {
-            let page = this._nar.workingPage;
+            let page = this._nar.getWorkingPage();
             let codiciFiscaliConErrori = [];
             let finito = false;
             while (!finito) {
