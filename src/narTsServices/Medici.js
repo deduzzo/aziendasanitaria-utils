@@ -14,7 +14,7 @@ export class Medici {
      * @param workingPath
      */
 
-    constructor(impostazioni,workingPath = null) {
+    constructor(impostazioni, workingPath = null) {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
@@ -27,7 +27,6 @@ export class Medici {
     static COGNOME = "cognome";
     static DATA_FINE_RAPPORTO = "dataFineRapporto";
     static MEDICO_DI_BASE = "MDB";
-
 
 
     async getPffAssistitiMedici(datiMedici) {
@@ -87,6 +86,104 @@ export class Medici {
         return codici;
     }
 
+    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null) {
+        let out = {error: false, data: [], notFound: []};
+        await this._nar.doLogout();
+        this._nar.type = Nar.PAGHE;
+        try {
+            let page = await this._nar.getWorkingPage();
+            if (page) {
+                await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
+                await page.waitForSelector("input[name='codTipoLettura']");
+                await page.focus("input[name='annoPagamentoDa@Filter']");
+                await page.keyboard.down('Control');
+                await page.keyboard.press('A');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Backspace');
+                await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
+                await page.type("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
+                await page.focus("input[name='annoPagamentoA@Filter']");
+                await page.keyboard.down('Control');
+                await page.keyboard.press('A');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Backspace');
+                await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
+                await page.type("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
+                await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
+                await page.type("select[name='meseRiferimentoDa@Filter']", meseRiferimentoDa.toString());
+                if (annoRiferimentoA)
+                    await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
+                if (meseRiferimentoA)
+                    await page.type("select[name='meseRiferimentoA@Filter']", meseRiferimentoA.toString());
+                await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
+                //press tab and wait for 500 ms
+                await page.keyboard.press("Tab");
+                await page.waitForTimeout(1000);
+                await page.click("button[name='BTN_BUTTON_VISUALIZZA']");
+                //page wait for selector id=#thickbox
+                await page.waitForSelector("#thickbox");
+                await page.click("#thickbox");
+                await page.type("#matricola", matricola);
+                await page.keyboard.press("Tab");
+                await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
+                await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(3)");
+                let datiBusta = await page.evaluate(() => {
+                    let out = {datiInquadramento: {}, voci: {}, trattenuteMedico: {}, trattenuteEnte: {},totali:{}};
+                    let tabellaInquadramento = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(6)");
+                    let index = 0;
+                    for (let rows of tabellaInquadramento.rows) {
+                        if (index > 1)
+                            out.datiInquadramento[rows.cells[0].innerText] = {
+                                descrizione: rows.cells[1].innerText,
+                                valore: rows.cells[2].innerText,
+                                descrizioneValore: rows.cells[3].innerText
+                            };
+                        index++;
+                    }
+                    index = 0;
+                    let tabelle = {
+                        voci: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7)"),
+                        trattenuteMedico: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8)"),
+                        trattenuteEnte: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9)")
+                    }
+
+                    for (let keyTabella of Object.keys(tabelle)) {
+                        index = 0;
+                        for (let rows of tabelle[keyTabella].rows) {
+                            if (index > 1)
+                                out[keyTabella][rows.cells[0].innerText] = {
+                                    descrizioneVoce: rows.cells[1].innerText,
+                                    dal: rows.cells[2].innerText,
+                                    al: rows.cells[3].innerText,
+                                    quanti: rows.cells[4].innerText,
+                                    importoUnitario: rows.cells[5].innerText,
+                                    competenza: rows.cells[6].innerText,
+                                    trattenuta: rows.cells[7].innerText,
+                                };
+                            index++;
+                        }
+                    }
+
+                    let tabellaTotali = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10)");
+                    for(let cell of tabellaTotali.rows[1].cells)
+                    {
+                        let split = cell.innerText.split("\n");
+                        out.totali[split[0]] = split[1];
+                    }
+
+                    return out;
+                });
+                console.log(datiBusta);
+            }
+        } catch (ex) {
+            out.error = true;
+            out.data = "error: " + ex.message + " " + ex.stack;
+            return out;
+        }
+
+        return out;
+    }
+
     async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE) {
         let out = {error: false, data: [], notFound: []};
         try {
@@ -126,9 +223,7 @@ export class Medici {
                             medico[Medici.DATA_FINE_RAPPORTO] = datiEstrapolatiMedico.data;
                             console.log(medico);
                             out.data.push(medico);
-                        }
-                        else
-                        {
+                        } else {
                             console.log("nessun dato leggibile");
                             out.notFound.push(medico);
                         }
@@ -148,7 +243,7 @@ export class Medici {
     }
 
 
-    async getAssistitiByListaPDF(pdfPath) {
+    async getAssistitiDaListaPDF(pdfPath) {
         let out = {assistiti: {}, medico: {}}
         const html = await pdf2html.text(pdfPath);
         let ready = false;

@@ -10,15 +10,27 @@ export class Nar {
         this._browser = null;
         this._logged = false;
         this._workingPage = null;
-        this._type = null;
+        this._type = Nar.NAR;
         this._retry = 5;
     }
 
     static PAGHE = 0;
     static NAR = 1;
 
+    get type() {
+        return this._type;
+    }
+
+    set type(value) {
+        this._type = value;
+    }
+
     get logged() {
         return this._logged;
+    }
+
+    get browser() {
+        return this._browser;
     }
 
     async getWorkingPage() {
@@ -30,10 +42,10 @@ export class Nar {
             return this._workingPage;
     }
 
-    async doLogin(type = Nar.NAR) {
+    async doLogin() {
         let retry = this._retry
         while (!this._logged && retry > 0) {
-            if (type === Nar.PAGHE || type === Nar.NAR) {
+            if (this._type === Nar.PAGHE || this._type === Nar.NAR) {
                 try {
                     this._browser = await puppeteer.launch({headless: false});
                     const page = (await this._browser.pages())[0];
@@ -48,7 +60,7 @@ export class Nar {
                     await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
                     await newPage.waitForSelector("select[name='ufficio@Controller']");
                     //await newPage.waitForSelector("#oCMenu_fill");
-                    await newPage.type("select[name='ufficio@Controller']", (type === Nar.NAR ? "UffOpSce" : "UffPag"));
+                    await newPage.type("select[name='ufficio@Controller']", (this._type === Nar.NAR ? "UffOpSce" : "UffPag"));
                     await newPage.waitForTimeout(2000);
                     await newPage.click("input[name='BTN_CONFIRM']");
                     await newPage.waitForSelector("#oCMenubbar_0");

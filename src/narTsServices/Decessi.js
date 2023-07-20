@@ -3,6 +3,7 @@ import fs from "fs";
 import {utility} from "../utility.js";
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
+import {Common} from "./Common.js";
 
 export class Decessi {
 
@@ -105,7 +106,7 @@ export class Decessi {
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, writeFile = true, limit = null) {
+    async verificaAssititiInVita(codiciFiscali, limit = null) {
         let out = {error: false, out: {vivi: [], nonTrovati: [], morti: []}}
         console.log("codici fiscali totali:" + codiciFiscali.length)
         if (codiciFiscali !== null && codiciFiscali.length > 0) {
@@ -148,8 +149,6 @@ export class Decessi {
                 let datiMorti = await this.#verificaDatiAssititoDaNar(out.out.morti);
                 let dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data);
                 out.out.morti = dateDecesso;
-                //if (writeFile)
-                //    Common.scriviOggettoSuNuovoFileExcel(dateDecesso, "dataDecesso.xlsx");
             }
         } else
             out = {error: true, out: "Nessun codice fiscale trovato"}
