@@ -14,5 +14,5 @@ import * as Messina from "./src/config/sicilia/messina.js"
 import {Medici} from "./src/narTsServices/Medici.js";
 import {ImpostazioniServiziTerzi} from "./src/config/ImpostazioniServiziTerzi.js";
 
-export const flussiRegioneSicilia = {DisabiliGravissimi: Decessi, FlussoM, FlussoSIAD, FlussoHOSPICE, FlussoARSFAR, FlussoRSA, ImpostazioniFlussoHOSPICE,ImpostazioniFlussoARSFAR, ImpostazioniFlussoM, ImpostazioniFlussoRSA,
-    ImpostazioniMail,StruttureDistrettiPerProvincia, Messina,MediciDiBase: Medici,Decessi,ImpostazioniServiziTerzi }
+export const flussiRegioneSicilia = {Decessi, FlussoM, FlussoSIAD, FlussoHOSPICE, FlussoARSFAR, FlussoRSA, ImpostazioniFlussoHOSPICE,ImpostazioniFlussoARSFAR, ImpostazioniFlussoM, ImpostazioniFlussoRSA,
+    ImpostazioniMail,StruttureDistrettiPerProvincia, Messina, Medici,Decessi,ImpostazioniServiziTerzi }
