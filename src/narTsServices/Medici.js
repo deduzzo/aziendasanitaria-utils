@@ -1,10 +1,13 @@
 import pdf2html from "pdf2html";
 import fse from "fs-extra/lib/output-file/index.js";
 import ExcelJS from "exceljs";
-import path from "path";
+import path, {resolve} from "path";
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
 import {common} from "../common.js";
+import puppeteer from "puppeteer";
+import * as os from "os";
+import fs from "fs";
 
 export class Medici {
 
@@ -14,10 +17,12 @@ export class Medici {
      * @param workingPath
      */
 
+
     constructor(impostazioni, workingPath = null) {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
+        // this._workingPath = workingPath of type puppeteer.Page;
         this._workingPath = workingPath;
     }
 
@@ -86,8 +91,9 @@ export class Medici {
         return codici;
     }
 
-    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null) {
-        let out = {error: false, data: [], notFound: []};
+    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
+        let out = {error: false, data: null};
+        let htmlOutput = "";
         await this._nar.doLogout();
         this._nar.type = Nar.PAGHE;
         try {
@@ -95,6 +101,10 @@ export class Medici {
             if (page) {
                 await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
                 await page.waitForSelector("input[name='codTipoLettura']");
+                await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
+                //press tab and wait for 500 ms
+                await page.keyboard.press("Tab");
+                await page.waitForTimeout(1000);
                 await page.focus("input[name='annoPagamentoDa@Filter']");
                 await page.keyboard.down('Control');
                 await page.keyboard.press('A');
@@ -115,20 +125,17 @@ export class Medici {
                     await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
                 if (meseRiferimentoA)
                     await page.type("select[name='meseRiferimentoA@Filter']", meseRiferimentoA.toString());
-                await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
-                //press tab and wait for 500 ms
-                await page.keyboard.press("Tab");
-                await page.waitForTimeout(1000);
                 await page.click("button[name='BTN_BUTTON_VISUALIZZA']");
                 //page wait for selector id=#thickbox
                 await page.waitForSelector("#thickbox");
                 await page.click("#thickbox");
                 await page.type("#matricola", matricola);
                 await page.keyboard.press("Tab");
+                //wait 400 ms
+                await page.waitForTimeout(400);
                 await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
-                await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(3)");
                 let datiBusta = await page.evaluate(() => {
-                    let out = {datiInquadramento: {}, voci: {}, trattenuteMedico: {}, trattenuteEnte: {},totali:{}};
+                    let out = {datiInquadramento: {}, voci: {}, trattenuteMedico: {}, trattenuteEnte: {}, totali: {}};
                     let tabellaInquadramento = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(6)");
                     let index = 0;
                     for (let rows of tabellaInquadramento.rows) {
@@ -165,15 +172,73 @@ export class Medici {
                     }
 
                     let tabellaTotali = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10)");
-                    for(let cell of tabellaTotali.rows[1].cells)
-                    {
+                    for (let cell of tabellaTotali.rows[1].cells) {
                         let split = cell.innerText.split("\n");
-                        out.totali[split[0]] = split[1];
+                        out.totali[split[0]] = {totale: split[1]};
                     }
 
                     return out;
                 });
                 console.log(datiBusta);
+                for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
+                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                    await page.waitForTimeout(400);
+                    await page.waitForSelector("#windowContent");
+                    let datiDettagliCampo = await page.evaluate(() => {
+                        return {
+                            splitted: document.querySelector("#window").innerText.split("\n"),
+                            html: document.querySelector("#windowContent").innerHTML
+                        };
+                    });
+                    htmlOutput += datiDettagliCampo.html + "<br />";
+                    datiBusta.voci[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                    await page.click("img[id='windowClose']");
+                }
+                for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
+                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                    await page.waitForTimeout(200);
+                    await page.waitForSelector("#windowContent");
+                    let datiDettagliCampo = await page.evaluate(() => {
+                        return {
+                            splitted: document.querySelector("#window").innerText.split("\n"),
+                            html: document.querySelector("#windowContent").innerHTML
+                        };
+                    });
+                    htmlOutput += datiDettagliCampo.html + "<br />";
+                    datiBusta.trattenuteMedico[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                    await page.click("img[id='windowClose']");
+                }
+                for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
+                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                    await page.waitForTimeout(200);
+                    await page.waitForSelector("#windowContent");
+                    let datiDettagliCampo = await page.evaluate(() => {
+                        return {
+                            splitted: document.querySelector("#window").innerText.split("\n"),
+                            html: document.querySelector("#windowContent").innerHTML
+                        };
+                    });
+                    htmlOutput += datiDettagliCampo.html + "<br />";
+                    datiBusta.trattenuteEnte[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                    await page.click("img[id='windowClose']");
+                }
+                for (let i = 0; i < Object.keys(datiBusta.totali).length; i++) {
+                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")")
+                    await page.waitForTimeout(200);
+                    await page.waitForSelector("#windowContent");
+                    let datiDettagliCampo = await page.evaluate((i) => {
+                        return {
+                            splitted: document.querySelector("#window").innerText.split("\n"),
+                            html: document.querySelector("#windowContent").innerHTML,
+                            title: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")").innerText.split("\n")[0]
+                        };
+                    }, i);
+                    htmlOutput += datiDettagliCampo.html + "<br />";
+                    datiBusta.totali[datiDettagliCampo.title].dettaglio = datiDettagliCampo;
+                    await page.click("img[id='windowClose']");
+                }
+                out.data = datiBusta;
+
             }
         } catch (ex) {
             out.error = true;
@@ -181,7 +246,110 @@ export class Medici {
             return out;
         }
 
+        if (salvaReport) {
+            let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato " + mesePagamentoDa + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
+
+            // Crea un file temporaneo
+            const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
+            fs.writeFileSync(tempFileDettaglio, htmlString);
+
+            // Avvia un'istanza di browser
+
+            const browser = await puppeteer.launch();
+            const page = await browser.newPage();
+
+            // Carica il file temporaneo nella pagina
+            await page.goto(`file://${tempFileDettaglio}`);
+
+            if (this._workingPath === null)
+                // set working path to Desktop
+                this._workingPath = path.join(os.homedir(), 'Desktop');
+
+            // Salva la pagina come PDF
+            await page.goto(`file://${tempFileDettaglio}`);
+            await page.pdf({
+                path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                format: 'A4'
+            });
+            //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
+
+            // Chiude il browser
+            await browser.close();
+        }
+
         return out;
+    }
+
+    async stampaCedolino(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null) {
+        let out = {error: false, data: null};
+
+        await this._nar.doLogout();
+        this._nar.type = Nar.PAGHE;
+        try {
+            let page = await this._nar.getWorkingPage();
+            if (page) {
+                await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
+                await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
+                await page.keyboard.press("Tab");
+                await page.waitForTimeout(500);
+                await page.waitForSelector("input[name='tipoLetturaRaggrCodice']");
+                await page.type("input[name='templateCodice']", "ME");
+                await page.waitForTimeout(500);
+                await page.type("input[name='tipoLetturaRaggrCodice']", "ORDINAM_STAMPE_PREFINCATE");
+                await page.waitForTimeout(500);
+                await page.click("input[name='generaRiepilogo@Filter']");
+                await page.click("input[name='totaleGenerale@Filter']");
+                await page.click("input[name='escludiVociAZero@Filter']");
+                await page.click("input[name='Anagrafica']");
+                await page.waitForSelector("input[name='matr@Filter']");
+                await page.type("input[name='matr@Filter']", matricola);
+                //press f4
+                await page.keyboard.press("F4");
+                await page.waitForSelector("input[name='annoPagamentoA@Filter']");
+                await page.focus("input[name='annoPagamentoA@Filter']");
+                await page.keyboard.down('Control');
+                await page.keyboard.press('A');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Backspace');
+                await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
+                await page.focus("input[name='annoPagamentoDa@Filter']");
+                await page.keyboard.down('Control');
+                await page.keyboard.press('A');
+                await page.keyboard.up('Control');
+                await page.keyboard.press('Backspace');
+                await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
+
+                await page.type("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
+                await page.type("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
+                // wait for new page load and save the pdf served
+                // Prepara una Promessa che si risolverà quando l'evento 'targetcreated' sarà generato
+
+                // Crea una funzione per gestire le risposte
+                const handleResponse = async (response) => {
+                    const buffer = await response.buffer();
+                    await fs.writeFile('myFile.pdf', buffer);
+                };
+
+                page.on('response', handleResponse);
+
+                // Attendi che la Promessa si risolva
+
+                await page.click("button[name='BTN_CONFIRM']");
+                await page.waitForTimeout(10000);
+                console.log("ciao");
+
+
+
+                console.log('PDF salvato con successo.');
+
+
+                console.log("cio");
+            }
+        } catch (ex) {
+            out.error = true;
+            out.data = "error: " + ex.message + " " + ex.stack;
+            return out;
+        }
     }
 
     async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE) {

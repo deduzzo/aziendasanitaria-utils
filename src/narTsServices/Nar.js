@@ -3,7 +3,8 @@ import puppeteer from "puppeteer";
 export class Nar {
     /**
      *
-     * @param {ImpostazioniServiziTerzi} impostazioni
+     * @param {ImpostazioniServiziTerzi} _impostazioni
+     * @param {import('puppeteer').Page} _workingPage
      */
     constructor(impostazioni) {
         this._impostazioni = impostazioni;
