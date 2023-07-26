@@ -1,3 +1,4 @@
+
 export class ImpostazioniFlussoM {
 
     /**
@@ -140,5 +141,14 @@ export class ImpostazioniFlussoM {
 
     set flowLookDBCatalogoUnicoRegionalePrestazioneBranca(value) {
         this._tCatalogoUnicoRegionalePrestazioneBranca = value;
+    }
+
+
+    get impostazioniServizi() {
+        return this._impostazioniServizi;
+    }
+
+    set impostazioniServizi(value) {
+        this._impostazioniServizi = value;
     }
 }
