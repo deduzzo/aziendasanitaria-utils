@@ -2,6 +2,8 @@ import ExcelJS from "exceljs";
 import moment from "moment-timezone";
 import fs from "fs";
 import CodiceFiscaleUtils from "@marketto/codice-fiscale-utils";
+import {common} from "../common.js";
+import _ from "lodash";
 
 export class Common {
 
@@ -79,7 +81,7 @@ export class Common {
     // a function that write a txt file with the data as array, parameters: path and array
     static async scriviOggettoSuFileTxt(filename, data) {
         // write a file with the data
-        await fs.writeFileSync(filename, data.join('\n'));
+        await fs.writeFileSync(filename, JSON.stringify(data, common.replacer, "\t"), 'utf8');
     }
 
 

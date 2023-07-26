@@ -163,8 +163,19 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
     return datiAssistito;
 }
 
+    const replacer = (key, value) => {
+    if (value instanceof Map) {
+        return {
+            dataType: 'Map',
+            value: Array.from(value.entries()), // or with spread: value: [...value]
+        };
+    } else {
+        return value;
+    }
+}
 
 
 
 
-export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson,ottieniDatiAssistito}
+
+export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson,ottieniDatiAssistito,replacer}
