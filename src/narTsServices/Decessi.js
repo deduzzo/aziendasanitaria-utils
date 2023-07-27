@@ -26,11 +26,10 @@ export class Decessi {
             let page = await this._ts.getWorkingPage();
             if (page) {
                 let i = 0;
+                console.log("VERIFICA DATE DECESSO")
                 for (let cf of Object.keys(datiUtenti)) {
                     i++;
                     let dato = datiUtenti[cf];
-                    console.log("VERIFICA:")
-                    console.log(dato);
                     await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
                     await page.type("input[name='cognome']", dato.cognome);
                     await page.type("input[name='nome']", dato.nome);

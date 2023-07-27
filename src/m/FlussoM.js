@@ -493,17 +493,6 @@ export class FlussoM {
             await this.scriviStatsFlussoM(fileElaborati)
     }
 
-    #replacer(key, value) {
-        if (value instanceof Map) {
-            return {
-                dataType: 'Map',
-                value: Array.from(value.entries()), // or with spread: value: [...value]
-            };
-        } else {
-            return value;
-        }
-    }
-
     async generaReportDaStats(salvaFileHtml = true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
         let strutture = this.#loadStruttureFromFlowlookDB();
@@ -652,7 +641,7 @@ export class FlussoM {
             if (!fs.existsSync(dirName + path.sep + this._settings.stat_folder_name))
                 fs.mkdirSync(dirName + path.sep + this._settings.stat_folder_name);
             if (sovrascrivi || !fs.existsSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext))
-                fs.writeFileSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext, JSON.stringify(_.omit(fileData[file], ["absolutePath", "nomeFile", "tempPath"]), this.#replacer, "\t"), 'utf8');
+                fs.writeFileSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext, JSON.stringify(_.omit(fileData[file], ["absolutePath", "nomeFile", "tempPath"]), common.replacer, "\t"), 'utf8');
         }
     }
 
@@ -786,7 +775,7 @@ export class FlussoM {
             duplicatiJson[duplicato.id] = duplicato.info;
         })
         if (scriviFileDifferenze)
-            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, this.#replacer, "\t"), 'utf8')
+            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, common.replacer, "\t"), 'utf8')
         return {
             numDuplicati: numDuplicati,
             stats: duplicatiJson
