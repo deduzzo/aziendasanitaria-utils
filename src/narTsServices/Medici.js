@@ -23,7 +23,7 @@ export class Medici {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
-        this._retry = 5;
+        this._retry = 20;
     }
 
     static CF = "cf";
@@ -259,7 +259,7 @@ export class Medici {
             }
             if (!out.error) {
                 if (salvaReport) {
-                    let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2,"0") + "/" + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
+                    let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2, "0") + "/" + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
 
                     // Crea un file temporaneo
                     const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
@@ -343,7 +343,7 @@ export class Medici {
                     if (annoRiferimentoA)
                         await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
                     if (meseRiferimentoA)
-                        await page.type("select[name='meseRiferimentoA@Filter']",(meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
+                        await page.type("select[name='meseRiferimentoA@Filter']", (meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
                     let download = this._nar.getDownloadPath();
                     const watcher = chokidar.watch(download, {
                         ignored: /(^|[\/\\])\..*|\.tmp$|\.crdownload$/,
@@ -353,12 +353,9 @@ export class Medici {
                     const waitForPDF = () => {
                         return new Promise((resolve, reject) => {
                             watcher.on('add', function (path) {
-                                console.log(path);
                                 resolve(path);
                             });
-
                             watcher.on('error', function (error) {
-                                console.log(error);
                                 reject(null);
                             });
                         });
@@ -598,6 +595,24 @@ export class Medici {
         return out;
     }
 
+    /*
+    * @param {array} datiMedici
+    * @param {array} riferimento
+    *
+    * Esempio:
+    *
+    *
+    let out = await medici.batchVerificheBustePagaDettagli({
+        "314505": [
+            [2019, 6],
+        ],
+        "316318": [
+            [2019, 3],
+            [2019, 4],
+        ]
+    },[[2010, 1], [2023, 6]]);
+    *
+     */
     async batchVerificheBustePagaDettagli(datiMedici, riferimento) {
         process.setMaxListeners(30);
         this._nar.batchProcess = true;
@@ -615,8 +630,7 @@ export class Medici {
                     if (out1.error || ou2.error)
                         error = true;
                 times++;
-                if (times % 10 === 0)
-                {
+                if (times % 10 === 0) {
                     await this._nar.doLogout();
                 }
             }
