@@ -4,7 +4,7 @@ import puppeteerExtra from 'puppeteer-extra';
 import userPreferences from 'puppeteer-extra-plugin-user-preferences';
 import * as os from "os";
 import fs from "fs";
-import {existsSync } from "fs";
+import {existsSync} from "fs";
 import moment from "moment";
 
 
@@ -14,7 +14,7 @@ export class Nar {
      * @param {ImpostazioniServiziTerzi} impostazioni
      * @param workingPath string
      */
-    constructor(impostazioni,workingPath = null) {
+    constructor(impostazioni, workingPath = null) {
         this._impostazioni = impostazioni;
         this._browser = null;
         this._logged = false;
@@ -24,6 +24,7 @@ export class Nar {
         // working path for download,a temporary folder so temp dir
         this._downloadPath = path.join(os.tmpdir(), 'nar_' + Date.now());
         this._workingPath = workingPath ?? path.join(path.join(os.homedir(), 'Desktop'), 'medici_' + (moment().format('YYYYMMDD')));
+        this._batchProcess = false;
         // create the folder if it does not exist async
     }
 
@@ -46,6 +47,14 @@ export class Nar {
         return this._browser;
     }
 
+    get batchProcess() {
+        return this._batchProcess;
+    }
+
+    set batchProcess(value) {
+        this._batchProcess = value;
+    }
+
     async getWorkingPage() {
         if (!this.logged)
             await this.doLogin()
@@ -64,8 +73,6 @@ export class Nar {
     }
 
 
-
-
     async doLogin() {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
@@ -79,6 +86,10 @@ export class Nar {
                     puppeteerExtra.use(
                         userPreferences({
                             userPrefs: {
+                                profile: {
+                                    default_content_settings: {popups: 0, "multiple-automatic-downloads": 1},
+                                    default_content_setting_values: {'automatic_downloads': 1},
+                                },
                                 download: {
                                     prompt_for_download: false,
                                     directory_upgrade: true,
@@ -92,7 +103,11 @@ export class Nar {
                             },
                         })
                     );
-                    this._browser = await puppeteer.launch({headless: false});
+                    this._browser = await puppeteer.launch({
+                        headless: false,
+                        defaultViewport: {width: 1920, height: 1080},
+                        args: ['--window-size=1920,1080']
+                    });
                     const page = (await this._browser.pages())[0];
                     await page.goto('https://nar.regione.sicilia.it/NAR/');
                     await page.type("#loginform > div > input:nth-child(2)", this._impostazioni.nar_username);

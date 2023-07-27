@@ -23,6 +23,7 @@ export class Medici {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
+        this._retry = 5;
     }
 
     static CF = "cf";
@@ -91,262 +92,300 @@ export class Medici {
     }
 
     async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
-        let out = {error: false, data: null};
-        let htmlOutput = "";
-        await this._nar.doLogout();
-        this._nar.type = Nar.PAGHE;
-        try {
-            let page = await this._nar.getWorkingPage();
-            if (page) {
-                await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
-                await page.waitForSelector("input[name='codTipoLettura']");
-                await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
-                //press tab and wait for 500 ms
-                await page.keyboard.press("Tab");
-                await page.waitForTimeout(1000);
-                await page.focus("input[name='annoPagamentoDa@Filter']");
-                await page.keyboard.down('Control');
-                await page.keyboard.press('A');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Backspace');
-                await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
-                await page.type("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
-                await page.focus("input[name='annoPagamentoA@Filter']");
-                await page.keyboard.down('Control');
-                await page.keyboard.press('A');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Backspace');
-                await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
-                await page.type("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
-                await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
-                await page.type("select[name='meseRiferimentoDa@Filter']", meseRiferimentoDa.toString());
-                if (annoRiferimentoA)
-                    await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
-                if (meseRiferimentoA)
-                    await page.type("select[name='meseRiferimentoA@Filter']", meseRiferimentoA.toString());
-                await page.click("button[name='BTN_BUTTON_VISUALIZZA']");
-                //page wait for selector id=#thickbox
-                await page.waitForSelector("#thickbox");
-                await page.click("#thickbox");
-                await page.type("#matricola", matricola);
-                await page.keyboard.press("Tab");
-                //wait 400 ms
-                await page.waitForTimeout(400);
-                await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
-                let datiBusta = await page.evaluate(() => {
-                    let out = {datiInquadramento: {}, voci: {}, trattenuteMedico: {}, trattenuteEnte: {}, totali: {}};
-                    let tabellaInquadramento = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(6)");
-                    let index = 0;
-                    for (let rows of tabellaInquadramento.rows) {
-                        if (index > 1)
-                            out.datiInquadramento[rows.cells[0].innerText] = {
-                                descrizione: rows.cells[1].innerText,
-                                valore: rows.cells[2].innerText,
-                                descrizioneValore: rows.cells[3].innerText
-                            };
-                        index++;
-                    }
-                    index = 0;
-                    let tabelle = {
-                        voci: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7)"),
-                        trattenuteMedico: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8)"),
-                        trattenuteEnte: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9)")
-                    }
-
-                    for (let keyTabella of Object.keys(tabelle)) {
-                        index = 0;
-                        for (let rows of tabelle[keyTabella].rows) {
+        let out = null;
+        let retry = this._retry;
+        do {
+            out = {error: false, data: null};
+            let htmlOutput = "";
+            if (!this._nar._batchProcess) {
+                await this._nar.doLogout();
+                this._nar.type = Nar.PAGHE;
+            }
+            try {
+                let page = await this._nar.getWorkingPage();
+                if (page) {
+                    page.setDefaultTimeout(5000);
+                    await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
+                    await page.waitForSelector("input[name='codTipoLettura']");
+                    await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
+                    //press tab and wait for 500 ms
+                    await page.keyboard.press("Tab");
+                    await page.waitForTimeout(1000);
+                    await page.focus("input[name='annoPagamentoDa@Filter']");
+                    await page.keyboard.down('Control');
+                    await page.keyboard.press('A');
+                    await page.keyboard.up('Control');
+                    await page.keyboard.press('Backspace');
+                    await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
+                    await page.type("select[name='mesePagamentoDa@Filter']", (mesePagamentoDa === 1 ? "1 " : mesePagamentoDa.toString()));
+                    await page.focus("input[name='annoPagamentoA@Filter']");
+                    await page.keyboard.down('Control');
+                    await page.keyboard.press('A');
+                    await page.keyboard.up('Control');
+                    await page.keyboard.press('Backspace');
+                    await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
+                    await page.type("select[name='mesePagamentoA@Filter']", (mesePagamentoA === 1 ? "1 " : mesePagamentoA.toString()));
+                    await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
+                    await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
+                    if (annoRiferimentoA)
+                        await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
+                    if (meseRiferimentoA)
+                        await page.type("select[name='meseRiferimentoA@Filter']", (meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
+                    await page.click("button[name='BTN_BUTTON_VISUALIZZA']");
+                    //page wait for selector id=#thickbox
+                    await page.waitForSelector("#thickbox");
+                    await page.click("#thickbox");
+                    await page.type("#matricola", matricola);
+                    await page.keyboard.press("Tab");
+                    //wait 400 ms
+                    await page.waitForTimeout(400);
+                    await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
+                    let datiBusta = await page.evaluate(() => {
+                        let out = {
+                            datiInquadramento: {},
+                            voci: {},
+                            trattenuteMedico: {},
+                            trattenuteEnte: {},
+                            totali: {}
+                        };
+                        let tabellaInquadramento = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(6)");
+                        let index = 0;
+                        for (let rows of tabellaInquadramento.rows) {
                             if (index > 1)
-                                out[keyTabella][rows.cells[0].innerText] = {
-                                    descrizioneVoce: rows.cells[1].innerText,
-                                    dal: rows.cells[2].innerText,
-                                    al: rows.cells[3].innerText,
-                                    quanti: rows.cells[4].innerText,
-                                    importoUnitario: rows.cells[5].innerText,
-                                    competenza: rows.cells[6].innerText,
-                                    trattenuta: rows.cells[7].innerText,
+                                out.datiInquadramento[rows.cells[0].innerText] = {
+                                    descrizione: rows.cells[1].innerText,
+                                    valore: rows.cells[2].innerText,
+                                    descrizioneValore: rows.cells[3].innerText
                                 };
                             index++;
                         }
+                        index = 0;
+                        let tabelle = {
+                            voci: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7)"),
+                            trattenuteMedico: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8)"),
+                            trattenuteEnte: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9)")
+                        }
+
+                        for (let keyTabella of Object.keys(tabelle)) {
+                            index = 0;
+                            for (let rows of tabelle[keyTabella].rows) {
+                                if (index > 1)
+                                    out[keyTabella][rows.cells[0].innerText] = {
+                                        descrizioneVoce: rows.cells[1].innerText,
+                                        dal: rows.cells[2].innerText,
+                                        al: rows.cells[3].innerText,
+                                        quanti: rows.cells[4].innerText,
+                                        importoUnitario: rows.cells[5].innerText,
+                                        competenza: rows.cells[6].innerText,
+                                        trattenuta: rows.cells[7].innerText,
+                                    };
+                                index++;
+                            }
+                        }
+
+                        let tabellaTotali = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10)");
+                        for (let cell of tabellaTotali.rows[1].cells) {
+                            let split = cell.innerText.split("\n");
+                            out.totali[split[0]] = {totale: split[1]};
+                        }
+
+                        return out;
+                    });
+
+                    for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
+                        await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                        await page.waitForTimeout(400);
+                        await page.waitForSelector("#windowContent");
+                        let datiDettagliCampo = await page.evaluate(() => {
+                            return {
+                                splitted: document.querySelector("#window").innerText.split("\n"),
+                                html: document.querySelector("#windowContent").innerHTML
+                            };
+                        });
+                        htmlOutput += datiDettagliCampo.html + "<br />";
+                        datiBusta.voci[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                        await page.click("img[id='windowClose']");
                     }
-
-                    let tabellaTotali = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10)");
-                    for (let cell of tabellaTotali.rows[1].cells) {
-                        let split = cell.innerText.split("\n");
-                        out.totali[split[0]] = {totale: split[1]};
+                    for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
+                        await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                        await page.waitForTimeout(200);
+                        await page.waitForSelector("#windowContent");
+                        let datiDettagliCampo = await page.evaluate(() => {
+                            return {
+                                splitted: document.querySelector("#window").innerText.split("\n"),
+                                html: document.querySelector("#windowContent").innerHTML
+                            };
+                        });
+                        htmlOutput += datiDettagliCampo.html + "<br />";
+                        datiBusta.trattenuteMedico[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                        await page.click("img[id='windowClose']");
                     }
-
-                    return out;
-                });
-                console.log(datiBusta);
-                for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
-                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                    await page.waitForTimeout(400);
-                    await page.waitForSelector("#windowContent");
-                    let datiDettagliCampo = await page.evaluate(() => {
-                        return {
-                            splitted: document.querySelector("#window").innerText.split("\n"),
-                            html: document.querySelector("#windowContent").innerHTML
-                        };
-                    });
-                    htmlOutput += datiDettagliCampo.html + "<br />";
-                    datiBusta.voci[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
-                    await page.click("img[id='windowClose']");
+                    for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
+                        await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
+                        await page.waitForTimeout(200);
+                        await page.waitForSelector("#windowContent");
+                        let datiDettagliCampo = await page.evaluate(() => {
+                            return {
+                                splitted: document.querySelector("#window").innerText.split("\n"),
+                                html: document.querySelector("#windowContent").innerHTML
+                            };
+                        });
+                        htmlOutput += datiDettagliCampo.html + "<br />";
+                        datiBusta.trattenuteEnte[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
+                        await page.click("img[id='windowClose']");
+                    }
+                    for (let i = 0; i < Object.keys(datiBusta.totali).length; i++) {
+                        await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")")
+                        await page.waitForTimeout(200);
+                        await page.waitForSelector("#windowContent");
+                        let datiDettagliCampo = await page.evaluate((i) => {
+                            return {
+                                splitted: document.querySelector("#window").innerText.split("\n"),
+                                html: document.querySelector("#windowContent").innerHTML,
+                                title: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")").innerText.split("\n")[0]
+                            };
+                        }, i);
+                        htmlOutput += datiDettagliCampo.html + "<br />";
+                        datiBusta.totali[datiDettagliCampo.title].dettaglio = datiDettagliCampo;
+                        await page.click("img[id='windowClose']");
+                    }
+                    out.data = datiBusta;
                 }
-                for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
-                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                    await page.waitForTimeout(200);
-                    await page.waitForSelector("#windowContent");
-                    let datiDettagliCampo = await page.evaluate(() => {
-                        return {
-                            splitted: document.querySelector("#window").innerText.split("\n"),
-                            html: document.querySelector("#windowContent").innerHTML
-                        };
-                    });
-                    htmlOutput += datiDettagliCampo.html + "<br />";
-                    datiBusta.trattenuteMedico[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
-                    await page.click("img[id='windowClose']");
-                }
-                for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
-                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                    await page.waitForTimeout(200);
-                    await page.waitForSelector("#windowContent");
-                    let datiDettagliCampo = await page.evaluate(() => {
-                        return {
-                            splitted: document.querySelector("#window").innerText.split("\n"),
-                            html: document.querySelector("#windowContent").innerHTML
-                        };
-                    });
-                    htmlOutput += datiDettagliCampo.html + "<br />";
-                    datiBusta.trattenuteEnte[datiDettagliCampo.splitted[3].replaceAll("Codice:", "").trim()].dettaglio = datiDettagliCampo;
-                    await page.click("img[id='windowClose']");
-                }
-                for (let i = 0; i < Object.keys(datiBusta.totali).length; i++) {
-                    await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")")
-                    await page.waitForTimeout(200);
-                    await page.waitForSelector("#windowContent");
-                    let datiDettagliCampo = await page.evaluate((i) => {
-                        return {
-                            splitted: document.querySelector("#window").innerText.split("\n"),
-                            html: document.querySelector("#windowContent").innerHTML,
-                            title: document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")").innerText.split("\n")[0]
-                        };
-                    }, i);
-                    htmlOutput += datiDettagliCampo.html + "<br />";
-                    datiBusta.totali[datiDettagliCampo.title].dettaglio = datiDettagliCampo;
-                    await page.click("img[id='windowClose']");
-                }
-                out.data = datiBusta;
-
+            } catch (ex) {
+                out.error = true;
+                out.data = "error: " + ex.message + " " + ex.stack;
+                if (!this._nar._batchProcess)
+                    await this._nar.doLogout();
             }
-        } catch (ex) {
-            out.error = true;
-            out.data = "error: " + ex.message + " " + ex.stack;
-            return out;
-        }
-        if (!out.error)
-        if (salvaReport) {
-            let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato " + mesePagamentoDa + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
+            if (!out.error) {
+                if (salvaReport) {
+                    let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2,"0") + "/" + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
 
-            // Crea un file temporaneo
-            const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
-            fs.writeFileSync(tempFileDettaglio, htmlString);
-            // Avvia un'istanza di browser
+                    // Crea un file temporaneo
+                    const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
+                    fs.writeFileSync(tempFileDettaglio, htmlString);
+                    // Avvia un'istanza di browser
 
-            const browser = await puppeteer.launch();
-            const page = await browser.newPage();
+                    const browser = await puppeteer.launch();
+                    const page = await browser.newPage();
 
-            // Carica il file temporaneo nella pagina
-            await page.goto(`file://${tempFileDettaglio}`);
+                    // Carica il file temporaneo nella pagina
+                    await page.goto(`file://${tempFileDettaglio}`);
 
 
-            // Salva la pagina come PDF
-            await page.goto(`file://${tempFileDettaglio}`);
-            await page.pdf({
-                path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
-                format: 'A4'
-            });
-            //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
+                    // Salva la pagina come PDF
+                    await page.goto(`file://${tempFileDettaglio}`);
+                    await page.pdf({
+                        path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                        format: 'A4'
+                    });
+                    //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
 
-            // Chiude il browser
-            await browser.close();
-        }
-
+                    // Chiude il browser
+                    if (!this._nar._batchProcess)
+                        await browser.close();
+                }
+            } else
+                retry--;
+        } while (out.error === true && retry > 0);
         return out;
     }
 
-    async stampaCedolino(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null) {
-        let out = {error: false, data: null};
-        this._nar.type = Nar.PAGHE;
-        try {
-            let page = await this._nar.getWorkingPage();
-            if (page) {
-                await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
-                await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
-                await page.keyboard.press("Tab");
-                await page.waitForTimeout(500);
-                await page.waitForSelector("input[name='tipoLetturaRaggrCodice']");
-                await page.type("input[name='templateCodice']", "ME");
-                await page.waitForTimeout(500);
-                await page.type("input[name='tipoLetturaRaggrCodice']", "ORDINAM_STAMPE_PREFINCATE");
-                await page.waitForTimeout(500);
-                await page.click("input[name='generaRiepilogo@Filter']");
-                await page.click("input[name='totaleGenerale@Filter']");
-                await page.click("input[name='escludiVociAZero@Filter']");
-                await page.click("input[name='Anagrafica']");
-                await page.waitForSelector("input[name='matr@Filter']");
-                await page.type("input[name='matr@Filter']", matricola);
-                //press f4
-                await page.keyboard.press("F4");
-                await page.waitForSelector("input[name='annoPagamentoA@Filter']");
-                await page.focus("input[name='annoPagamentoA@Filter']");
-                await page.keyboard.down('Control');
-                await page.keyboard.press('A');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Backspace');
-                await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
-                await page.focus("input[name='annoPagamentoDa@Filter']");
-                await page.keyboard.down('Control');
-                await page.keyboard.press('A');
-                await page.keyboard.up('Control');
-                await page.keyboard.press('Backspace');
-                await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
-
-                await page.type("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
-                await page.type("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
-
-                let download = this._nar.getDownloadPath();
-                const watcher = chokidar.watch(download, {
-                    ignored: /(^|[\/\\])\..*|\.tmp$|\.crdownload$/,
-                    persistent: true
-                });
-
-                const waitForPDF = () => {
-                    return new Promise((resolve, reject) => {
-                        watcher.on('add', function(path) {
-                            console.log(path);
-                            resolve(path);
-                        });
-
-                        // gestione degli errori
-                        watcher.on('error', function(error) {
-                            console.log(error);
-                            reject(error);
-                        });
-                    });
-                }
-                await page.click("button[name='BTN_CONFIRM']");
-                const file = await waitForPDF();
-                // copy the file to the working path with filename
-                fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
-                await this._nar.doLogout();
-            }
-        } catch (ex) {
-            out.error = true;
-            out.data = "error: " + ex.message + " " + ex.stack;
+    async stampaCedolino(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
+        let out = null;
+        if (!this._nar._batchProcess) {
             await this._nar.doLogout();
-            return out;
+            this._nar.type = Nar.PAGHE;
         }
+        let retry = this._retry;
+        do {
+            out = {error: false, data: null};
+            try {
+                let page = await this._nar.getWorkingPage();
+                if (page) {
+                    await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
+                    await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
+                    await page.keyboard.press("Tab");
+                    await page.waitForTimeout(500);
+                    await page.waitForSelector("input[name='tipoLetturaRaggrCodice']");
+                    await page.type("input[name='templateCodice']", "ME");
+                    await page.waitForTimeout(500);
+                    await page.type("input[name='tipoLetturaRaggrCodice']", "ORDINAM_STAMPE_PREFINCATE");
+                    await page.waitForTimeout(500);
+                    await page.click("input[name='generaRiepilogo@Filter']");
+                    await page.click("input[name='totaleGenerale@Filter']");
+                    await page.click("input[name='escludiVociAZero@Filter']");
+                    await page.click("input[name='Anagrafica']");
+                    await page.waitForSelector("input[name='matr@Filter']");
+                    await page.type("input[name='matr@Filter']", matricola);
+                    //press f4
+                    await page.keyboard.press("F4");
+                    await page.waitForSelector("input[name='annoPagamentoA@Filter']");
+                    await page.focus("input[name='annoPagamentoA@Filter']");
+                    await page.keyboard.down('Control');
+                    await page.keyboard.press('A');
+                    await page.keyboard.up('Control');
+                    await page.keyboard.press('Backspace');
+                    await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
+                    await page.focus("input[name='annoPagamentoDa@Filter']");
+                    await page.keyboard.down('Control');
+                    await page.keyboard.press('A');
+                    await page.keyboard.up('Control');
+                    await page.keyboard.press('Backspace');
+                    await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
+
+                    await page.type("select[name='mesePagamentoDa@Filter']", (mesePagamentoDa === 1 ? "1 " : mesePagamentoDa.toString()));
+                    await page.type("select[name='mesePagamentoA@Filter']", (mesePagamentoA === 1 ? "1 " : mesePagamentoA.toString()));
+                    if (annoRiferimentoDa)
+                        await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
+                    if (meseRiferimentoDa)
+                        await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
+                    if (annoRiferimentoA)
+                        await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
+                    if (meseRiferimentoA)
+                        await page.type("select[name='meseRiferimentoA@Filter']",(meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
+                    let download = this._nar.getDownloadPath();
+                    const watcher = chokidar.watch(download, {
+                        ignored: /(^|[\/\\])\..*|\.tmp$|\.crdownload$/,
+                        persistent: true
+                    });
+
+                    const waitForPDF = () => {
+                        return new Promise((resolve, reject) => {
+                            watcher.on('add', function (path) {
+                                console.log(path);
+                                resolve(path);
+                            });
+
+                            watcher.on('error', function (error) {
+                                console.log(error);
+                                reject(null);
+                            });
+                        });
+                    }
+                    await page.click("button[name='BTN_CONFIRM']");
+                    const file = await waitForPDF();
+                    await page.waitForTimeout(300);
+                    if (file) {
+                        // copy the file to the working path with filename
+                        fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                    } else
+                        out.error = true;
+                    //dispose the watcher
+                    watcher.unwatch(download);
+                    await watcher.close();
+                    if (!this._nar._batchProcess)
+                        await this._nar.doLogout();
+                }
+            } catch (ex) {
+                out.error = true;
+                out.data = "error: " + ex.message + " " + ex.stack;
+                if (!this._nar._batchProcess)
+                    await this._nar.doLogout();
+                retry--;
+            }
+        } while (out.error === true && retry > 0);
+        return out;
     }
 
     async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE) {
@@ -557,6 +596,34 @@ export class Medici {
             }
 
         return out;
+    }
+
+    async batchVerificheBustePagaDettagli(datiMedici, riferimento) {
+        process.setMaxListeners(30);
+        this._nar.batchProcess = true;
+        this._nar.type = Nar.PAGHE;
+        await this._nar.doLogin();
+        let error = false;
+        let times = 0;
+        for (let matr of Object.keys(datiMedici)) {
+            let dati = datiMedici[matr];
+            for (let i = 0; i < dati.length; i++) {
+                let busta = dati[i];
+                let out1 = await this.analizzaBustaPaga(matr, busta[1], busta[0], busta[1], busta[0], riferimento[0][0], riferimento[0][1], riferimento[1][0], riferimento[1][1]);
+                let ou2 = await this.stampaCedolino(matr, busta[1], busta[0], busta[1], busta[0]);
+                if (!error)
+                    if (out1.error || ou2.error)
+                        error = true;
+                times++;
+                if (times % 10 === 0)
+                {
+                    await this._nar.doLogout();
+                }
+            }
+        }
+        this._nar.batchProcess = false;
+        await this._nar.doLogout();
+        return error;
     }
 
 
