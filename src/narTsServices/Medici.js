@@ -8,7 +8,7 @@ import {common} from "../common.js";
 import puppeteer from "puppeteer";
 import * as os from "os";
 import fs from "fs";
-import * as robot from "robotjs";
+import chokidar from "chokidar";
 
 export class Medici {
 
@@ -23,8 +23,6 @@ export class Medici {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
-        // this._workingPath = workingPath of type puppeteer.Page;
-        this._workingPath = workingPath;
     }
 
     static CF = "cf";
@@ -246,14 +244,13 @@ export class Medici {
             out.data = "error: " + ex.message + " " + ex.stack;
             return out;
         }
-
+        if (!out.error)
         if (salvaReport) {
             let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato " + mesePagamentoDa + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
 
             // Crea un file temporaneo
             const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
             fs.writeFileSync(tempFileDettaglio, htmlString);
-
             // Avvia un'istanza di browser
 
             const browser = await puppeteer.launch();
@@ -262,14 +259,11 @@ export class Medici {
             // Carica il file temporaneo nella pagina
             await page.goto(`file://${tempFileDettaglio}`);
 
-            if (this._workingPath === null)
-                // set working path to Desktop
-                this._workingPath = path.join(os.homedir(), 'Desktop');
 
             // Salva la pagina come PDF
             await page.goto(`file://${tempFileDettaglio}`);
             await page.pdf({
-                path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
                 format: 'A4'
             });
             //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
@@ -283,8 +277,6 @@ export class Medici {
 
     async stampaCedolino(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = {error: false, data: null};
-
-        await this._nar.doLogout();
         this._nar.type = Nar.PAGHE;
         try {
             let page = await this._nar.getWorkingPage();
@@ -322,37 +314,37 @@ export class Medici {
 
                 await page.type("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
                 await page.type("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
-                // wait for new page load and save the pdf served
-                // Prepara una Promessa che si risolverà quando l'evento 'targetcreated' sarà generato
 
-                // Crea una funzione per gestire le risposte
-                const targetCreated = new Promise(resolve => {
-                    this._nar.browser.once('targetcreated', async (target) => {
-                        const newPage = await target.page();
-                        await newPage.waitForTimeout(5000);
-                        // Attendi che la nuova pagina si carichi
-                        robot.keyTap("s", "control");
-                        robot.typeString("cedolino.pdf");
-                        robot.keyTap("enter");
+                let download = this._nar.getDownloadPath();
+                const watcher = chokidar.watch(download, {
+                    ignored: /(^|[\/\\])\..*|\.tmp$|\.crdownload$/,
+                    persistent: true
+                });
+
+                const waitForPDF = () => {
+                    return new Promise((resolve, reject) => {
+                        watcher.on('add', function(path) {
+                            console.log(path);
+                            resolve(path);
+                        });
+
+                        // gestione degli errori
+                        watcher.on('error', function(error) {
+                            console.log(error);
+                            reject(error);
                         });
                     });
-
-
-                // Attendi che la Promessa si risolva
-
+                }
                 await page.click("button[name='BTN_CONFIRM']");
-                page.waitForTimeout(1000);
-                await targetCreated;
-                console.log("ciao");
-
-                console.log('PDF salvato con successo.');
-
-
-                console.log("cio");
+                const file = await waitForPDF();
+                // copy the file to the working path with filename
+                fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                await this._nar.doLogout();
             }
         } catch (ex) {
             out.error = true;
             out.data = "error: " + ex.message + " " + ex.stack;
+            await this._nar.doLogout();
             return out;
         }
     }
