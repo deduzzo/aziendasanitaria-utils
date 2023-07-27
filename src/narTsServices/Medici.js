@@ -8,6 +8,7 @@ import {common} from "../common.js";
 import puppeteer from "puppeteer";
 import * as os from "os";
 import fs from "fs";
+import * as robot from "robotjs";
 
 export class Medici {
 
@@ -325,20 +326,24 @@ export class Medici {
                 // Prepara una Promessa che si risolverà quando l'evento 'targetcreated' sarà generato
 
                 // Crea una funzione per gestire le risposte
-                const handleResponse = async (response) => {
-                    const buffer = await response.buffer();
-                    await fs.writeFile('myFile.pdf', buffer);
-                };
+                const targetCreated = new Promise(resolve => {
+                    this._nar.browser.once('targetcreated', async (target) => {
+                        const newPage = await target.page();
+                        await newPage.waitForTimeout(5000);
+                        // Attendi che la nuova pagina si carichi
+                        robot.keyTap("s", "control");
+                        robot.typeString("cedolino.pdf");
+                        robot.keyTap("enter");
+                        });
+                    });
 
-                page.on('response', handleResponse);
 
                 // Attendi che la Promessa si risolva
 
                 await page.click("button[name='BTN_CONFIRM']");
-                await page.waitForTimeout(10000);
+                page.waitForTimeout(1000);
+                await targetCreated;
                 console.log("ciao");
-
-
 
                 console.log('PDF salvato con successo.');
 
