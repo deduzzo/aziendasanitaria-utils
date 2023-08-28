@@ -110,6 +110,7 @@ export class Decessi {
         console.log("codici fiscali totali:" + codiciFiscali.length)
         if (codiciFiscali !== null && codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage();
+            page.setDefaultTimeout(600000);
             if (page) {
                 let i = 0;
                 if (!out.error && codiciFiscali.length > 0) {
