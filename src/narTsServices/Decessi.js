@@ -108,7 +108,7 @@ export class Decessi {
     async verificaAssititiInVita(codiciFiscali, limit = null) {
         let out = {error: false, out: {vivi: [], nonTrovati: [], morti: []}}
         console.log("codici fiscali totali:" + codiciFiscali.length)
-        if (codiciFiscali !== null && codiciFiscali.length > 0) {
+        if (codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage();
             page.setDefaultTimeout(600000);
             if (page) {
