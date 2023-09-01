@@ -96,6 +96,7 @@ export class DatiStruttureProgettoTs {
                             dichiarati.importo_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child(" + righeTabella2 + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.'));
                             dichiarati.netto_mese_totale = parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(14) > tbody > tr:nth-child(" + righeTabella2 + ") > td:nth-child(5)").innerText.replaceAll('.', '').replaceAll(',', '.'));
                             out2.out = {
+                                denominazione_ts: document.querySelector("body > div:nth-child(5) > table:nth-child(6) > tbody > tr:nth-child(2) > td:nth-child(2)").innerHTML.replaceAll('&nbsp;', '').replaceAll('&amp','').trim(),
                                 cod_struttura: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(6) > tbody > tr:nth-child(3) > td:nth-child(2)").innerText.replaceAll('.', '').replaceAll(',', '.')),
                                 importo_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(3)").innerText.replaceAll('.', '').replaceAll(',', '.')),
                                 ticket_totale: parseFloat(document.querySelector("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + righeTabella1 + ") > td:nth-child(4)").innerText.replaceAll('.', '').replaceAll(',', '.')),

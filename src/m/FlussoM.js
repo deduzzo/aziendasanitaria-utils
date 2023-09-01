@@ -79,9 +79,7 @@ export class FlussoM {
     };
 
 
-
-
-    #calcolaNumPrestazioni (righe) {
+    #calcolaNumPrestazioni(righe) {
         let quanti = 0;
         for (let riga of righe) {
             quanti += parseInt(riga.quant);
@@ -89,7 +87,7 @@ export class FlussoM {
         return quanti;
     }
 
-    #buildRicetteFromMRows (rows) {
+    #buildRicetteFromMRows(rows) {
         let ricetta = {}
         let riga99 = rows.filter((p) => p.progrRicetta === "99")[0];
         let prestazioni = rows.filter((p) => p.progrRicetta !== "99");
@@ -117,7 +115,7 @@ export class FlussoM {
         }
     }
 
-    #totaliMeseAnnoStruttura (ricette) {
+    #totaliMeseAnnoStruttura(ricette) {
         let out = {}
         for (let ricetta of ricette) {
             let key = null;
@@ -148,7 +146,7 @@ export class FlussoM {
         return out;
     }
 
-    #checkMeseAnnoStruttura (ricette) {
+    #checkMeseAnnoStruttura(ricette) {
         //chiave: mmAAAA, count: ?
         let datePrestazioni = {}
         let dateRiga99 = {}
@@ -298,7 +296,7 @@ export class FlussoM {
                 error = i;
                 break;
             } else {
-                var t =  common.mRowToJson(line, this._starts);
+                var t = common.mRowToJson(line, this._starts);
                 ricettaTemp.push(t);
                 if (t.progrRicetta === "99") {
                     var rt = this.#buildRicetteFromMRows(ricettaTemp);
@@ -347,7 +345,8 @@ export class FlussoM {
                 hash: md5File.sync(filePath)
             }
     }
-    #calcolaTotaliPrestazioni (allPrest,mapPrest) {
+
+    #calcolaTotaliPrestazioni(allPrest, mapPrest) {
         for (let prest of allPrest) {
             let key = prest.dataErog.year().toString() + ((prest.dataErog.month() + 1).toString().length === 1 ? ("0" + (prest.dataErog.month() + 1).toString()) : (prest.dataErog.month() + 1).toString());
 
@@ -366,7 +365,7 @@ export class FlussoM {
         return mapPrest;
     }
 
-    #controllaNomeFileFlussoM (nome) {
+    #controllaNomeFileFlussoM(nome) {
         try {
             if (nome.length !== 14)
                 return null;
@@ -382,7 +381,7 @@ export class FlussoM {
     }
 
 
-    #loadStruttureFromFlowlookDB () {
+    #loadStruttureFromFlowlookDB() {
         const buffer = fs.readFileSync(this._settings.flowlookDBFilePath);
         const reader = new MDBReader(buffer);
 
@@ -418,14 +417,12 @@ export class FlussoM {
             let md5 = md5File.sync(file);
             if (!fileOut.ok.hasOwnProperty(md5)) {
                 let ricetta = await this.#ottieniStatDaFileFlussoM(file)
-                if (!ricetta.errore && !ricetta.warning)
+                if (!ricetta.errore)
                     fileOut.ok[ricetta.out.hash] = _.omit(ricetta.out, ["ricette", "nonOk"])
-                else {
-                    if (ricetta.warning)
-                        fileOut.warning.push("WARNING!!: " + ricetta.warning)
-                    else
-                        fileOut.errori.push(ricetta.out)
-                }
+                else
+                    fileOut.errori.push(ricetta.out)
+                if (ricetta.warning)
+                    fileOut.warning.push("WARNING!!: " + ricetta.warning)
                 console.log("elaborazione: " + ++progress + " di " + numFiles)
             } else {
                 console.log("elaborazione: " + ++progress + " di " + numFiles + "\n File già presente")
@@ -457,7 +454,7 @@ export class FlussoM {
         }
     }
 
-    #calcolaDifferenzeDaTs (dati) {
+    #calcolaDifferenzeDaTs(dati) {
         if (dati.hasOwnProperty("controlloTs") && dati.controlloTs.error === false) {
             return {
                 differenzaTotaleNetto: parseFloat((dati.controlloTs.out.netto_mese_totale - dati.totaleNetto).toFixed(2)),
@@ -503,31 +500,81 @@ export class FlussoM {
             headerRow: true,
             totalsRow: true,
             columns: [
-                {name: 'Id', key: 'id',totalsRowLabel: 'Totali:' },
+                {name: 'Id', key: 'id', totalsRowLabel: 'Totali:'},
                 {name: 'Nome', key: 'nome'},
                 {name: 'Distretto', key: 'distretto'},
                 {name: 'Mese', key: 'mese'},
                 {name: 'Anno', key: 'anno'},
-                {name: 'N.Righe.M', key: 'nRigheM',totalsRowFunction: 'sum'},
-                {name: 'N.Ricette.M', key: 'nRicetteM',totalsRowFunction: 'sum'},
-                {name: 'N.Prest.M', key: 'nPrestM',totalsRowFunction: 'sum',},
-                {name: 'TOT.NETTO.M', key: 'totNetto',totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"', width: 18 }},
-                {name: 'TOT.TICKET.M', key: 'totTicketM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'TOT.LORDO.M', key: 'totLordoM', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {name: 'N.Righe.M', key: 'nRigheM', totalsRowFunction: 'sum'},
+                {name: 'N.Ricette.M', key: 'nRicetteM', totalsRowFunction: 'sum'},
+                {name: 'N.Prest.M', key: 'nPrestM', totalsRowFunction: 'sum',},
+                {
+                    name: 'TOT.NETTO.M',
+                    key: 'totNetto',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"', width: 18}
+                },
+                {
+                    name: 'TOT.TICKET.M',
+                    key: 'totTicketM',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {
+                    name: 'TOT.LORDO.M',
+                    key: 'totLordoM',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
                 {name: 'TipoDati.TS', key: 'tipoDatiTS'},
                 {name: 'N.Ricette.TS', key: 'nRicetteTS', totalsRowFunction: 'sum'},
                 {name: 'N.Prest.TS', key: 'nPrestTS', totalsRowFunction: 'sum'},
-                {name: 'TOT.NETTO.TS', key: 'totNettoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'TOT.TICKET.TS', key: 'totTicketTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'TOT.LORDO.TS', key: 'totLordoTS', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'Data Verifica TS', key: 'dataVerificaTS',width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM' } },
-                {name: 'Diff.N.Ricette', key: 'diffNRicette', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
-                {name: 'Diff.N.Prest', key: 'diffNPrest', totalsRowFunction: 'sum', style: { numFmt: '#0;[Red]\-#0' }},
-                {name: 'Diff.Netto', key: 'diffNetto', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'Diff.Ticket', key: 'diffTicket', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
-                {name: 'Diff.Lordo', key: 'diffLordo', totalsRowFunction: 'sum', style: { numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"' }},
+                {
+                    name: 'TOT.NETTO.TS',
+                    key: 'totNettoTS',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {
+                    name: 'TOT.TICKET.TS',
+                    key: 'totTicketTS',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {
+                    name: 'TOT.LORDO.TS',
+                    key: 'totLordoTS',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {name: 'Data Verifica TS', key: 'dataVerificaTS', width: 25, style: {numFmt: 'DD/MM/YYYY HH:MM'}},
+                {
+                    name: 'Diff.N.Ricette',
+                    key: 'diffNRicette',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#0;[Red]\-#0'}
+                },
+                {name: 'Diff.N.Prest', key: 'diffNPrest', totalsRowFunction: 'sum', style: {numFmt: '#0;[Red]\-#0'}},
+                {
+                    name: 'Diff.Netto',
+                    key: 'diffNetto',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {
+                    name: 'Diff.Ticket',
+                    key: 'diffTicket',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
+                {
+                    name: 'Diff.Lordo',
+                    key: 'diffLordo',
+                    totalsRowFunction: 'sum',
+                    style: {numFmt: '#,##0.00" €";[Red]\-#,##0.00" €"'}
+                },
             ],
-            rows: [ ],
+            rows: [],
         };
         let data = [];
         for (let file of files) {
@@ -553,7 +600,8 @@ export class FlussoM {
                     gridData.push(
                         [
                             struttureFile.codiceStruttura,
-                            strutture[struttureFile.codiceStruttura].denominazione.toUpperCase(),
+                            //strutture[struttureFile.codiceStruttura]?.denominazione?.toUpperCase(),
+                            struttureFile.controlloTs?.out.denominazione_ts,
                             this._settings.datiStruttureRegione.distretti[struttureFile.idDistretto],
                             (struttureFile.datiDaFile?.mese ?? struttureFile.mesePrevalente),
                             (struttureFile.datiDaFile?.anno ?? struttureFile.annoPrevalente),
@@ -569,7 +617,7 @@ export class FlussoM {
                             struttureFile.controlloTs?.out.netto_mese_totale ?? "-",
                             struttureFile.controlloTs?.out.ticket_totale ?? "-",
                             struttureFile.controlloTs?.out.importo_totale ?? "-",
-                            struttureFile.controlloTs?.out.dataOra ? moment(struttureFile.controlloTs?.out.dataOra,"YYYY/MM/DD-HH:mm:ss").toDate() : "-",
+                            struttureFile.controlloTs?.out.dataOra ? moment(struttureFile.controlloTs?.out.dataOra, "YYYY/MM/DD-HH:mm:ss").toDate() : "-",
                             struttureFile.differenze?.differenzaRicette ?? "-",
                             struttureFile.differenze?.differenzaPrestazioni ?? "-",
                             struttureFile.differenze?.differenzaTotaleNetto ?? "-",
@@ -589,26 +637,33 @@ export class FlussoM {
                 }
                 if (salvaFileExcel) {
                     let tempWorkBook = new ExcelJS.Workbook();
-                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase() , {properties: {defaultColWidth: 15,showGridLines:true}});
+                    let tempSheet = tempWorkBook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {
+                        properties: {
+                            defaultColWidth: 15,
+                            showGridLines: true
+                        }
+                    });
                     sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()] = workbook.addWorksheet(this._settings.datiStruttureRegione.distretti[distretto].toUpperCase(), {properties: {defaultColWidth: 15}});
                     let tempTable = {...table};
                     tempTable.rows = []
                     for (let dato of gridData)
                         tempTable.rows.push(dato);
                     tempTable.name = this._settings.datiStruttureRegione.distretti[distretto].toUpperCase();
-                    [tempSheet,sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()]].forEach((wk) =>
-                    {
+                    [tempSheet, sheets[this._settings.datiStruttureRegione.distretti[distretto].toUpperCase()]].forEach((wk) => {
                         wk.addTable(tempTable)
 
                         wk.getColumn(2).width = 50;
-                        [18,12,3].forEach(i => wk.getColumn(i).width = 20);
-                        [1,3,4,5,12,18].forEach(i => wk.getColumn(i).alignment = { vertical: 'middle', horizontal: 'center' });
+                        [18, 12, 3].forEach(i => wk.getColumn(i).width = 20);
+                        [1, 3, 4, 5, 12, 18].forEach(i => wk.getColumn(i).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        });
 
-                        wk.getRow(2).alignment = { vertical: 'middle', horizontal: 'center' };
-                        wk.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-                        for (let i = 1; i<=wk.rowCount; i++) {
-                            let font = (i <3 || i === wk.rowCount) ? (i <3 ? '424242' : "BDBDBD") : "000000"
-                            let bg = (i <3 || i === wk.rowCount) ? (i <3 ? 'BDBDBD' : "424242") : ((i % 2 === 0) ? "EEEEEE" : "D6D6D6")
+                        wk.getRow(2).alignment = {vertical: 'middle', horizontal: 'center'};
+                        wk.getRow(1).alignment = {vertical: 'middle', horizontal: 'center'};
+                        for (let i = 1; i <= wk.rowCount; i++) {
+                            let font = (i < 3 || i === wk.rowCount) ? (i < 3 ? '424242' : "BDBDBD") : "000000"
+                            let bg = (i < 3 || i === wk.rowCount) ? (i < 3 ? 'BDBDBD' : "424242") : ((i % 2 === 0) ? "EEEEEE" : "D6D6D6")
                             wk.getRow(i).font = {bold: (i === 1 || i === wk.rowCount), color: {'argb': font}};
                             wk.getRow(i).fill = {
                                 type: 'pattern',
@@ -627,14 +682,14 @@ export class FlussoM {
                         wk.mergeCells('S1:W1');
                         wk.getCell('S1').value = "DIFFERENZE"
                     })
-                    await tempWorkBook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile + ".xlsx" )
+                    await tempWorkBook.xlsx.writeFile(this._settings.out_folder + path.sep + nomeFile + ".xlsx")
                 }
             }
         }
         await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + "CONSEGNE_GLOBALI" + ".xlsx");
     }
 
-    scriviStatsFlussoM (fileData,sovrascrivi=true, ext = ".mstats") {
+    scriviStatsFlussoM(fileData, sovrascrivi = true, ext = ".mstats") {
         for (let file in fileData) {
             let md5 = file
             let dirName = path.dirname(fileData[file].tempPath)
@@ -648,20 +703,18 @@ export class FlussoM {
     async trovaRicetteDuplicate(folder, scriviFileDifferenze, divisiPerTipologia = null, includiComunqueRicetteDuplicateNellaDivisione = false) {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
-            cartellaTipologia = folder  + path.sep + "SUDDIVISI_" + divisiPerTipologia;
+            cartellaTipologia = folder + path.sep + "SUDDIVISI_" + divisiPerTipologia;
             common.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
         }
         let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
 
-        const calcolaMeseAnnoPrestazioni = (righeRicetta) =>
-        {
+        const calcolaMeseAnnoPrestazioni = (righeRicetta) => {
             let annoMese = {}
             let data99 = "";
-            for (let riga of righeRicetta)
-            {
+            for (let riga of righeRicetta) {
                 if (riga.dataErog && riga.dataErog.isValid()) {
                     let anno = riga.dataErog.year().toString();
-                    let mese = (riga.dataErog.month() +1) <10 ? ("0" + (riga.dataErog.month() +1).toString()) : (riga.dataErog.month() +1).toString()
+                    let mese = (riga.dataErog.month() + 1) < 10 ? ("0" + (riga.dataErog.month() + 1).toString()) : (riga.dataErog.month() + 1).toString()
                     if (riga.progrRicetta === "99")
                         data99 = anno + mese;
                     else {
@@ -670,8 +723,7 @@ export class FlussoM {
                         else
                             annoMese[anno + mese] = 1;
                     }
-                }
-                else if (riga.progrRicetta !== "99")
+                } else if (riga.progrRicetta !== "99")
                     return "XXXXXX";
             }
             if (Object.keys(annoMese).length === 1)
@@ -701,7 +753,7 @@ export class FlussoM {
         let numFile = 0;
         let numDuplicati = 0;
         for (let file of allFiles) {
-            console.log("[" + ++numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] - Elaboro " + file +  " ...");
+            console.log("[" + ++numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] - Elaboro " + file + " ...");
             const fileStream = fs.createReadStream(file);
             const fileSizeInMB = (fs.statSync(file).size / 1000000).toFixed(2);
             const rl = readline.createInterface({input: fileStream, crlfDelay: Infinity});
@@ -715,52 +767,53 @@ export class FlussoM {
                     break;
                 } else {
                     let t = common.mRowToJson(line, this._starts);
-                    ricettaTempString+= (line + "\n");
+                    ricettaTempString += (line + "\n");
                     ricettaTemp.push(t);
                     if (t.progrRicetta === "99") {
                         let duplicata = false;
-                         try {
-                             ricetteTable.insert({id:t.ricettaID, file: file, line: i});
-                         }
-                         catch (ex) {
-                             numDuplicati++;
-                             duplicata = true;
-                             if (scriviFileDifferenze)
-                                 logger["loggerDuplicati"].write(ricettaTempString)
-                             let duplicato = duplicati.findOne({id: t.ricettaID});
-                             if (!duplicato) {
-                                 let primo = ricetteTable.findOne({id: t.ricettaID});
-                                 duplicati.insert({ id: t.ricettaID, info: [ {file: primo.file, line: primo.line} , { file: file, line: i  } ] })
-                             }
-                             else {
-                                 duplicato.info.push({file: file, line: i})
-                                 duplicati.update(duplicato)
-                             }
-                         }
-                         if (!duplicata || includiComunqueRicetteDuplicateNellaDivisione) {
-                             if (scriviFileDifferenze)
-                                 logger["loggerNoDuplicati"].write(ricettaTempString)
-                             if (divisiPerTipologia && scriviFileDifferenze) {
-                                 let key = "";
-                                 switch (divisiPerTipologia) {
-                                     case FlussoM.PER_STRUTTURA:
-                                         key = t.arseID;
-                                         break;
-                                     case FlussoM.PER_STRUTTURA_ANNO_MESE:
-                                         key = t.arseID + "-" + calcolaMeseAnnoPrestazioni(ricettaTemp);
-                                 }
-                                 if (!logger.hasOwnProperty(key))
-                                     logger[key] = fs.createWriteStream(cartellaTipologia + path.sep + key + ".txt", {
-                                         flags: 'a+' // 'a' means appending (old data will be preserved)
-                                     })
-                                 logger[key].write(ricettaTempString);
-                             }
-                         }
+                        try {
+                            ricetteTable.insert({id: t.ricettaID, file: file, line: i});
+                        } catch (ex) {
+                            numDuplicati++;
+                            duplicata = true;
+                            if (scriviFileDifferenze)
+                                logger["loggerDuplicati"].write(ricettaTempString)
+                            let duplicato = duplicati.findOne({id: t.ricettaID});
+                            if (!duplicato) {
+                                let primo = ricetteTable.findOne({id: t.ricettaID});
+                                duplicati.insert({
+                                    id: t.ricettaID,
+                                    info: [{file: primo.file, line: primo.line}, {file: file, line: i}]
+                                })
+                            } else {
+                                duplicato.info.push({file: file, line: i})
+                                duplicati.update(duplicato)
+                            }
+                        }
+                        if (!duplicata || includiComunqueRicetteDuplicateNellaDivisione) {
+                            if (scriviFileDifferenze)
+                                logger["loggerNoDuplicati"].write(ricettaTempString)
+                            if (divisiPerTipologia && scriviFileDifferenze) {
+                                let key = "";
+                                switch (divisiPerTipologia) {
+                                    case FlussoM.PER_STRUTTURA:
+                                        key = t.arseID;
+                                        break;
+                                    case FlussoM.PER_STRUTTURA_ANNO_MESE:
+                                        key = t.arseID + "-" + calcolaMeseAnnoPrestazioni(ricettaTemp);
+                                }
+                                if (!logger.hasOwnProperty(key))
+                                    logger[key] = fs.createWriteStream(cartellaTipologia + path.sep + key + ".txt", {
+                                        flags: 'a+' // 'a' means appending (old data will be preserved)
+                                    })
+                                logger[key].write(ricettaTempString);
+                            }
+                        }
                         ricettaTemp = [];
                         ricettaTempString = "";
                     }
                     if (++i % 100000 === 0) {
-                        console.log("[" + numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] [" + ((i * lunghezzaRiga) / 1000000).toFixed(2) + " mb su " + fileSizeInMB + "] - Elaboro " + file +  " ...");
+                        console.log("[" + numFile + " di " + allFiles.length + "] [DUPL: " + numDuplicati + "] [" + ((i * lunghezzaRiga) / 1000000).toFixed(2) + " mb su " + fileSizeInMB + "] - Elaboro " + file + " ...");
                     }
                 }
             }
@@ -769,7 +822,7 @@ export class FlussoM {
         if (scriviFileDifferenze)
             for (let loggerKey in logger)
                 logger[loggerKey].end();
-        let duplicatiObj =  duplicati.find({});
+        let duplicatiObj = duplicati.find({});
         let duplicatiJson = {}
         duplicatiObj.forEach((duplicato) => {
             duplicatiJson[duplicato.id] = duplicato.info;
@@ -782,25 +835,24 @@ export class FlussoM {
         };
     }
 
-    async unisciFilePerCartella(inFolder = this._settings.in_folder,outFolder = this._settings.out_folder)
-    {
+    async unisciFilePerCartella(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder) {
         let files = fs.readdirSync(inFolder)
 
         for (const file of files) {
             if (fs.statSync(inFolder + path.sep + file).isDirectory()) {
-                await this.unisciFileTxt(inFolder + path.sep + file,outFolder,file + ".txt");
+                await this.unisciFileTxt(inFolder + path.sep + file, outFolder, file + ".txt");
             }
         }
     }
 
-    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder,nomeFile = "") {
+    async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder, nomeFile = "") {
         let errors = [];
         let allFiles = common.getAllFilesRecursive(inFolder, this._settings.extensions);
-        if (!fs.existsSync(outFolder)){
-            fs.mkdirSync(outFolder, { recursive: true });
+        if (!fs.existsSync(outFolder)) {
+            fs.mkdirSync(outFolder, {recursive: true});
         }
         let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
-        const outputFile =nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
+        const outputFile = nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
         var logger = fs.createWriteStream(outputFile, {
             flags: 'a' // 'a' means appending (old data will be preserved)
         })
@@ -840,29 +892,28 @@ export class FlussoM {
         return {error: errors.length !== 0, errors: errors}
     }
 
-    async inviaMailAiDistretti(distretti, meseAnno= "",mailGlobale= "",nomeFileCompleto = "CONSEGNE_GLOBALI") {
+    async inviaMailAiDistretti(distretti, meseAnno = "", mailGlobale = "", nomeFileCompleto = "CONSEGNE_GLOBALI") {
         let errors = []
         for (let idDistretto in distretti) {
             console.log(this._settings.datiStruttureRegione.recapitiDistretti[idDistretto] + distretti[idDistretto].toUpperCase());
             let out = await common.inviaMail(
                 this._settings.impostazioniMail,
                 [...this._settings.datiStruttureRegione.recapitiDistretti[idDistretto], "roberto.dedomenico@asp.messina.it"],
-                "Risultato Elaborazione FLUSSO M distretto di " + distretti[idDistretto].toUpperCase() +" " + meseAnno,
-                "Salve, per quanto di competenza e per le opportune verifiche,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese " + (meseAnno !=="" ? ("di " + meseAnno) : "corrente.") + " .<br />" +
+                "Risultato Elaborazione FLUSSO M distretto di " + distretti[idDistretto].toUpperCase() + " " + meseAnno,
+                "Salve, per quanto di competenza e per le opportune verifiche,<br /> si invia in allegato il risultato dell'elaborazione delle consegne del FlussoM per il mese " + (meseAnno !== "" ? ("di " + meseAnno) : "corrente.") + " .<br />" +
                 "<br /><br >" +
-                    "Distinti Saluti.<br />" +
-                    "<i><b>De Domenico Roberto</b><br />" +
-                    "Referente Flusso M</i>" +
+                "Distinti Saluti.<br />" +
+                "<i><b>De Domenico Roberto</b><br />" +
+                "Referente Flusso M</i>" +
                 "<br />",
-                [this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".xlsx"]//,this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".html"]
+                [this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() + ".xlsx"]//,this._settings.out_folder + path.sep + distretti[idDistretto].toUpperCase() +".html"]
             );
             if (!out.error)
                 console.log(out.messageId);
             else
                 errors.push(out.errorTxt);
         }
-        if (mailGlobale !== "")
-        {
+        if (mailGlobale !== "") {
             let out = await common.inviaMail(
                 this._settings.impostazioniMail,
                 [mailGlobale, "roberto.dedomenico@asp.messina.it"],
@@ -873,21 +924,21 @@ export class FlussoM {
                 "<i><b>De Domenico Roberto</b><br />" +
                 "Referente Flusso M</i>" +
                 "<br />",
-                [this._settings.out_folder + path.sep + nomeFileCompleto +".xlsx"]
+                [this._settings.out_folder + path.sep + nomeFileCompleto + ".xlsx"]
             );
             if (!out.error)
                 console.log(out.messageId);
             else
                 errors.push(out.errorTxt);
         }
-        return {error: errors.length === 0, errors:errors};
+        return {error: errors.length === 0, errors: errors};
     }
 
-    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, bloccaConWarning=true, bloccaConDuplicati = false, controllaDuplicatiAnno = true, generaReportHtml = true, generaReportExcel=true) {
+    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, bloccaConWarning = true, bloccaConDuplicati = false, controllaDuplicatiAnno = true, generaReportHtml = true, generaReportExcel = true) {
         let ris = await this.elaboraFlussi();
         let duplicati
         if (ris.errori.length === 0)
-            duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(this._settings.in_folder) : this._settings.in_folder,false);
+            duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(this._settings.in_folder) : this._settings.in_folder, false);
         if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || !bloccaConDuplicati) && (ris.warning.length == 0 || !bloccaConWarning)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
@@ -916,7 +967,7 @@ export class FlussoM {
             console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
             console.table(duplicati?.stats || "Controllo non effettuato");
             return true;
-        } else if (ris.errori.length>0) {
+        } else if (ris.errori.length > 0) {
             console.log("Interrotto. Errori rilevati")
             console.table(ris.errori);
             console.log("Warning rilevati")
@@ -924,15 +975,14 @@ export class FlussoM {
             console.log("Duplicati: " + duplicati?.numDuplicati ?? "Controllo non effettuato");
             console.table(duplicati?.stats || "Controllo non effettuato");
             return false;
-        }
-        else {
+        } else {
             console.log("Warning rilevati")
             console.table(ris.warning);
             return false;
         }
     }
 
-    verificaErroriDaStats (filePath) {
+    verificaErroriDaStats(filePath) {
         let errors = [];
         let files = common.getAllFilesRecursive(filePath, '.mstats');
 
@@ -948,7 +998,7 @@ export class FlussoM {
             if (dati.hasOwnProperty("datiDaFile")) {
                 let error = "";
                 try {
-                    if (dati.datiDaFile!== null) {
+                    if (dati.datiDaFile !== null) {
                         if (dati.datiDaFile?.idDistretto?.toString() !== dati.idDistretto.toString())
                             error = "idDistretto";
                         if ((dati.datiDaFile?.codStruttura + "00") !== dati.codiceStruttura)
@@ -963,8 +1013,7 @@ export class FlussoM {
                                 dettagli: error.trim(),
                                 mstatFile: file
                             })
-                    }
-                    else
+                    } else
                         errors.push({
                             error: true,
                             chiave: key,
@@ -998,7 +1047,7 @@ export class FlussoM {
         console.log(errors);
     }
 
-    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStrutture = [], listaPrestazioni = [], escludiStrutture=false, escludiPrestazioni = false) {
+    async calcolaVolumiFlussoM(pathCartella = this._settings.out_folder, listaStrutture = [], listaPrestazioni = [], escludiStrutture = false, escludiPrestazioni = false) {
 
         const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
         const reader = new MDBReader(buffer);
@@ -1007,7 +1056,7 @@ export class FlussoM {
         //const prestazioni = reader.getTable(this._settings.flowlookDBTableNomenclatore).getData()
         const prestazioniBranche = reader.getTable(this._settings.flowLookDBCatalogoUnicoRegionalePrestazioneBranca).getData()
         const catalogoUnico = reader.getTable(this._settings.flowlookDBTableCatalogoUnicoRegionale).getData()
-        const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData().filter( p => p["CodiceAzienda"] === this._settings.codiceAzienda)
+        const tabellaStrutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData().filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda)
 
         let prestazioniBrancheMap = {}
         let catalogoMap = {}
@@ -1018,24 +1067,28 @@ export class FlussoM {
 
         branche.forEach(b => brancheMap[b["IdBranca"]] = b["Descrizione"]);
 
-        prestazioniBranche.forEach(p=> {
-            if (!prestazioniBrancheMap.hasOwnProperty(p['CodicePrestazione']))
-                prestazioniBrancheMap[p['CodicePrestazione']] = []
-            prestazioniBrancheMap[p['CodicePrestazione']].push(parseInt(p['CodiceBranca'].toString()));
+        prestazioniBranche.forEach(p => {
+                if (!prestazioniBrancheMap.hasOwnProperty(p['CodicePrestazione']))
+                    prestazioniBrancheMap[p['CodicePrestazione']] = []
+                prestazioniBrancheMap[p['CodicePrestazione']].push(parseInt(p['CodiceBranca'].toString()));
             }
         )
-        catalogoUnico.forEach(p=> {
-            catalogoMap[p['CodicePrestazione']] = {descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'], tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',','.')) }
+        catalogoUnico.forEach(p => {
+            catalogoMap[p['CodicePrestazione']] = {
+                descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'],
+                tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',', '.'))
+            }
 
-            catalogoMap[p['CodicePrestazione']].branche = {toArray : [], toMap:[]}
+            catalogoMap[p['CodicePrestazione']].branche = {toArray: [], toMap: []}
 
-            for (let i = 1;i<5; i++)
-            {
+            for (let i = 1; i < 5; i++) {
                 if (p['Branca ' + i.toString()] !== "" && p['Branca ' + i.toString()]) {
                     catalogoMap[p['CodicePrestazione']].branche.toArray.push(parseInt(p['Branca ' + i.toString()].toString()))
-                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({id: parseInt(p['Branca ' + i.toString()].toString()), descrizione:p['Descrizione Branca ' + i.toString()]})
-                }
-                else break;
+                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({
+                        id: parseInt(p['Branca ' + i.toString()].toString()),
+                        descrizione: p['Descrizione Branca ' + i.toString()]
+                    })
+                } else break;
             }
 
         })
@@ -1046,7 +1099,7 @@ export class FlussoM {
         let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
-            totale+= await this.#iniziaElaborazione(file,risultato,listaStrutture,listaPrestazioni, escludiStrutture, escludiPrestazioni,prestazioniBrancheMap,catalogoMap);
+            totale += await this.#iniziaElaborazione(file, risultato, listaStrutture, listaPrestazioni, escludiStrutture, escludiPrestazioni, prestazioniBrancheMap, catalogoMap);
         }
         let problemi = this.#risolviProblemiPrestazioni(risultato);
         console.log("Risoluzione problemi prestazioni " + (!problemi.errore ? "OK" : "CON ERRORI"))
@@ -1102,7 +1155,7 @@ export class FlussoM {
                             perPrestazione[prest] = {
                                 primoAccesso: 0,
                                 altriAccessi: 0,
-                                totaleAccessi:0,
+                                totaleAccessi: 0,
                                 idBranca: parseInt(branca),
                                 descrizioneBranca: brancheMap[branca],
                                 descPrest: catalogoMap[prest].descrizione,
@@ -1110,10 +1163,10 @@ export class FlussoM {
                                 classeU: 0,
                                 classeB: 0,
                                 classeD: 0,
-                                classeP:0,
-                                classeNO:0,
-                        }
-                       console.log(risultato[branca][prest][strutID].classePrior);
+                                classeP: 0,
+                                classeNO: 0,
+                            }
+                        console.log(risultato[branca][prest][strutID].classePrior);
                         perPrestazione[prest] = {
                             idBranca: perPrestazione[prest].idBranca,
                             descrizioneBranca: perPrestazione[prest].descrizioneBranca,
@@ -1122,10 +1175,10 @@ export class FlussoM {
                             primoAccesso: perPrestazione[prest].primoAccesso + risultato[branca][prest][strutID].primiAccessi,
                             altriAccessi: perPrestazione[prest].altriAccessi + (risultato[branca][prest][strutID].count - risultato[branca][prest][strutID].primiAccessi),
                             totaleAccessi: perPrestazione[prest].totaleAccessi + risultato[branca][prest][strutID].count,
-                            classeU: perPrestazione[prest].classeU +  (risultato[branca][prest][strutID].classePrior.hasOwnProperty('U') ? risultato[branca][prest][strutID].classePrior.U : 0),
+                            classeU: perPrestazione[prest].classeU + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('U') ? risultato[branca][prest][strutID].classePrior.U : 0),
                             classeB: perPrestazione[prest].classeB + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('B') ? risultato[branca][prest][strutID].classePrior.B : 0),
                             classeD: perPrestazione[prest].classeD + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('D') ? risultato[branca][prest][strutID].classePrior.D : 0),
-                            classeP: perPrestazione[prest].classeP +  (risultato[branca][prest][strutID].classePrior.hasOwnProperty('P') ? risultato[branca][prest][strutID].classePrior.P : 0),
+                            classeP: perPrestazione[prest].classeP + (risultato[branca][prest][strutID].classePrior.hasOwnProperty('P') ? risultato[branca][prest][strutID].classePrior.P : 0),
                             classeNO: risultato[branca][prest][strutID].count - perPrestazione[prest].classeU - perPrestazione[prest].classeB - perPrestazione[prest].classeD - perPrestazione[prest].classeP,
                         }
                         sheet1.insertRow(2,
@@ -1148,8 +1201,7 @@ export class FlussoM {
                             });
                     }
             }
-        for (let prest in perPrestazione)
-        {
+        for (let prest in perPrestazione) {
             sheet2.insertRow(2,
                 {
                     idBranca: perPrestazione[prest].idBranca,
@@ -1163,7 +1215,7 @@ export class FlussoM {
                     classeB: perPrestazione[prest].classeB,
                     classeD: perPrestazione[prest].classeD,
                     classeP: perPrestazione[prest].classeP,
-                    classeNO: perPrestazione[prest].totaleAccessi - perPrestazione[prest].classeU - perPrestazione[prest].classeB -  perPrestazione[prest].classeD - perPrestazione[prest].classeP,
+                    classeNO: perPrestazione[prest].totaleAccessi - perPrestazione[prest].classeU - perPrestazione[prest].classeB - perPrestazione[prest].classeD - perPrestazione[prest].classeP,
                 });
 
         }
@@ -1174,9 +1226,7 @@ export class FlussoM {
     }
 
 
-
-
-    #includePrest (elencoPrestazioni, prest, invert = false) {
+    #includePrest(elencoPrestazioni, prest, invert = false) {
         for (let p of elencoPrestazioni)
             if (prest.startsWith(p) && !invert)
                 return p;
@@ -1185,12 +1235,12 @@ export class FlussoM {
         return false;
     }
 
-    #contaPrestazioni (riga, outt, filterStrutt, filterPrest,escludiSt,escludiPrs,prestazioniBrancheMap,catalogoMap) {
+    #contaPrestazioni(riga, outt, filterStrutt, filterPrest, escludiSt, escludiPrs, prestazioniBrancheMap, catalogoMap) {
         for (const prestazione of riga.prestazioni) {
             if (
-                ((filterPrest.length > 0 && this.#includePrest(filterPrest,prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
-                ((filterStrutt.length >0 && filterStrutt.includes(prestazione.arseID)) !== escludiSt || filterStrutt.length ===0) &&
-                ( prestazione.prestID !== "897" && prestazione.prestID !=="8901" )
+                ((filterPrest.length > 0 && this.#includePrest(filterPrest, prestazione.prestID) !== escludiPrs) || filterPrest.length === 0) &&
+                ((filterStrutt.length > 0 && filterStrutt.includes(prestazione.arseID)) !== escludiSt || filterStrutt.length === 0) &&
+                (prestazione.prestID !== "897" && prestazione.prestID !== "8901")
             ) {
 
                 if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
@@ -1199,39 +1249,38 @@ export class FlussoM {
                     outt.erroriBranche.push(prestazione)
                     prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
                 }
-                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale)
-                {
+                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale) {
                     if (!outt.hasOwnProperty("erroriPrezzi"))
                         outt.erroriPrezzi = []
-                    outt.erroriPrezzi.push({prezzoSegnato: riga.totale, prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)})
+                    outt.erroriPrezzi.push({
+                        prezzoSegnato: riga.totale,
+                        prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)
+                    })
                 }
 
                 const isPrimoAccesso = riga.riga99.tipoAccesso === "1" ? prestazione.quant : 0;
                 const isSecondoAccesso = riga.riga99.tipoAccesso === "0" ? prestazione.quant : 0;
                 const erroreAccesso = riga.riga99.tipoAccesso === "" ? prestazione.quant : 0;
-                const classePrior = (riga.riga99.hasOwnProperty('classePrior') &&  riga.riga99.classePrior!== null && riga.riga99.classePrior  !== "" && riga.riga99.classePrior !== "Z") ? riga.riga99.classePrior : "NO" ;
+                const classePrior = (riga.riga99.hasOwnProperty('classePrior') && riga.riga99.classePrior !== null && riga.riga99.classePrior !== "" && riga.riga99.classePrior !== "Z") ? riga.riga99.classePrior : "NO";
                 if (!outt.hasOwnProperty(prestazione.brancaID))
                     outt[prestazione.brancaID] = {}
                 if (!outt[prestazione.brancaID].hasOwnProperty(prestazione.prestID))
                     outt[prestazione.brancaID][prestazione.prestID] = {}
                 if (outt[prestazione.brancaID][prestazione.prestID].hasOwnProperty(prestazione.arseID)) {
                     outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].count + prestazione.quant;
-                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso;
-                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso;
-                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso;
-                }
-                else
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].primiAccessi + isPrimoAccesso;
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].altriAccessi + isSecondoAccesso;
+                    outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].erroriAccesso + erroreAccesso;
+                } else
                     outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID] = {
                         count: prestazione.quant,
                         primiAccessi: isPrimoAccesso,
                         altriAccessi: isSecondoAccesso,
                         erroriAccesso: erroreAccesso,
-                        classePrior: {"U":0,"B":0,"D":0,"P":0,"NO":0}
+                        classePrior: {"U": 0, "B": 0, "D": 0, "P": 0, "NO": 0}
                     }
-                outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior]= outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior] + prestazione.quant;
-            }
-            else if (prestazione.prestID === "897" || prestazione.prestID ==="8901")
-            {
+                outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior] = outt[prestazione.brancaID][prestazione.prestID][prestazione.arseID].classePrior[classePrior] + prestazione.quant;
+            } else if (prestazione.prestID === "897" || prestazione.prestID === "8901") {
                 prestazione.tipoAccesso = riga.riga99.tipoAccesso;
                 if (!outt.hasOwnProperty("xxx"))
                     outt["xxx"] = {};
@@ -1243,8 +1292,7 @@ export class FlussoM {
     }
 
 
-
-    async #iniziaElaborazione (filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest, prestazioniBrancheMap,catalogoMap) {
+    async #iniziaElaborazione(filePath, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest, prestazioniBrancheMap, catalogoMap) {
         const fileStream = fs.createReadStream(filePath);
 
         const rl = readline.createInterface({
@@ -1255,12 +1303,12 @@ export class FlussoM {
         var i = 0;
         var ricettaTemp = [];
         for await (const line of rl) {
-            var t =  common.mRowToJson(line, this._starts);
+            var t = common.mRowToJson(line, this._starts);
             ricettaTemp.push(t);
 
             if (t.progrRicetta === "99") {
                 let rt = this.#buildRicetteFromMRows(ricettaTemp);
-                this.#contaPrestazioni(rt, out,struttureFilter, prestazioniFilter,escludiStr,escludiPrest,prestazioniBrancheMap,catalogoMap);
+                this.#contaPrestazioni(rt, out, struttureFilter, prestazioniFilter, escludiStr, escludiPrest, prestazioniBrancheMap, catalogoMap);
                 ricettaTemp = [];
                 i++;
             }
@@ -1270,24 +1318,24 @@ export class FlussoM {
     };
 
 
-    #risolviProblemiPrestazioni (risultato) {
+    #risolviProblemiPrestazioni(risultato) {
         let keysPrest = []
         for (let key in risultato)
             for (let key2 in risultato[key])
                 for (let key3 in risultato[key][key2])
-                    keysPrest.push(key3 + "-" + key2 + "-" +key)
+                    keysPrest.push(key3 + "-" + key2 + "-" + key)
         let nonTrovati = [];
         if (risultato.hasOwnProperty('xxx'))
             for (let keyD of Object.values(risultato["xxx"]))
                 for (let ricD of keyD) {
-                    let risP = this.#includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID,true);
+                    let risP = this.#includePrest(keysPrest, ricD.arseID + "-" + ricD.prestID, true);
                     if (risP) {
                         let vals = risP.split("-");
                         const isPrimoAccesso = ricD.tipoAccesso === "1" ? ricD.quant : 0;
                         const isSecondoAccesso = ricD.tipoAccesso === "0" ? ricD.quant : 0;
                         const erroreAccesso = ricD.tipoAccesso === "" ? ricD.quant : 0;
 
-                        const classePrior = (ricD.classePrior!== null && ricD.classePrior !== "" && ricD.classePrior !== "Z") ? ricD.classePrior : "NO" ;
+                        const classePrior = (ricD.classePrior !== null && ricD.classePrior !== "" && ricD.classePrior !== "Z") ? ricD.classePrior : "NO";
                         // 0-> id struttura, 1-> prest, 2 -> branca
                         risultato[vals[2]][vals[1]][vals[0]] = {
                             count: risultato[vals[2]][vals[1]][vals[0]].count + ricD.quant,
@@ -1297,23 +1345,21 @@ export class FlussoM {
 
                         }
                         if (!risultato[vals[2]][vals[1]][vals[0]].hasOwnProperty('classePrior'))
-                            risultato[vals[2]][vals[1]][vals[0]].classePrior= {"U":0,"B":0,"D":0,"P":0,"NO":0}
+                            risultato[vals[2]][vals[1]][vals[0]].classePrior = {"U": 0, "B": 0, "D": 0, "P": 0, "NO": 0}
                         risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] = risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] + ricD.quant;
-                    //}
+                        //}
 
-                    }
-                    else nonTrovati.push(ricD)
+                    } else nonTrovati.push(ricD)
                 }
         delete risultato["xxx"];
         if (nonTrovati.length === 0) {
             return {errore: false}
-        }
-        else
+        } else
             return {errore: true, nonTrovati: nonTrovati}
     }
 
 
-    async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE] ) {
+    async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE]) {
         const strutture = this.#loadStruttureFromFlowlookDB();
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
@@ -1382,20 +1428,20 @@ export class FlussoM {
                                     if (tab === FlussoM.PER_STRUTTURA_ANNO_MESE)
                                         outData[tab][file.codiceStruttura][mese] = file.totaleNetto;
                                     else if (tab === FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
-                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto + file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
                                     else if (tab === FlussoM.TAB_CONSEGNE_PER_CONTENUTO)
-                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + mese + anno;
+                                        outData[tab][file.codiceStruttura][mese] = file.datiDaFile.idDistretto + file.datiDaFile.codStruttura + mese + anno;
                                     else if (tab === FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE)
-                                        outData[tab][file.codiceStruttura][mese] = (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK": "*NO*"
+                                        outData[tab][file.codiceStruttura][mese] = (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK" : "*NO*"
                                 } else {
                                     if (FlussoM.PER_STRUTTURA_ANNO_MESE)
                                         error.push({tipo: "File Duplicato nel mese", file: file});
                                     else if (FlussoM.TAB_CONSEGNE_PER_NOME_FILE)
-                                        outData[tab][file.codiceStruttura][mese]+= " - " + file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
+                                        outData[tab][file.codiceStruttura][mese] += " - " + file.datiDaFile.idDistretto + file.datiDaFile.codStruttura + file.datiDaFile.mese + file.datiDaFile.anno;
                                     else if (tab === FlussoM.TAB_CONSEGNE_PER_CONTENUTO)
-                                        outData[tab][file.codiceStruttura][mese]+= " - " + file.datiDaFile.idDistretto+ file.datiDaFile.codStruttura + mese + anno;
+                                        outData[tab][file.codiceStruttura][mese] += " - " + file.datiDaFile.idDistretto + file.datiDaFile.codStruttura + mese + anno;
                                     else if (tab === FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE)
-                                        outData[tab][file.codiceStruttura][mese]+= " - " + (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK": "*NO*"
+                                        outData[tab][file.codiceStruttura][mese] += " - " + (file.datiDaFile?.mese === file.mesePrevalente) && (file.datiDaFile?.anno === file.annoPrevalente) ? "OK" : "*NO*"
                                 }
                             } else if (!anno)
                                 error.push({tipo: "Anno non elaborato", file: file});
@@ -1416,11 +1462,21 @@ export class FlussoM {
     }
 
 
-    async generaReportPrestazioni(anno,struttureFilter = [], fileUnico = false) {
+    async generaReportPrestazioni(anno, struttureFilter = [], fileUnico = false) {
         let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let tabs = {
-            1: '1 - Gennaio', 2: '2 - Febbraio', 3: '3 - Marzo', 4: '4 - Aprile', 5: '5 - Maggio', 6:'6 - Giugno',
-            7: '7 - Luglio', 8: '8 - Agosto', 9: '9 - Settembre', 10: '10 - Ottobre', 11: '11 - Novembre', 12: '12 - Dicembre'
+            1: '1 - Gennaio',
+            2: '2 - Febbraio',
+            3: '3 - Marzo',
+            4: '4 - Aprile',
+            5: '5 - Maggio',
+            6: '6 - Giugno',
+            7: '7 - Luglio',
+            8: '8 - Agosto',
+            9: '9 - Settembre',
+            10: '10 - Ottobre',
+            11: '11 - Novembre',
+            12: '12 - Dicembre'
         }
         let data = [];
         for (let file of files) {
@@ -1437,20 +1493,18 @@ export class FlussoM {
         let prestazioniMap = {}
         for (let file of data) {
             if (!prestazioniMap.hasOwnProperty(file.codiceStruttura))
-                prestazioniMap[file.codiceStruttura] ={}
+                prestazioniMap[file.codiceStruttura] = {}
             // solo se si considera il fatturato
             //const validKeys = Object.keys(file.prestazioni).filter(k => k.startsWith(anno.toString()));
             const validKeys = Object.keys(file.prestazioni);
-            for (let key of validKeys)
-            {
+            for (let key of validKeys) {
                 // solo se si considera il fatturato
                 //let kt = parseInt(key.substring(4,6));
                 let kt = parseInt(file.datiDaFile.mese);
                 if (!prestazioniMap[file.codiceStruttura].hasOwnProperty(kt))
                     prestazioniMap[file.codiceStruttura][kt] = file.prestazioni[key];
                 else
-                    for (let pkey in file.prestazioni[key])
-                    {
+                    for (let pkey in file.prestazioni[key]) {
                         if (!prestazioniMap[file.codiceStruttura][kt].hasOwnProperty(pkey))
                             prestazioniMap[file.codiceStruttura][kt][pkey] = file.prestazioni[key][pkey];
                         else {
@@ -1475,25 +1529,29 @@ export class FlussoM {
         branche.forEach(b => brancheMap[b["IdBranca"]] = b["Descrizione"]);
 
         let prestazioniBrancheMap = {}
-        prestazioniBranche.forEach(p=> {
+        prestazioniBranche.forEach(p => {
                 if (!prestazioniBrancheMap.hasOwnProperty(p['CodicePrestazione']))
                     prestazioniBrancheMap[p['CodicePrestazione']] = []
                 prestazioniBrancheMap[p['CodicePrestazione']].push(parseInt(p['CodiceBranca'].toString()));
             }
         )
 
-        catalogoUnico.forEach(p=> {
-            catalogoMap[p['CodicePrestazione']] = {descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'], tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',','.')) }
+        catalogoUnico.forEach(p => {
+            catalogoMap[p['CodicePrestazione']] = {
+                descrizione: p['nuova descrizione integrata dal 01/06/2015'] ?? p['Descrizione Prestazione'],
+                tariffa: parseFloat(p['Tariffa_TXT'].toString().replace(',', '.'))
+            }
 
-            catalogoMap[p['CodicePrestazione']].branche = {toArray : [], toMap:[]}
+            catalogoMap[p['CodicePrestazione']].branche = {toArray: [], toMap: []}
 
-            for (let i = 1;i<5; i++)
-            {
+            for (let i = 1; i < 5; i++) {
                 if (p['Branca ' + i.toString()] !== "" && p['Branca ' + i.toString()]) {
                     catalogoMap[p['CodicePrestazione']].branche.toArray.push(parseInt(p['Branca ' + i.toString()].toString()))
-                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({id: parseInt(p['Branca ' + i.toString()].toString()), descrizione:p['Descrizione Branca ' + i.toString()]})
-                }
-                else break;
+                    catalogoMap[p['CodicePrestazione']].branche.toMap.push({
+                        id: parseInt(p['Branca ' + i.toString()].toString()),
+                        descrizione: p['Descrizione Branca ' + i.toString()]
+                    })
+                } else break;
             }
 
         })
@@ -1503,7 +1561,7 @@ export class FlussoM {
         for (let codStr in prestazioniMap) {
             console.log("Progresso " + ++i + " di " + Object.keys(prestazioniMap).length);
             const workbook = new ExcelJS.Workbook()
-            let sheets= [];
+            let sheets = [];
 
             for (let sheet of Object.values(tabs)) {
                 sheets[sheet] = workbook.addWorksheet(sheet);
@@ -1519,20 +1577,19 @@ export class FlussoM {
             }
 
 
-
             for (let tab in tabs) {
                 for (let dato in prestazioniMap[codStr][tab]) {
                     let brancheTxt = "";
 
-                    prestazioniBrancheMap[dato].forEach(p=> brancheTxt+= " (" + p + ") " + brancheMap[p] + " - ")
+                    prestazioniBrancheMap[dato].forEach(p => brancheTxt += " (" + p + ") " + brancheMap[p] + " - ")
 
                     sheets[tabs[tab]].insertRow(2,
                         {
-                            id:codStr,
+                            id: codStr,
                             descrStruttura: strutture[codStr].denominazione,
                             idPrest: dato,
                             descPrest: catalogoMap[dato].descrizione,
-                            branche: brancheTxt.substring(0,brancheTxt.length-3),
+                            branche: brancheTxt.substring(0, brancheTxt.length - 3),
                             totalePrest: prestazioniMap[codStr][tab][dato].num,
                             importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
                         });
