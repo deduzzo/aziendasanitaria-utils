@@ -1,6 +1,6 @@
-# Gestione dei Flussi Sanitari Regione Sicilia
+# Utility per la gestione dei sistemi informatici di un azienda sanitaria Regione Sicilia
 
- Libreria per la gestione dei flussi sanitari della regione Sicilia.
+ Libreria per la gestione informatica di un azienda sanitaria regione Sicilia
 
 
 ### Funzionalità
