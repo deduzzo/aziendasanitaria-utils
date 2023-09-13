@@ -1,7 +1,7 @@
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
 
-export class Decessi {
+export class Assistiti {
 
     /**
      *
@@ -72,13 +72,13 @@ export class Decessi {
                         let dati = {error: false, data: {}};
                         try {
                             dati.data.cf = cf;
-                            dati.data.cognome = document.querySelector("input[name='cognomePaziente@']").value;
-                            dati.data.nome = document.querySelector("input[name='nomePaziente@']").value;
-                            dati.data.sesso = document.querySelector("select[name='sesso@']").value;
-                            dati.data.data_nascita = document.querySelector("input[name='dataNascita@']").value;
-                            dati.data.comune_nascita = document.querySelector("input[name='codiceComuneNascita_d']").value;
-                            dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']").value;
-                            dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']").value;
+                            dati.data.cognome = document.querySelector("input[name='cognomePaziente@']")?.value;
+                            dati.data.nome = document.querySelector("input[name='nomePaziente@']")?.value;
+                            dati.data.sesso = document.querySelector("select[name='sesso@']")?.value;
+                            dati.data.data_nascita = document.querySelector("input[name='dataNascita@']")?.value;
+                            dati.data.comune_nascita = document.querySelector("input[name='codiceComuneNascita_d']")?.value;
+                            dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
+                            dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
                         } catch (ex) {
                             dati.error = true;
                             dati.data = "error: " + ex.message + " " + ex.stack;
