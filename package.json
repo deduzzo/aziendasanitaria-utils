@@ -16,9 +16,11 @@
     "test": "echo \"Error: no test specified\""
   },
   "dependencies": {
+    "@freiraum/msgreader": "^1.1.1",
     "@marketto/codice-fiscale-utils": "^2.1.1",
     "axios": "^1.4.0",
     "chokidar": "^3.5.3",
+    "eml-format": "^0.6.1",
     "excel-date-to-js": "^1.1.5",
     "exceljs": "^4.3.0",
     "fs-extra": "^10.1.0",

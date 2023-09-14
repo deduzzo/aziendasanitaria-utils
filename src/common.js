@@ -1,9 +1,11 @@
 import path from "path";
-import fs from 'fs';
 import * as nodemailer from "nodemailer";
-import fsExtra from 'fs-extra'
+import fs from 'fs-extra'
 import moment from "moment/moment.js";
 import puppeteer from 'puppeteer';
+import emlFormat from "eml-format";
+import MsgReader from '@freiraum/msgreader';
+import pdf2html from "pdf2html";
 
 const mesi = {
     "01": "Gennaio",
@@ -20,7 +22,7 @@ const mesi = {
     "12": "Dicembre"
 }
 
-const getAllFilesRecursive = (dirPath, extensions,filterFileName = null, arrayOfFiles = []) => {
+const getAllFilesRecursive = (dirPath, extensions, filterFileName = null, arrayOfFiles = []) => {
     let files = fs.readdirSync(dirPath)
 
     files.forEach(function (file) {
@@ -48,13 +50,13 @@ const getAllFilesRecursive = (dirPath, extensions,filterFileName = null, arrayOf
  * @param {String} corpo Corpo mail in HTML
  * @param {Array} pathAllegati Array Path Allegati
  */
-const inviaMail = async (settings, destinatari, oggetto, corpo,  pathAllegati = []) => {
+const inviaMail = async (settings, destinatari, oggetto, corpo, pathAllegati = []) => {
     const arrayDestinatariToString = (allDest) => {
         let out = "";
         for (let dest of allDest)
-            out+= dest + ","
-        console.log(out.substring(0,out.length-1))
-        return out.substring(0,out.length-1);
+            out += dest + ","
+        console.log(out.substring(0, out.length - 1))
+        return out.substring(0, out.length - 1);
     }
     let transporter = nodemailer.createTransport({
         host: settings.host,
@@ -71,8 +73,7 @@ const inviaMail = async (settings, destinatari, oggetto, corpo,  pathAllegati = 
         subject: oggetto, // Subject line
         html: corpo, // html body
     }
-    pathAllegati.forEach((allegato) =>
-    {
+    pathAllegati.forEach((allegato) => {
         if (!mail.hasOwnProperty("attachments")) mail.attachments = [];
         mail.attachments.push(
             {
@@ -86,30 +87,28 @@ const inviaMail = async (settings, destinatari, oggetto, corpo,  pathAllegati = 
         info = await transporter.sendMail({...mail});
         console.log("Message sent: %s", info.messageId);
         return {error: false, messageId: info.messageId};
+    } catch (ex) {
+        return {error: true, errorTxt: ex}
     }
-    catch (ex) {return {error: true, errorTxt: ex}}
 }
 
-const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) =>
-{
+const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) => {
     fsExtra.emptyDirSync(cartella);
 }
 
-const mRowToJson = (row,starts ) =>{
+const mRowToJson = (row, starts) => {
     var obj = {}
     let from = 0;
-    for (let key in starts)
-    {
+    for (let key in starts) {
         obj[key] = row.substr(from, starts[key].length).trim().toUpperCase();
         if (starts[key].type === "date") {
             if (moment(obj[key], "DDMMYYYY").isValid())
                 obj[key] = moment(obj[key], "DDMMYYYY");
-        }
-        else if (starts[key].type === "double")
+        } else if (starts[key].type === "double")
             obj[key] = obj[key] === "" ? 0 : parseFloat(obj[key].replace(',', '.'));
         else if (starts[key].type === "int")
             obj[key] = parseInt(obj[key]);
-        from+= starts[key].length;
+        from += starts[key].length;
     }
     return obj;
 };
@@ -163,7 +162,7 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
     return datiAssistito;
 }
 
-    const replacer = (key, value) => {
+const replacer = (key, value) => {
     if (value instanceof Map) {
         return {
             dataType: 'Map',
@@ -175,7 +174,95 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
 }
 
 
+const extractAttachmentsEml = async (sourceFolder, destinationFolder) => {
+    // Assicurarsi che la cartella di destinazione esista
+    await fs.ensureDir(destinationFolder);
+
+    let files = await fs.readdir(sourceFolder);
+
+    for (let file of files) {
+        if (path.extname(file) === '.eml') {
+            const emlFilePath = path.join(sourceFolder, file);
+
+            let emlContent = await fs.readFile(emlFilePath, 'utf8');
+
+            let email = await new Promise((resolve, reject) => {
+                emlFormat.read(emlContent, (err, email) => {
+                    if (err) reject(err);
+                    resolve(email);
+                });
+            });
+
+            if (email.attachments) {
+                for (let attachment of email.attachments) {
+                    const outputPath = path.join(destinationFolder, attachment.filename);
+                    await fs.writeFile(outputPath, attachment.data);
+                    console.log('Allegato estratto:', outputPath);
+                }
+            }
+        }
+    }
+}
 
 
+const extractAttachmentsMsg = async (sourceFolder, destinationFolder) => {
+    await fs.ensureDir(destinationFolder);
+    let files = await fs.readdir(sourceFolder);
 
-export const common = {getAllFilesRecursive, creaCartellaSeNonEsisteSvuotalaSeEsiste, mesi, inviaMail, verificaLunghezzaRiga,mRowToJson,ottieniDatiAssistito,replacer}
+    for (let file of files) {
+        if (path.extname(file).toLowerCase() === '.msg') {
+            const msgFilePath = path.join(sourceFolder, file);
+
+            let buffer = await fs.readFile(msgFilePath);
+            const msgReader = new MsgReader.default(buffer);
+            const msg = msgReader.getFileData();
+
+            if (!msg.error) {
+                if (msg.attachments && msg.attachments.length) {
+                    for (let attachment of msg.attachments) {
+                        const attachmentData = msgReader.getAttachment(attachment);
+                        if (attachmentData && attachmentData.fileName) {
+                            const outputPath = path.join(destinationFolder, attachmentData.fileName);
+                            await fs.writeFile(outputPath, attachmentData.content);
+                            console.log('Allegato estratto:', outputPath);
+                        } else {
+                            console.warn(`Non è stato possibile estrarre un allegato da ${msgFilePath}`);
+                        }
+                    }
+                }
+            } else {
+                console.error(`Errore durante la lettura del file: ${msgFilePath}`);
+            }
+        }
+    }
+};
+
+const rinominaCedolini = async (in_path) => {
+    let files = await fs.readdirSync(in_path);
+    for (let file of files) {
+        if (path.extname(file).toLowerCase() === '.pdf') {
+            const data = await pdf2html.text(in_path + path.sep + file);
+            const rows = data.split("\n");
+            const nomeRows = rows[8].split("     ");
+            const nome = nomeRows[nomeRows.length -1];
+            let dataCorsista = moment(rows[10].split("                ")[1], "DD/MM/YY");
+            console.log(nome);
+        }
+    }
+
+}
+
+
+export const common = {
+    getAllFilesRecursive,
+    creaCartellaSeNonEsisteSvuotalaSeEsiste,
+    mesi,
+    inviaMail,
+    verificaLunghezzaRiga,
+    mRowToJson,
+    ottieniDatiAssistito,
+    replacer,
+    extractAttachmentsMsg,
+    extractAttachmentsEml,
+    rinominaCedolini
+}
