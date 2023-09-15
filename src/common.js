@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer';
 import emlFormat from "eml-format";
 import MsgReader from '@freiraum/msgreader';
 import pdf2html from "pdf2html";
+import archiver from "archiver";
 
 const mesi = {
     "01": "Gennaio",
@@ -237,20 +238,71 @@ const extractAttachmentsMsg = async (sourceFolder, destinationFolder) => {
     }
 };
 
+const onlyFirstDigitMaiusc = (str, sep = " ") => {
+    let strsplitted = str.split(" ");
+    let out = "";
+    for (let str of strsplitted) {
+        if (str.trim() !== "") {
+            str = str.trim();
+            out += str.charAt(0).toUpperCase();
+            out += str.substring(1).toLowerCase();
+            out += sep;
+        }
+    }
+    return out.substring(0, out.length - 1);
+}
+
 const rinominaCedolini = async (in_path) => {
+    let arrayMonth = {
+        "GEN": 1,
+        "FEB": 2,
+        "MAR": 3,
+        "APR": 4,
+        "MAG": 5,
+        "GIU": 6,
+        "LUG": 7,
+        "AGO": 8,
+        "SET": 9,
+        "OTT": 10,
+        "NOV": 11,
+        "DIC": 12
+    }
+    let arrayNameOfMonth = {
+        1: "gennaio",
+        2: "febbraio",
+        3: "marzo",
+        4: "aprile",
+        5: "maggio",
+        6: "giugno",
+        7: "luglio",
+        8: "agosto",
+        9: "settembre",
+        10: "ottobre",
+        11: "novembre",
+        12: "dicembre"
+    }
     let files = await fs.readdirSync(in_path);
+    const outPath = in_path + path.sep + "out";
+    await fs.ensureDir(outPath);
     for (let file of files) {
         if (path.extname(file).toLowerCase() === '.pdf') {
             const data = await pdf2html.text(in_path + path.sep + file);
             const rows = data.split("\n");
             const nomeRows = rows[8].split("     ");
-            const nome = nomeRows[nomeRows.length -1];
+            const nome = onlyFirstDigitMaiusc(nomeRows[nomeRows.length - 1], "_");
             let dataCorsista = moment(rows[10].split("                ")[1], "DD/MM/YY");
-            console.log(nome);
+            let annoCorsista = dataCorsista.get().year();
+            let mese = arrayMonth[file.substring(file.length - 7, file.length - 4)]
+            let annoCedolino = mese < 9 ? file.substring(file.length - 12, file.length - 8) : file.substring(file.length - 13, file.length - 9);
+            let newName = nome + "_" + annoCorsista + "_" + (annoCorsista + 3) + "_" + arrayNameOfMonth[mese] + "_" + annoCedolino + "_cedolino.pdf";
+            //copy the file to the folder outPath with name newName
+            console.log("copio " + file + " nome nuovo " + newName);
+            await fs.copyFile(in_path + path.sep + file, outPath + path.sep + newName);
         }
     }
 
 }
+
 
 
 export const common = {
@@ -264,5 +316,6 @@ export const common = {
     replacer,
     extractAttachmentsMsg,
     extractAttachmentsEml,
-    rinominaCedolini
+    rinominaCedolini,
+    onlyFirstDigitMaiusc,
 }
