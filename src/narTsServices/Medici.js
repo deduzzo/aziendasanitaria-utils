@@ -640,5 +640,9 @@ export class Medici {
         return error;
     }
 
+    async verificaLibrettiPediatrici(datiMedici, riferimento) {
+
+    }
+
 
 }
