@@ -123,6 +123,31 @@ export class Common {
         return {dataString: stringDate, eta: eta};
     }
 
+    static async getObjectFromFileExcel(filePath) {
+        let out = [];
+        let header = {}
+        let workbook = new ExcelJS.Workbook();
+        let fileExcel = await workbook.xlsx.readFile(filePath);
+        let worksheet = (await fileExcel).worksheets[0];
+        for (let i = 0; i < worksheet.rowCount; i++) {
+            if (i > 1) {
+                let riga = {};
+                worksheet.getRow(i).eachCell((cell,index) => {
+                    riga[header[index]] = cell.value;
+                });
+                out.push(riga);
+            }
+            else {
+                worksheet.getRow(i).eachCell((cell,index) => {
+                    //push in array header in position i the value of the cell
+                    header[index] = cell.value;
+                    //header.push(cell.value);
+                });
+            }
+        }
+        return out;
+    }
+
     static contaAssistitiPerCriterio(codiciFiscali, comparator, value) {
         //comparator is a string that can be "<", ">", "<=", ">=", "="
         //value is the value to compare
