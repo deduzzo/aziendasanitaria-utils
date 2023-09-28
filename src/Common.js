@@ -6,7 +6,9 @@ import puppeteer from 'puppeteer';
 import emlFormat from "eml-format";
 import MsgReader from '@freiraum/msgreader';
 import pdf2html from "pdf2html";
-import archiver from "archiver";
+import ExcelJS from "exceljs";
+import excel from "excel-date-to-js";
+import {Parser} from "@marketto/codice-fiscale-utils";
 
 const mesi = {
     "01": "Gennaio",
@@ -175,6 +177,8 @@ const replacer = (key, value) => {
 }
 
 
+
+
 const extractAttachmentsEml = async (sourceFolder, destinationFolder) => {
     // Assicurarsi che la cartella di destinazione esista
     await fs.ensureDir(destinationFolder);
@@ -300,10 +304,207 @@ const rinominaCedolini = async (in_path) => {
             await fs.copyFile(in_path + path.sep + file, outPath + path.sep + newName);
         }
     }
-
 }
 
 
+const creaOggettoDaFileExcel = async (filename, accoppiateOggettoColonna, limit = null) => {
+    let out = [];
+    var workbook = new ExcelJS.Workbook();
+    let fileExcel = await workbook.xlsx.readFile(filename);
+    let worksheet = (await fileExcel).worksheets[0];
+    for (let i = 0; i < worksheet.rowCount; i++) {
+        if (i > 1) {
+            let riga = {_index: i - 1};
+            let keys = Object.keys(accoppiateOggettoColonna)
+            for (let key of keys) {
+                try {
+                    if (worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value === undefined || worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value === null)
+                        riga[key] = null;
+                    else if (worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value.constructor.name === "String")
+                        riga[key] = worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value?.trim()?.toUpperCase() ?? null;
+                    else if (worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value.constructor.name === "Date")
+                        // get the date in dd/mm/yyyy format
+                        riga[key] = moment(worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value).format("DD/MM/YYYY");
+                    else
+                        riga[key] = worksheet.getRow(i).getCell(accoppiateOggettoColonna[key]).value ?? null;
+                } catch (e) {
+                    riga[key] = null;
+                }
+            }
+            out.push(riga);
+            if (limit)
+                if (i > limit)
+                    break;
+        }
+    }
+    return out;
+}
+
+const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null, scriviHeader = true) => {
+    var workbook = new ExcelJS.Workbook();
+    // fileExcel will be a new file
+    let worksheet = workbook.addWorksheet('dati');
+    if (scriviHeader) {
+        if (customHeader)
+            worksheet.addRow(Object.values(customHeader));
+        else
+            worksheet.addRow(Object.keys(data[0]));
+    }
+    for (let riga of data) {
+        worksheet.addRow(Object.values(riga));
+    }
+    await workbook.xlsx.writeFile(filename);
+}
+
+// a function that write a txt file with the data as array, parameters: path and array
+const scriviOggettoSuFile = async (filename, data) => {
+    // write a file with the data
+    await fs.writeFileSync(filename, JSON.stringify(data, this.replacer, "\t"), 'utf8');
+}
+
+
+const estraiDataDiNascita = (codiceFiscale) => {
+    // Estra i caratteri relativi alla data di nascita
+    let anno = parseInt(codiceFiscale.substring(6, 8));
+    let mese = codiceFiscale.substring(8, 9);
+    let giorno = parseInt(codiceFiscale.substring(9, 11));
+
+    // Corregge il giorno per le donne
+    if (giorno > 40) {
+        giorno -= 40;
+    }
+
+    // Converte il mese in numerico
+    const meseMap = {
+        'A': '01',
+        'B': '02',
+        'C': '03',
+        'D': '04',
+        'E': '05',
+        'H': '06',
+        'L': '07',
+        'M': '08',
+        'P': '09',
+        'R': '10',
+        'S': '11',
+        'T': '12'
+    };
+    mese = meseMap[mese];
+
+    // Estende l'anno a quattro cifre
+    anno = anno > moment().year().toString().substring(2, 4) ? 1900 + anno : 2000 + anno;
+
+    // Restituisce la data in formato dd/mm/yyyy
+    let stringDate = `${giorno.toString().padStart(2, '0')}/${mese}/${anno}`;
+    let momentDate = moment(stringDate, "DD/MM/YYYY");
+    let eta = moment().diff(momentDate, 'years');
+    return {dataString: stringDate, eta: eta};
+}
+
+const getObjectFromFileExcel = async (filePath, numSheet = 0) => {
+    let out = [];
+    let header = {};
+    let workbook = new ExcelJS.Workbook();
+    let fileExcel = await workbook.xlsx.readFile(filePath);
+    let worksheet = fileExcel.worksheets[numSheet];
+
+    worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
+        let riga = {};
+        if (rowNumber === 1) {
+            row.eachCell((cell, colNumber) => {
+                header[colNumber] = cell.value;
+            });
+        } else {
+            row.eachCell({includeEmpty: false}, (cell, colNumber) => {
+                riga[header[colNumber]] = cell.value;
+            });
+            out.push(riga);
+        }
+    });
+
+    return out;
+}
+
+const contaAssistitiPerCriterio = (codiciFiscali, comparator, value) => {
+    //comparator is a string that can be "<", ">", "<=", ">=", "="
+    //value is the value to compare
+    //assistiti is an array of {dataString: x, eta: y}
+    //return the number of assistiti that match the criterio using eta
+    let out = 0;
+    for (let cf of codiciFiscali) {
+        let dataCf = this.estraiDataDiNascita(cf);
+        console.log(dataCf.eta);
+        switch (comparator) {
+            case "<":
+                if (dataCf.eta < value)
+                    out++;
+                break;
+            case ">":
+                if (dataCf.eta > value)
+                    out++;
+                break;
+            case "<=":
+                if (dataCf.eta <= value)
+                    out++;
+                break;
+            case ">=":
+                if (dataCf.eta >= value)
+                    out++;
+                break;
+            case "=":
+                if (dataCf.eta === value)
+                    out++;
+                break;
+        }
+    }
+    return out;
+}
+
+
+const parseDateExcel = (excelTimestamp) => {
+    let date = null;
+    try {
+        date = moment.utc(excel.getJsDateFromExcel(excelTimestamp));
+    } catch (ex) {
+        sails.log.error(excelTimestamp);
+        return null;
+    }
+    if (!moment(date).isValid())
+        return null;
+    else return date.tz(tz).unix();
+}
+
+const compareDate = (unixDate1, unixDate2) => {
+    return moment.unix(unixDate1).isSame(moment.unix(unixDate2), 'day');
+}
+
+const dataFromStringToUnix = (date) => {
+    if (moment(date, 'DD/MM/YYYY').isValid())
+        return moment(date, 'DD/MM/YYYY').unix();
+    else
+        return null;
+}
+
+const dataFromUnixToString = (date) => {
+    if (moment.unix(date).isValid() && date != null)
+        return moment.unix(date).format('DD/MM/YYYY');
+    else
+        return null;
+}
+
+const nowToUnixDate = () => {
+    return moment().unix();
+}
+
+
+const getAgeFromCF = (codiceFiscale) => {
+    // Estrai la data di nascita dal codice fiscale
+    const birthdate = moment(Parser.cfToBirthDate(codiceFiscale));
+
+    let years = moment().diff(birthdate, 'years', false);
+
+    return years;
+}
 
 export const common = {
     getAllFilesRecursive,
@@ -318,4 +519,16 @@ export const common = {
     extractAttachmentsEml,
     rinominaCedolini,
     onlyFirstDigitMaiusc,
+    creaOggettoDaFileExcel,
+    scriviOggettoSuNuovoFileExcel,
+    scriviOggettoSuFile,
+    estraiDataDiNascita,
+    getObjectFromFileExcel,
+    contaAssistitiPerCriterio,
+    parseDateExcel,
+    compareDate,
+    dataFromStringToUnix,
+    dataFromUnixToString,
+    nowToUnixDate,
+    getAgeFromCF
 }

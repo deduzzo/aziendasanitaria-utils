@@ -3,7 +3,7 @@ import path  from 'path';
 import readline from 'readline';
 import md5File from 'md5-file';
 import fs from 'fs';
-import {common} from "../common.js";
+import {common} from "../Common.js";
 import _ from 'lodash';
 
 export class FlussoRSA {

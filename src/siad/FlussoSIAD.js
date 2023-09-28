@@ -3,8 +3,7 @@ import fs from 'fs';
 import reader from 'xlsx';
 import path from "path";
 import moment from 'moment';
-import {common} from "../common.js";
-import {utility} from "../utility.js";
+import {common} from "../Common.js";
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -36,7 +35,7 @@ export class FlussoSIAD {
                     for (var i = 0; i < assistenze.length; i++) {
                         let chiaveAssistito = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
                         let assistito = chiaveAssistito.substr(chiaveAssistito.length - 16, chiaveAssistito.length - 1)
-                        let eta = utility.getAgeFromCF(assistito);
+                        let eta = common.getAgeFromCF(assistito);
                         if (!data.hasOwnProperty(assistito))
                             data[assistito] = {'preseInCarico': 1, 'accessi': 0, 'palliativa': false};
                         else {

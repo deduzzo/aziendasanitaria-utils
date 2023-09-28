@@ -4,11 +4,13 @@ import ExcelJS from "exceljs";
 import path, {resolve} from "path";
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
-import {common} from "../common.js";
 import puppeteer from "puppeteer";
 import * as os from "os";
 import fs from "fs";
 import chokidar from "chokidar";
+import moment from "moment";
+import {common} from "../Common.js";
+import {Parser} from "@marketto/codice-fiscale-utils";
 
 export class Medici {
 
@@ -640,8 +642,69 @@ export class Medici {
         return error;
     }
 
-    async verificaLibrettiPediatrici(datiMedici, riferimento) {
+    /*
+    * @param {array} datiMedici
+    * @param {array} riferimento es. [[2010, 1], [2023, 6]]
+     */
+    async calcolaDatiTrascinamentoLibrettiPediatrici(datiMedici, periodoRiferimento, periodoPrimoCompilatore) {
+        let out = {};
+        let allRows = [];
+        let importi = {};
+        let dataInizioRiferimento = moment(periodoRiferimento[0][0] + "-" + periodoRiferimento[0][1] + "-01", "YYYY-MM-DD").startOf('month');
+        let dataFineRiferimento = moment(periodoRiferimento[1][0] + "-" + periodoRiferimento[1][1] + "-01", "YYYY-MM-DD").endOf('month');
+        let dataInizioPrimoCompilatore = moment(periodoPrimoCompilatore[0][0] + "-" + periodoPrimoCompilatore[0][1] + "-01", "YYYY-MM-DD").startOf('month');
+        let dataFinePrimoCompilatore = moment(periodoPrimoCompilatore[1][0] + "-" + periodoPrimoCompilatore[1][1] + "-01", "YYYY-MM-DD").endOf('month');
+        const CF_PAZIENTE = "CF_PAZIENTE"
+        const CODICE_MEDICO = "COD_REG_MEDICO";
+        const DATA_INIZIO = "DATA_SCELTA";
+        const DATA_FINE = "DATA_REVOCA";
+        let importogiornaliero = 10 / 365;
+        for (let riga of datiMedici) {
+            let dataInizio = moment(riga[DATA_INIZIO]);
+            if (dataInizio.isBefore(dataInizioRiferimento))
+                dataInizio = dataInizioRiferimento;
+            let dataFine = riga[DATA_FINE] !== "" ? moment(riga[DATA_FINE]) : dataFineRiferimento;
+            if (dataFine.isAfter(dataFineRiferimento))
+                dataFine = dataFineRiferimento;
+            const codMedico = riga[CODICE_MEDICO];
+            const cf = riga[CF_PAZIENTE];
 
+            const dataNascita = moment(Parser.cfToBirthDate(cf));
+            if (dataInizio.isBefore(dataFinePrimoCompilatore))
+                // set dataInizio the first day of the next year from dataInizio
+                dataInizio = moment(dataInizio).add(1, 'year').startOf('year');
+            const numGiorni = dataFine.diff(dataInizio, 'days');
+            if (!out.hasOwnProperty(codMedico)) {
+                out[codMedico] = {};
+                importi[codMedico] = 0.0;
+            }
+            if (!out[codMedico].hasOwnProperty(cf))
+                out[codMedico][cf] = [];
+            out[codMedico][cf].push({dataInizio: dataInizio, dataFine: dataFine, numGiorni: numGiorni});
+            importi[codMedico] += numGiorni>0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+            allRows.push({
+                codMedico: codMedico,
+                cf: cf,
+                dataNascita: dataNascita.format("DD/MM/YYYY"),
+                dataInizioOriginale: moment(riga[DATA_INIZIO]).format("DD/MM/YYYY"),
+                dataFineOriginale: moment(riga[DATA_FINE]).format("DD/MM/YYYY"),
+                dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
+                dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
+                numGiorni: numGiorni >0 ? numGiorni : 0,
+                importo: numGiorni>0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+            });
+        }
+        let totale = 0.0;
+        let data = [];
+        for (let key of Object.keys(importi)) {
+            totale += importi[key];
+            data.push({'codice': key, 'importo': importi[key]});
+        }
+        // show the totale and format as currency
+        console.log("Totale: " + totale.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'}));
+        await common.scriviOggettoSuNuovoFileExcel("importi_libretti.xlsx", data);
+        await common.scriviOggettoSuNuovoFileExcel("importi_libretti_dettaglio.xlsx", allRows);
+        return totale;
     }
 
 

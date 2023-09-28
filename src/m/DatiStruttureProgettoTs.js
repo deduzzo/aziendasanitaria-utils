@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import moment from "moment";
-import {common} from "./../common.js"
+import {common} from "../Common.js"
 import {Nar} from "../narTsServices/Nar.js";
 import {Ts} from "../narTsServices/Ts.js";
 

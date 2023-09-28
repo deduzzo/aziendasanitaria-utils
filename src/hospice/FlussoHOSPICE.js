@@ -1,4 +1,4 @@
-import {common} from "../common.js";
+import {common} from "../Common.js";
 import md5File from "md5-file";
 import fs from "fs";
 import * as xml2js from "xml2js";
