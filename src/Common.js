@@ -96,7 +96,7 @@ const inviaMail = async (settings, destinatari, oggetto, corpo, pathAllegati = [
 }
 
 const creaCartellaSeNonEsisteSvuotalaSeEsiste = (cartella) => {
-    fsExtra.emptyDirSync(cartella);
+    fs.emptyDirSync(cartella);
 }
 
 const mRowToJson = (row, starts) => {
