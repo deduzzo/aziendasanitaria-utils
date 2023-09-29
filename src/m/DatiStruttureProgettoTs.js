@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import moment from "moment";
-import {common} from "../Common.js"
+import {utils} from "../Utils.js"
 import {Nar} from "../narTsServices/Nar.js";
 import {Ts} from "../narTsServices/Ts.js";
 
@@ -52,7 +52,7 @@ export class DatiStruttureProgettoTs {
                 do {
                     //try {
                     let map = {
-                        _MESE: common.mesi[mese],
+                        _MESE: utils.mesi[mese],
                         _ANNO: anno,
                         _COD_REG: codiceRegione,
                         _COD_ASL: codiceAsl,

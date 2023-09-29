@@ -3,7 +3,7 @@ import path, {parse} from 'path';
 import readline from 'readline';
 import md5File from 'md5-file';
 import fs from 'fs';
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 import _ from 'lodash';
 import MDBReader from "mdb-reader";
 import {DatiStruttureProgettoTs} from "./DatiStruttureProgettoTs.js";
@@ -289,14 +289,14 @@ export class FlussoM {
             totalePrestazioniCalcolate: 0
         }
         let prestMap = {}
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let error = null;
         for await (const line of rl) {
             if (line.length !== lunghezzaRiga) {
                 error = i;
                 break;
             } else {
-                var t = common.mRowToJson(line, this._starts);
+                var t = utils.mRowToJson(line, this._starts);
                 ricettaTemp.push(t);
                 if (t.progrRicetta === "99") {
                     var rt = this.#buildRicetteFromMRows(ricettaTemp);
@@ -409,7 +409,7 @@ export class FlussoM {
     async elaboraFlussi() {
         let fileOut = {ripetuti: [], ok: {}, errori: [], warning: []}
         //1- ottieni tutti i file txt della cartella
-        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
         let numFiles = allFiles.length;
         var progress = 0;
         // 2- elaborazione
@@ -467,7 +467,7 @@ export class FlussoM {
     }
 
     async #scriviFlussoMSuCartella(fileElaborati, controlloTs, scriviStats = true) {
-        common.creaCartellaSeNonEsisteSvuotalaSeEsiste(this._settings.out_folder);
+        utils.creaCartellaSeNonEsisteSvuotalaSeEsiste(this._settings.out_folder);
         for (let chiave in fileElaborati) {
             let file = fileElaborati[chiave]
             let anno = file.datiDaFile?.anno ?? file.annoPrevalente;
@@ -493,7 +493,7 @@ export class FlussoM {
     async generaReportDaStats(salvaFileHtml = true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
         let strutture = this.#loadStruttureFromFlowlookDB();
-        let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         const table = {
             name: '',
             ref: 'A2',
@@ -696,7 +696,7 @@ export class FlussoM {
             if (!fs.existsSync(dirName + path.sep + this._settings.stat_folder_name))
                 fs.mkdirSync(dirName + path.sep + this._settings.stat_folder_name);
             if (sovrascrivi || !fs.existsSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext))
-                fs.writeFileSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext, JSON.stringify(_.omit(fileData[file], ["absolutePath", "nomeFile", "tempPath"]), common.replacer, "\t"), 'utf8');
+                fs.writeFileSync(dirName + path.sep + this._settings.stat_folder_name + path.sep + md5 + ext, JSON.stringify(_.omit(fileData[file], ["absolutePath", "nomeFile", "tempPath"]), utils.replacer, "\t"), 'utf8');
         }
     }
 
@@ -704,9 +704,9 @@ export class FlussoM {
         let cartellaTipologia;
         if (divisiPerTipologia !== null) {
             cartellaTipologia = folder + path.sep + "SUDDIVISI_" + divisiPerTipologia;
-            common.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
+            utils.creaCartellaSeNonEsisteSvuotalaSeEsiste(cartellaTipologia);
         }
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
 
         const calcolaMeseAnnoPrestazioni = (righeRicetta) => {
             let annoMese = {}
@@ -740,7 +740,7 @@ export class FlussoM {
             indices: ['id']
         });
         let duplicati = db.addCollection('duplicati');
-        let allFiles = common.getAllFilesRecursive(folder, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(folder, this._settings.extensions);
         let logger = {}
         if (scriviFileDifferenze) {
             logger["loggerNoDuplicati"] = fs.createWriteStream(folder + path.sep + "no_duplicati.txt", {
@@ -766,7 +766,7 @@ export class FlussoM {
                     error = i;
                     break;
                 } else {
-                    let t = common.mRowToJson(line, this._starts);
+                    let t = utils.mRowToJson(line, this._starts);
                     ricettaTempString += (line + "\n");
                     ricettaTemp.push(t);
                     if (t.progrRicetta === "99") {
@@ -828,7 +828,7 @@ export class FlussoM {
             duplicatiJson[duplicato.id] = duplicato.info;
         })
         if (scriviFileDifferenze)
-            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, common.replacer, "\t"), 'utf8')
+            fs.writeFileSync(folder + path.sep + "duplicatiSTAT.json", JSON.stringify(duplicatiJson, utils.replacer, "\t"), 'utf8')
         return {
             numDuplicati: numDuplicati,
             stats: duplicatiJson
@@ -847,11 +847,11 @@ export class FlussoM {
 
     async unisciFileTxt(inFolder = this._settings.in_folder, outFolder = this._settings.out_folder, nomeFile = "") {
         let errors = [];
-        let allFiles = common.getAllFilesRecursive(inFolder, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(inFolder, this._settings.extensions);
         if (!fs.existsSync(outFolder)) {
             fs.mkdirSync(outFolder, {recursive: true});
         }
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         const outputFile = nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
         var logger = fs.createWriteStream(outputFile, {
             flags: 'a' // 'a' means appending (old data will be preserved)
@@ -896,7 +896,7 @@ export class FlussoM {
         let errors = []
         for (let idDistretto in distretti) {
             console.log(this._settings.datiStruttureRegione.recapitiDistretti[idDistretto] + distretti[idDistretto].toUpperCase());
-            let out = await common.inviaMail(
+            let out = await utils.inviaMail(
                 this._settings.impostazioniMail,
                 [...this._settings.datiStruttureRegione.recapitiDistretti[idDistretto], "roberto.dedomenico@asp.messina.it"],
                 "Risultato Elaborazione FLUSSO M distretto di " + distretti[idDistretto].toUpperCase() + " " + meseAnno,
@@ -914,7 +914,7 @@ export class FlussoM {
                 errors.push(out.errorTxt);
         }
         if (mailGlobale !== "") {
-            let out = await common.inviaMail(
+            let out = await utils.inviaMail(
                 this._settings.impostazioniMail,
                 [mailGlobale, "roberto.dedomenico@asp.messina.it"],
                 "Risultato Elaborazione FLUSSO M " + meseAnno,
@@ -984,7 +984,7 @@ export class FlussoM {
 
     verificaErroriDaStats(filePath) {
         let errors = [];
-        let files = common.getAllFilesRecursive(filePath, '.mstats');
+        let files = utils.getAllFilesRecursive(filePath, '.mstats');
 
         for (let file of files) {
             let rawdata = fs.readFileSync(file);
@@ -1036,9 +1036,9 @@ export class FlussoM {
     }
 
     async verificaCorrettezzaFileMInCartella(pathCartella) {
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let errors = [];
-        let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (var file of allFiles) {
             console.log("processing " + file + "...");
             errors = [...errors, ...await this.#processLineByLine(file, lunghezzaRiga)]
@@ -1096,7 +1096,7 @@ export class FlussoM {
         let risultato = {}
         let totale = 0;
 
-        let allFiles = common.getAllFilesRecursive(pathCartella, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(pathCartella, this._settings.extensions);
         for (const file of allFiles) {
             console.log(file);
             totale += await this.#iniziaElaborazione(file, risultato, listaStrutture, listaPrestazioni, escludiStrutture, escludiPrestazioni, prestazioniBrancheMap, catalogoMap);
@@ -1303,7 +1303,7 @@ export class FlussoM {
         var i = 0;
         var ricettaTemp = [];
         for await (const line of rl) {
-            var t = common.mRowToJson(line, this._starts);
+            var t = utils.mRowToJson(line, this._starts);
             ricettaTemp.push(t);
 
             if (t.progrRicetta === "99") {
@@ -1361,7 +1361,7 @@ export class FlussoM {
 
     async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE]) {
         const strutture = this.#loadStruttureFromFlowlookDB();
-        let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
         for (let file of files) {
             let rawdata = fs.readFileSync(file);
@@ -1463,7 +1463,7 @@ export class FlussoM {
 
 
     async generaReportPrestazioni(anno, struttureFilter = [], fileUnico = false) {
-        let files = common.getAllFilesRecursive(this._settings.out_folder, '.mstats');
+        let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let tabs = {
             1: '1 - Gennaio',
             2: '2 - Febbraio',

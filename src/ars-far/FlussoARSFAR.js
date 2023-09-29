@@ -1,4 +1,4 @@
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 import md5File from "md5-file";
 import fs from "fs";
 import * as xml2js from "xml2js";
@@ -48,8 +48,8 @@ export class FlussoARSFAR {
 
     async calcolaAmmissioniFromPath(pathFile = this._settings.in_folder) {
         let fileOut = {}
-        let allFilesACC = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
-        let allFilesEVE = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.att)
+        let allFilesACC = utils.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
+        let allFilesEVE = utils.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.att)
         let somma1 = 0;
         let somma2 = 0;
         let quanti1 = 0;
@@ -83,8 +83,8 @@ export class FlussoARSFAR {
         let etaRicoverati ={}
         let giorniDegenza = 0;
         let assistitiSpese = {} // {cf: "XXXXXX",spesa:x,....}
-        let allFilesACC = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
-        let allFilesEVE = common.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.att)
+        let allFilesACC = utils.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.pic)
+        let allFilesEVE = utils.getAllFilesRecursive(pathFile, this._settings.extensions, this._settings.att)
         for (let file of allFilesACC) {
             let md5 = md5File.sync(file);
             if (!fileOut.hasOwnProperty(md5)) {

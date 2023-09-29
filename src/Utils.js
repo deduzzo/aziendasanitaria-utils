@@ -177,8 +177,6 @@ const replacer = (key, value) => {
 }
 
 
-
-
 const extractAttachmentsEml = async (sourceFolder, destinationFolder) => {
     // Assicurarsi che la cartella di destinazione esista
     await fs.ensureDir(destinationFolder);
@@ -506,7 +504,43 @@ const getAgeFromCF = (codiceFiscale) => {
     return years;
 }
 
-export const common = {
+const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerifica) => {
+    if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
+        const giorniPerAnno = {};
+        let totali = 0;
+        let annoCorrente;
+        let dataCorrente = moment.utc(dataInizio);
+        while (dataCorrente.isBefore(dataFine)) {
+            annoCorrente = dataCorrente.year();
+            if (annoCorrente === 2011)
+                console.log("as");
+            const fineAnno = moment.utc(dataCorrente).endOf('year');
+
+            let giorniDiff;
+            if (fineAnno.isAfter(dataFine)) {
+                giorniDiff = dataFine.diff(dataCorrente, 'days') + 1;
+                dataCorrente = dataFine;
+            } else {
+                giorniDiff = fineAnno.diff(dataCorrente, 'days') + 1;
+                dataCorrente = fineAnno.add(1, 'day');
+            }
+
+            giorniPerAnno[annoCorrente] = (giorniPerAnno[annoCorrente] || 0) + giorniDiff;
+            totali += giorniDiff;
+        }
+
+        const diffTotale =  totali - numGiorniPerVerifica;
+        if (diffTotale !== 0) {
+            giorniPerAnno[annoCorrente] -= diffTotale;
+            totali -= diffTotale;
+        }
+
+        return {perAnno: giorniPerAnno, totale: totali};
+    } else return null;
+};
+
+
+export const utils = {
     getAllFilesRecursive,
     creaCartellaSeNonEsisteSvuotalaSeEsiste,
     mesi,
@@ -530,5 +564,6 @@ export const common = {
     dataFromStringToUnix,
     dataFromUnixToString,
     nowToUnixDate,
-    getAgeFromCF
+    getAgeFromCF,
+    calcolaDifferenzaGiorniPerAnno,
 }

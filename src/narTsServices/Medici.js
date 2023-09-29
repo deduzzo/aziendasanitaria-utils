@@ -9,7 +9,7 @@ import * as os from "os";
 import fs from "fs";
 import chokidar from "chokidar";
 import moment from "moment";
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 import {Parser} from "@marketto/codice-fiscale-utils";
 
 export class Medici {
@@ -71,7 +71,7 @@ export class Medici {
         let codici = [];
         let i = 0;
         var workbook = new ExcelJS.Workbook();
-        let files = common.getAllFilesRecursive(filePath, '.xlsx');
+        let files = utils.getAllFilesRecursive(filePath, '.xlsx');
         for (let filename of files) {
             console.log('read file ', filename);
             let fileExcel = await workbook.xlsx.readFile(filename);
@@ -646,14 +646,17 @@ export class Medici {
     * @param {array} datiMedici
     * @param {array} riferimento es. [[2010, 1], [2023, 6]]
      */
-    async calcolaDatiTrascinamentoLibrettiPediatrici(datiMedici, periodoRiferimento, periodoPrimoCompilatore) {
+    async calcolaDatiTrascinamentoLibrettiPediatrici(datiMedici, periodoRiferimento, periodoPrimoCompilatore, meseAnnoNascitaDaConsiderare) {
         let out = {};
         let allRows = [];
+        let nonConsiderati = []
         let importi = {};
+        let perAnnoGlobale = {};
         let dataInizioRiferimento = moment(periodoRiferimento[0][0] + "-" + periodoRiferimento[0][1] + "-01", "YYYY-MM-DD").startOf('month');
         let dataFineRiferimento = moment(periodoRiferimento[1][0] + "-" + periodoRiferimento[1][1] + "-01", "YYYY-MM-DD").endOf('month');
         let dataInizioPrimoCompilatore = moment(periodoPrimoCompilatore[0][0] + "-" + periodoPrimoCompilatore[0][1] + "-01", "YYYY-MM-DD").startOf('month');
         let dataFinePrimoCompilatore = moment(periodoPrimoCompilatore[1][0] + "-" + periodoPrimoCompilatore[1][1] + "-01", "YYYY-MM-DD").endOf('month');
+        let dataNascitaDaConsiderare = moment(meseAnnoNascitaDaConsiderare[0] + "-" + meseAnnoNascitaDaConsiderare[1] + "-01", "YYYY-MM-DD").startOf('month');
         const CF_PAZIENTE = "CF_PAZIENTE"
         const CODICE_MEDICO = "COD_REG_MEDICO";
         const DATA_INIZIO = "DATA_SCELTA";
@@ -673,27 +676,53 @@ export class Medici {
             if (dataInizio.isBefore(dataFinePrimoCompilatore))
                 // set dataInizio the first day of the next year from dataInizio
                 dataInizio = moment(dataInizio).add(1, 'year').startOf('year');
-            const numGiorni = dataFine.diff(dataInizio, 'days');
-            if (!out.hasOwnProperty(codMedico)) {
-                out[codMedico] = {};
-                importi[codMedico] = 0.0;
+            const numGiorni = dataInizio.isBefore(dataFine) ? (dataFine.diff(dataInizio, 'days') + 1) : 0;
+            if (dataNascita.isSameOrAfter(dataNascitaDaConsiderare)) {
+                if (!out.hasOwnProperty(codMedico)) {
+                    out[codMedico] = {};
+                    importi[codMedico] = 0.0;
+                }
+                if (!out[codMedico].hasOwnProperty(cf))
+                    out[codMedico][cf] = [];
+                out[codMedico][cf].push({dataInizio: dataInizio, dataFine: dataFine, numGiorni: numGiorni});
+                importi[codMedico] += numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+                allRows.push({
+                    codMedico: codMedico,
+                    cf: cf,
+                    dataNascita: dataNascita.format("DD/MM/YYYY"),
+                    dataInizioOriginale: moment(riga[DATA_INIZIO]).format("DD/MM/YYYY"),
+                    dataFineOriginale: moment(riga[DATA_FINE]).format("DD/MM/YYYY"),
+                    dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
+                    dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
+                    numGiorni: numGiorni > 0 ? numGiorni : 0,
+                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+                });
+                let perAnno = null;
+                if (numGiorni > 0)
+                    perAnno = utils.calcolaDifferenzaGiorniPerAnno(dataInizio, dataFine,numGiorni);
+                if (perAnno)
+                    for (let key in perAnno['perAnno']) {
+                        if (!perAnnoGlobale.hasOwnProperty(key))
+                            perAnnoGlobale[key] = {numGiorni: 0, importo: 0.0, anno: key};
+                        perAnnoGlobale[key].numGiorni += perAnno['perAnno'][key];
+                        perAnnoGlobale[key].importo += parseFloat((perAnno['perAnno'][key] * importogiornaliero).toFixed(2));
+                    }
+            } else {
+                nonConsiderati.push({
+                    codMedico: codMedico,
+                    cf: cf,
+                    dataNascita: dataNascita.format("DD/MM/YYYY"),
+                    dataInizioOriginale: moment(riga[DATA_INIZIO]).format("DD/MM/YYYY"),
+                    dataFineOriginale: moment(riga[DATA_FINE]).format("DD/MM/YYYY"),
+                    dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
+                    dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
+                    numGiorni: numGiorni > 0 ? numGiorni : 0,
+                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0,
+                    note: "Non considerato perchè nato prima del 1 Gennaio 2011"
+                });
             }
-            if (!out[codMedico].hasOwnProperty(cf))
-                out[codMedico][cf] = [];
-            out[codMedico][cf].push({dataInizio: dataInizio, dataFine: dataFine, numGiorni: numGiorni});
-            importi[codMedico] += numGiorni>0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
-            allRows.push({
-                codMedico: codMedico,
-                cf: cf,
-                dataNascita: dataNascita.format("DD/MM/YYYY"),
-                dataInizioOriginale: moment(riga[DATA_INIZIO]).format("DD/MM/YYYY"),
-                dataFineOriginale: moment(riga[DATA_FINE]).format("DD/MM/YYYY"),
-                dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
-                dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
-                numGiorni: numGiorni >0 ? numGiorni : 0,
-                importo: numGiorni>0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
-            });
         }
+
         let totale = 0.0;
         let data = [];
         for (let key of Object.keys(importi)) {
@@ -702,8 +731,10 @@ export class Medici {
         }
         // show the totale and format as currency
         console.log("Totale: " + totale.toLocaleString('it-IT', {style: 'currency', currency: 'EUR'}));
-        await common.scriviOggettoSuNuovoFileExcel("importi_libretti.xlsx", data);
-        await common.scriviOggettoSuNuovoFileExcel("importi_libretti_dettaglio.xlsx", allRows);
+        await utils.scriviOggettoSuNuovoFileExcel("importi_libretti.xlsx", data);
+        await utils.scriviOggettoSuNuovoFileExcel("importi_libretti_dettaglio.xlsx", allRows);
+        await utils.scriviOggettoSuNuovoFileExcel("non_considerati.xlsx", nonConsiderati);
+        await utils.scriviOggettoSuNuovoFileExcel("importi_libretti_per_anno.xlsx", Object.values(perAnnoGlobale));
         return totale;
     }
 

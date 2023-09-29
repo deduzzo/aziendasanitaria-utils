@@ -1,4 +1,4 @@
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 import md5File from "md5-file";
 import fs from "fs";
 import * as xml2js from "xml2js";
@@ -53,7 +53,7 @@ export class FlussoHOSPICE {
 
     async calcolaGiornate() {
         let fileOut = {}
-        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
+        let allFiles = utils.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
         let somma = 0;
         for (let file of allFiles) {
             let md5 = md5File.sync(file);
@@ -67,7 +67,7 @@ export class FlussoHOSPICE {
 
     async calcolaUtenti() {
         let fileOut = {}
-        let allFiles = common.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
+        let allFiles = utils.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions, "att")
         let somma = 0;
         for (let file of allFiles) {
             let md5 = md5File.sync(file);

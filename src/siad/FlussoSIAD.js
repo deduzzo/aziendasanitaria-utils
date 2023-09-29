@@ -3,7 +3,7 @@ import fs from 'fs';
 import reader from 'xlsx';
 import path from "path";
 import moment from 'moment';
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -23,7 +23,7 @@ export class FlussoSIAD {
         let dataOver65 = {};
         const parser = new xml2js.Parser({attrkey: "ATTR"});
 
-        let files = common.getAllFilesRecursive(this._settings.in_folder, ".xml", "APS");
+        let files = utils.getAllFilesRecursive(this._settings.in_folder, ".xml", "APS");
         files.forEach(file => {
             console.log(file);
 
@@ -35,7 +35,7 @@ export class FlussoSIAD {
                     for (var i = 0; i < assistenze.length; i++) {
                         let chiaveAssistito = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
                         let assistito = chiaveAssistito.substr(chiaveAssistito.length - 16, chiaveAssistito.length - 1)
-                        let eta = common.getAgeFromCF(assistito);
+                        let eta = utils.getAgeFromCF(assistito);
                         if (!data.hasOwnProperty(assistito))
                             data[assistito] = {'preseInCarico': 1, 'accessi': 0, 'palliativa': false};
                         else {

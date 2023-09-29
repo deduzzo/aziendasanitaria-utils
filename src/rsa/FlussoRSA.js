@@ -3,7 +3,7 @@ import path  from 'path';
 import readline from 'readline';
 import md5File from 'md5-file';
 import fs from 'fs';
-import {common} from "../Common.js";
+import {utils} from "../Utils.js";
 import _ from 'lodash';
 
 export class FlussoRSA {
@@ -77,7 +77,7 @@ export class FlussoRSA {
 
     async calcolaDatiPerRelazione(fromDate,filePath =this._settings.in_folder,){
         fromDate = moment(fromDate, "DDMMYYYY");
-        let files = common.getAllFilesRecursive(filePath, ".txt", "RSA")
+        let files = utils.getAllFilesRecursive(filePath, ".txt", "RSA")
         var i = 0;
         let rows = []
         let ricoverati = [];
@@ -86,7 +86,7 @@ export class FlussoRSA {
         let etaRicoverati ={ tutti: {},maggiori90: 0,tra80e90: 0, minori80:0}
         let giorniDegenza = {totale: 0, perAssistito:{}};
         let assistitiSpese = {} // {cf: "XXXXXX",spesa:x,....}
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let error = null;
         for (let file of files) {
             console.log("Elaboro " + file + " ...");
@@ -98,7 +98,7 @@ export class FlussoRSA {
                     error = i;
                     break;
                 } else {
-                    var t = common.mRowToJson(line, this._starts);
+                    var t = utils.mRowToJson(line, this._starts);
                     rows.push(t);
                     let sesso = t.sesso === "2" ? "F" : "M"
                     let eta =  new Date().getFullYear() - t.dataNascita.get('year');
@@ -161,14 +161,14 @@ export class FlussoRSA {
         let rows = []
         let dimissioni = {};
         let pazienti = {};
-        let lunghezzaRiga = common.verificaLunghezzaRiga(this._starts);
+        let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let error = null;
         for await (const line of rl) {
             if (line.length !== lunghezzaRiga) {
                 error = i;
                 break;
             } else {
-                var t = common.mRowToJson(line, this._starts);
+                var t = utils.mRowToJson(line, this._starts);
                 rows.push(t);
                 if (!isNaN(t.dataDimissione)) {
                     if (!dimissioni.hasOwnProperty(t.cf)) {
@@ -209,7 +209,7 @@ export class FlussoRSA {
 
 
     async elaboraDegenti() {
-        let files = common.getAllFilesRecursive(this._settings.in_folder, ".txt", "RSA")
+        let files = utils.getAllFilesRecursive(this._settings.in_folder, ".txt", "RSA")
         console.log(files.length)
         for (let file of files) {
             let out = await this.#elaboraFileFlussoRSA(file)
