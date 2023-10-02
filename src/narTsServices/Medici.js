@@ -93,7 +93,7 @@ export class Medici {
         return codici;
     }
 
-    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = 2010, meseRiferimentoDa = 1, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
+    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
         let out = null;
         let retry = this._retry;
         do {
@@ -127,8 +127,9 @@ export class Medici {
                     await page.keyboard.press('Backspace');
                     await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
                     await page.type("select[name='mesePagamentoA@Filter']", (mesePagamentoA === 1 ? "1 " : mesePagamentoA.toString()));
-                    await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
-                    await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
+                    await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa ? annoRiferimentoDa.toString() : "");
+                    if (meseRiferimentoDa)
+                        await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
                     if (annoRiferimentoA)
                         await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
                     if (meseRiferimentoA)
@@ -138,10 +139,12 @@ export class Medici {
                     await page.waitForSelector("#thickbox");
                     await page.click("#thickbox");
                     await page.type("#matricola", matricola);
+                    await page.waitForTimeout(1000);
                     await page.keyboard.press("Tab");
                     //wait 400 ms
-                    await page.waitForTimeout(400);
+                    await page.waitForTimeout(1000);
                     await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
+                    await page.waitForTimeout(1000);
                     let datiBusta = await page.evaluate(() => {
                         let out = {
                             datiInquadramento: {},
@@ -196,8 +199,8 @@ export class Medici {
 
                     for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                        await page.waitForTimeout(400);
                         await page.waitForSelector("#windowContent");
+                        await page.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -210,8 +213,8 @@ export class Medici {
                     }
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                        await page.waitForTimeout(200);
                         await page.waitForSelector("#windowContent");
+                        await page.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -224,8 +227,8 @@ export class Medici {
                     }
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
-                        await page.waitForTimeout(200);
                         await page.waitForSelector("#windowContent");
+                        await page.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -321,6 +324,7 @@ export class Medici {
                     await page.waitForSelector("input[name='matr@Filter']");
                     await page.type("input[name='matr@Filter']", matricola);
                     //press f4
+                    await page.waitForTimeout(1000);
                     await page.keyboard.press("F4");
                     await page.waitForSelector("input[name='annoPagamentoA@Filter']");
                     await page.focus("input[name='annoPagamentoA@Filter']");
@@ -626,7 +630,7 @@ export class Medici {
             let dati = datiMedici[matr];
             for (let i = 0; i < dati.length; i++) {
                 let busta = dati[i];
-                let out1 = await this.analizzaBustaPaga(matr, busta[1], busta[0], busta[1], busta[0], riferimento[0][0], riferimento[0][1], riferimento[1][0], riferimento[1][1]);
+                let out1 = await this.analizzaBustaPaga(matr, busta[1], busta[0], busta[1], busta[0]);
                 let ou2 = await this.stampaCedolino(matr, busta[1], busta[0], busta[1], busta[0]);
                 if (!error)
                     if (out1.error || ou2.error)

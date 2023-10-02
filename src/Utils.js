@@ -512,8 +512,6 @@ const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerific
         let dataCorrente = moment.utc(dataInizio);
         while (dataCorrente.isBefore(dataFine)) {
             annoCorrente = dataCorrente.year();
-            if (annoCorrente === 2011)
-                console.log("as");
             const fineAnno = moment.utc(dataCorrente).endOf('year');
 
             let giorniDiff;
@@ -534,6 +532,7 @@ const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerific
             giorniPerAnno[annoCorrente] -= diffTotale;
             totali -= diffTotale;
         }
+
 
         return {perAnno: giorniPerAnno, totale: totali};
     } else return null;
