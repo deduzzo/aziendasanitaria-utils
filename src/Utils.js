@@ -538,6 +538,12 @@ const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerific
     } else return null;
 };
 
+const decodeHtml = (html) => {
+    let txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -565,4 +571,5 @@ export const utils = {
     nowToUnixDate,
     getAgeFromCF,
     calcolaDifferenzaGiorniPerAnno,
+    decodeHtml
 }

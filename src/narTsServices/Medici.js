@@ -42,20 +42,47 @@ export class Medici {
             if (!this._nar.logged)
                 await this._nar.doLogin();
             if (this._nar.logged) {
-                let page = this._nar.getWorkingPage();
-                for (let dati of datiMedici) {
-                    await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000176");
-                    await page.waitForSelector("input[name='distrCod']");
-                    await page.type("input[name='distrCod']", "20502M03");
-                    await page.keyboard.press("Tab");
-                    //timeout 1000 ms
-                    await page.waitForTimeout(2000);
-                    await page.type("input[name='cognome']", dati['cognome']);
-                    await page.type("input[name='nome']", dati['nome']);
-                    await page.click("button[name='BTN_CONFIRM']") // Click on button
+                let page = await this._nar.getWorkingPage();
+                if (page) {
+                    for (let dati of Object.keys(datiMedici)) {
+                        await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000118");
+                        await page.waitForSelector("input[name='codRegionale@Filter']")
+                        await page.type("input[name='codRegionale@Filter']", dati);
+                        await page.click("button[name='BTN_CONFIRM']");
+                        // BTN_MULTI_PRINT.PRINT
+                        await page.waitForSelector("button[name='BTN_MULTI_PRINT.PRINT']");
+                        let ambito = await page.evaluate(() => {
+                            const decodeHtml = (html) => {
+                                let txt = document.createElement("textarea");
+                                txt.innerHTML = html;
+                                return txt.value;
+                            }
+                            return decodeHtml(document.querySelector("#inside > table > tbody > tr > td:nth-child(9) > a").innerHTML);
+                        });
+                        // #inside > table > tbody > tr > td:nth-child(3) > a
+                        await page.click("#inside > table > tbody > tr > td:nth-child(3) > a");
+                        // cognome@
+                        await page.waitForSelector("input[name='cognome@']");
+                        // grab cognome@ and nome@
+                        let datiExtr = await page.evaluate(() => {
+                            let datiEstratti = {};
+                            datiEstratti.cognome = document.querySelector("input[name='cognome@']").value;
+                            datiEstratti.nome = document.querySelector("input[name='nome@']").value;
+                            return datiEstratti;
+                        });
+                        await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000176");
+                        await page.waitForSelector("input[name='distrCod']");
+                        //await page.type("input[name='distrDescr']", ambito);
+                        //await page.keyboard.press("Tab");
+                        //timeout 1000 ms
+                        //await page.waitForTimeout(2000);
+                        await page.type("input[name='cognome']", datiExtr['cognome']);
+                        await page.type("input[name='nome']", datiExtr['nome']);
+                        await page.click("button[name='BTN_CONFIRM']") // Click on button
 
-                    let content = await page.content();
-                    await fse.outputFile("D:\\DATI\\dev\\asp\\flussisanitari-utils\\output\\NAR\\out.pff", content);
+                        let content = await page.content();
+                        await fse.outputFile("out.pff", content);
+                    }
                 }
             }
         } catch (ex) {
