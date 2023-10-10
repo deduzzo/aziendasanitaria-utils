@@ -21,7 +21,7 @@ export class Assistiti {
     }
 
 
-    async #verificaDataDecessoDaTS(datiUtenti,closeBrowser = true,visibile = true) {
+    async #verificaDataDecessoDaTS(datiUtenti,visibile = true) {
         let out = {error: false, data: {}};
         let page = await this._ts.getWorkingPage(visibile);
         if (page) {
@@ -52,11 +52,11 @@ export class Assistiti {
                 }
             }
         }
-        await this._ts.doLogout(closeBrowser);
+        await this._ts.doLogout();
         return datiUtenti;
     }
 
-    async verificaDatiAssititoDaNar(codiciFiscali,closeBrowser,visibile) {
+    async verificaDatiAssititoDaNar(codiciFiscali,visibile) {
         let out = {data: {}, nonTrovati: []};
         let page = await this._nar.getWorkingPage(visibile);
         if (page) {
@@ -97,14 +97,14 @@ export class Assistiti {
                 }
             }
         }
-        await this._nar.doLogout(closeBrowser);
+        await this._nar.doLogout();
         return out;
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,index = 1,visibile = true,closeBrowser = true,) {
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,index = 1,visibile = true) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
-        console.log("[" + index + "]" +" codici fiscali totali:" + codiciFiscali.length)
+        console.log("#" + index + " " +" TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage(visibile);
             page.setDefaultTimeout(600000);
@@ -187,16 +187,14 @@ export class Assistiti {
                         else
                             out.out.nonTrovati.push(codiceFiscale);
                         if (!datiAssistito.trovato || !datiAssistito.vivo) {
-                            console.log("[" + index + "] " +codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
+                            console.log("#" + index + " " +codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
                         }
                         if (limit)
                             if (i >= limit)
                                 break;
                         // show progress
                         if (i % 10 === 0) {
-                            console.log("[" + index + "] codici fiscali processati:" + i + " su " + codiciFiscali.length);
-                            // show stats vivi, morti and non trovati
-                            console.log("[" + index + "] vivi:" + Object.keys(out.out.vivi).length + ", morti:" + out.out.morti.length + ", non trovati:" + out.out.nonTrovati.length);
+                            console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
                         }
                     }
                 }
@@ -206,9 +204,9 @@ export class Assistiti {
         await this._ts.doLogout(false);
         let dateDecesso = [];
         if (out.out.morti.length > 0) {
-            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti,closeBrowser,visibile);
+            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti,visibile);
             if (Object.values(datiMorti.data).length > 0)
-                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data,closeBrowser,visibile);
+                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data,visibile);
         }
         out.out.morti = dateDecesso;
         return out;
@@ -262,7 +260,7 @@ export class Assistiti {
     static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 10) {
         EventEmitter.defaultMaxListeners = 20;
          const processJob = async (codMedico,index) => {
-             index = index +1;
+             index = (index % numOfParallelJobs) +1;
              let assistiti = new Assistiti(impostazioniServizi);
              let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, index,false);
 

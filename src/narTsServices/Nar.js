@@ -137,14 +137,11 @@ export class Nar {
     }
 
     async doLogout(closeBrowser = true) {
-        if (closeBrowser) {
-            if (this._logged) {
-                this._logged = false;
-                await this._browser.close();
-                return true;
-            } else return false;
-        }
-        return false
+        if (this._logged) {
+            this._logged = false;
+            await this._browser.close();
+            return true;
+        } else return false;
     }
 
 
