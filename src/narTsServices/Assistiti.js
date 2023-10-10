@@ -51,7 +51,6 @@ export class Assistiti {
                     console.log("codice fiscale: " + cf + " data decesso:" + (datiUtenti[cf].data_decesso ?? "non recuperabile"));
                 }
             }
-            await page.close();
         }
         await this._ts.doLogout(closeBrowser);
         return datiUtenti;
@@ -97,14 +96,13 @@ export class Assistiti {
                     out.nonTrovati.push(cf + "_su_nar");
                 }
             }
-            await page.close();
         }
         await this._nar.doLogout(closeBrowser);
         return out;
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,closeBrowser = true,visibile = true,index = 1) {
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,index = 1,visibile = true,closeBrowser = true,) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
         console.log("[" + index + "]" +" codici fiscali totali:" + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
@@ -203,7 +201,6 @@ export class Assistiti {
                     }
                 }
             }
-            await page.close();
         } else
             out = {error: true, out: "Nessun codice fiscale trovato"}
         await this._ts.doLogout(false);
@@ -262,11 +259,12 @@ export class Assistiti {
 
 
 
-    async verificaAssititiInVitaParallelsJobs(pathJob, outPath = "elaborazioni",numOfParallelJobs = 10) {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 10) {
         EventEmitter.defaultMaxListeners = 20;
          const processJob = async (codMedico,index) => {
              index = index +1;
-             let ris = await this.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, false,false,index);
+             let assistiti = new Assistiti(impostazioniServizi);
+             let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, index,false);
 
              const updateJobStatus = async (ris) => {
                  await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {

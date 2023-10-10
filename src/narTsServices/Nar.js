@@ -73,7 +73,7 @@ export class Nar {
     }
 
 
-    async doLogin(visibile= true) {
+    async doLogin(visibile = true) {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
         // if working path not exists
@@ -137,12 +137,14 @@ export class Nar {
     }
 
     async doLogout(closeBrowser = true) {
-        if (this._logged) {
-            this._logged = false;
-            if (closeBrowser)
+        if (closeBrowser) {
+            if (this._logged) {
+                this._logged = false;
                 await this._browser.close();
-            return true;
-        } else return false;
+                return true;
+            } else return false;
+        }
+        return false
     }
 
 
