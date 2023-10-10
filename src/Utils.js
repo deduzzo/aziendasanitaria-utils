@@ -329,16 +329,22 @@ const creaOggettoDaFileExcel = async (filename, accoppiateOggettoColonna, limit 
 
 const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null, scriviHeader = true) => {
     var workbook = new ExcelJS.Workbook();
-    // fileExcel will be a new file
+    // if data is array, convert it to object
     let worksheet = workbook.addWorksheet('dati');
     if (scriviHeader) {
-        if (customHeader)
-            worksheet.addRow(Object.values(customHeader));
-        else
-            worksheet.addRow(data ? Object.keys(data[0]) : "" );
+        if (typeof data[0] !== "string") {
+            if (customHeader)
+                worksheet.addRow(Object.values(customHeader));
+            else
+                worksheet.addRow(data ? Object.keys(data[0]) : "");
+        } else
+            worksheet.addRow([customHeader]);
     }
     for (let riga of data) {
-        worksheet.addRow(Object.values(riga));
+        if (typeof riga !== "string")
+            worksheet.addRow(Object.values(riga));
+        else
+            worksheet.addRow([riga]);
     }
     await workbook.xlsx.writeFile(filename);
 }
@@ -505,7 +511,7 @@ const getAgeFromCF = (codiceFiscale) => {
     return years;
 }
 
-const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerifica) => {
+const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine, numGiorniPerVerifica) => {
     if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
         const giorniPerAnno = {};
         let totali = 0;
@@ -528,7 +534,7 @@ const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerific
             totali += giorniDiff;
         }
 
-        const diffTotale =  totali - numGiorniPerVerifica;
+        const diffTotale = totali - numGiorniPerVerifica;
         if (diffTotale !== 0) {
             giorniPerAnno[annoCorrente] -= diffTotale;
             totali -= diffTotale;
@@ -546,10 +552,18 @@ const decodeHtml = (html) => {
 }
 
 const leggiOggettoDaFileJSON = async (filename) => {
-let out = [];
+    let out = [];
     let data = await fs.readFileSync(filename, 'utf8');
     out = JSON.parse(data);
     return out;
+}
+
+const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
+    if (dataFine == null)
+        dataFine = moment();
+    if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
+        return dataFine.diff(dataInizio, 'months', false);
+    }
 }
 
 
@@ -579,5 +593,6 @@ export const utils = {
     getAgeFromCF,
     calcolaDifferenzaGiorniPerAnno,
     decodeHtml,
-    leggiOggettoDaFileJSON
+    leggiOggettoDaFileJSON,
+    calcolaMesiDifferenza
 }

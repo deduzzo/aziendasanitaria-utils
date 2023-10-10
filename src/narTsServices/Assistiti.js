@@ -262,6 +262,11 @@ export class Assistiti {
         let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
         for (let codMedico of jobsDaElaborare) {
             let ris = await this.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti), null, false);
+
+            for(let cf of Object.keys(ris.out.morti)){
+                ris.out.morti[cf].numQuoteDaRecperare = utils.calcolaMesiDifferenza(ris.out.morti[cf].data_decesso);
+            }
+
             await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {deceduti: ris.out.morti, nonTrovati: ris.out.nonTrovati});
             if (Object.keys(ris.out.morti).length > 0)
                 await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
@@ -280,8 +285,8 @@ export class Assistiti {
 
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 10,visibile = false) {
-        EventEmitter.defaultMaxListeners = 20;
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 20,visibile = false) {
+        EventEmitter.defaultMaxListeners = 40;
          const processJob = async (codMedico,index) => {
              index = (index % numOfParallelJobs) +1;
              let assistiti = new Assistiti(impostazioniServizi);
@@ -296,7 +301,7 @@ export class Assistiti {
                  if (Object.keys(ris.out.morti).length > 0)
                      await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
                  if (ris.out.nonTrovati.length > 0)
-                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", Object.values(ris.out.nonTrovati));
+                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", ris.out.nonTrovati, ["CF non trovati"]);
                  // update jobstatus.json
                  jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
                  jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
