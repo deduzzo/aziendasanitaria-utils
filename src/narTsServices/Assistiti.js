@@ -103,7 +103,7 @@ export class Assistiti {
 
 
     async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,index = 1,visibile = true) {
-        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
         console.log("#" + index + " " +" TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage(visibile);
@@ -112,40 +112,63 @@ export class Assistiti {
                 let i = 0;
                 if (!out.error && codiciFiscali.length > 0) {
                     for (let codiceFiscale of codiciFiscali) {
-                        i++;
-                        await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
                         let datiAssistito = {};
-                        try {
-                            await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
-                            await page.click('#go');
-                            await page.waitForSelector("body > div:nth-child(12) > h1")
-                            datiAssistito = await page.evaluate(() => {
-                                let dati = {}
-                                let vivo = null;
-                                if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
-                                    vivo = true;
-                                else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
-                                    vivo = false;
-                                else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
-                                    vivo = null;
-                                if (vivo !== null)
-                                    dati.vivo = vivo;
-                                dati.trovato = vivo !== null;
-                                if (dati.trovato && vivo) {
-                                    dati.vivo = vivo;
-                                    dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(5) > div.cellaAss59 > div").innerText.trim();
-                                    dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(7) > div.cellaAss59 > div").innerText.trim();
-                                    dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child(9) > div.cellaAss59 > div").innerText.trim();
-                                    dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(11) > div.cellaAss59 > div").innerText.trim();
-                                    dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div").innerText.trim();
+                        let obsoleto = false;
+                        do {
+                            obsoleto = false;
+                            i++;
+                            await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
+                            try {
+                                await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
+                                await page.click('#go');
+                                await page.waitForSelector("body > div:nth-child(12) > h1")
+                                datiAssistito = await page.evaluate(() => {
+                                    let dati = {}
+                                    let vivo = null;
+                                    let obsoleto = false;
+                                    if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
+                                        vivo = true;
+                                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
+                                        vivo = false;
+                                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('obsoleto')) {
+                                        vivo = true;
+                                        obsoleto = true;
+                                    } else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
+                                        vivo = null;
+                                    if (vivo !== null)
+                                        dati.vivo = vivo;
+                                    dati.trovato = vivo !== null;
+                                    if (dati.trovato && vivo) {
+                                        dati.vivo = vivo;
+                                        let ind = obsoleto ? 4 : 3
+                                        dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +2)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +4)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +6)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +8)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +10)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.obsoleto = obsoleto;
+                                        dati.errore = false
+                                        return dati;
+                                    }
                                     return dati;
-                                }
-                                return dati;
-                            });
-                        } catch (e) {
-                            datiAssistito = {errore: true};
+                                });
+                            } catch (e) {
+                                datiAssistito = {errore: true};
+                            }
+                            if (datiAssistito.obsoleto) {
+                                if (!out.out.obsoleti.hasOwnProperty(codiceFiscale))
+                                    out.out.obsoleti[codiceFiscale] = [];
+                                let codFiscaleNuovo = datiAssistito.cf;
+                                datiAssistito.cf = codiceFiscale;
+                                out.out.obsoleti[codiceFiscale].push(datiAssistito);
+                                datiAssistito.cf = codFiscaleNuovo;
+                                codiceFiscale = codFiscaleNuovo;
+                                obsoleto = true;
+                                console.log("OBSOLETO, RITENTO");
+                            }
                         }
-
+                        while (obsoleto);
                         if (datiAssistito.trovato && datiAssistito.vivo) {
                             datiAssistito.cf = codiceFiscale;
                             if (inserisciIndirizzo) {
@@ -182,7 +205,7 @@ export class Assistiti {
                                 }
                             }
                             out.out.vivi[codiceFiscale] = datiAssistito;
-                        } else if (!datiAssistito.vivo)
+                        } else if (datiAssistito.vivo === false && datiAssistito.trovato)
                             out.out.morti.push(codiceFiscale);
                         else
                             out.out.nonTrovati.push(codiceFiscale);
@@ -194,7 +217,7 @@ export class Assistiti {
                                 break;
                         // show progress
                         if (i % 10 === 0) {
-                            console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                            console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + ", obsoleti:" + Object.keys(out.out.obsoleti).length + "]");
                         }
                     }
                 }
@@ -257,17 +280,18 @@ export class Assistiti {
 
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 10) {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 10,visibile = false) {
         EventEmitter.defaultMaxListeners = 20;
          const processJob = async (codMedico,index) => {
              index = (index % numOfParallelJobs) +1;
              let assistiti = new Assistiti(impostazioniServizi);
-             let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, index,false);
+             let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, index,visibile);
 
              const updateJobStatus = async (ris) => {
                  await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
                      deceduti: ris.out.morti,
-                     nonTrovati: ris.out.nonTrovati
+                     nonTrovati: ris.out.nonTrovati,
+                     obsoleti: ris.out.obsoleti,
                  });
                  if (Object.keys(ris.out.morti).length > 0)
                      await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
