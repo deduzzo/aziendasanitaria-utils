@@ -165,17 +165,6 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
     return datiAssistito;
 }
 
-const replacer = (key, value) => {
-    if (value instanceof Map) {
-        return {
-            dataType: 'Map',
-            value: Array.from(value.entries()), // or with spread: value: [...value]
-        };
-    } else {
-        return value;
-    }
-}
-
 
 const extractAttachmentsEml = async (sourceFolder, destinationFolder) => {
     // Assicurarsi che la cartella di destinazione esista
@@ -356,8 +345,20 @@ const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null
 
 // a function that write a txt file with the data as array, parameters: path and array
 const scriviOggettoSuFile = async (filename, data) => {
+
+    const replacer = (key, value) => {
+        if (value instanceof Map) {
+            return {
+                dataType: 'Map',
+                value: Array.from(value.entries()), // or with spread: value: [...value]
+            };
+        } else {
+            return value;
+        }
+    }
+
     // write a file with the data
-    await fs.writeFileSync(filename, JSON.stringify(data, this.replacer, "\t"), 'utf8');
+    await fs.writeFileSync(filename, JSON.stringify(data, replacer, "\t"), 'utf8');
 }
 
 
@@ -544,6 +545,13 @@ const decodeHtml = (html) => {
     return txt.value;
 }
 
+const leggiOggettoDaFileJSON = async (filename) => {
+let out = [];
+    let data = await fs.readFileSync(filename, 'utf8');
+    out = JSON.parse(data);
+    return out;
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -553,7 +561,6 @@ export const utils = {
     verificaLunghezzaRiga,
     mRowToJson,
     ottieniDatiAssistito,
-    replacer,
     extractAttachmentsMsg,
     extractAttachmentsEml,
     rinominaCedolini,
@@ -571,5 +578,6 @@ export const utils = {
     nowToUnixDate,
     getAgeFromCF,
     calcolaDifferenzaGiorniPerAnno,
-    decodeHtml
+    decodeHtml,
+    leggiOggettoDaFileJSON
 }

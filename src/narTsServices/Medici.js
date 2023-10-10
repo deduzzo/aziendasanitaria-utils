@@ -36,7 +36,7 @@ export class Medici {
     static MEDICO_DI_BASE = "MDB";
 
 
-    async getPffAssistitiMedici(datiMedici) {
+    /*async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};
         try {
             if (!this._nar.logged)
@@ -79,9 +79,9 @@ export class Medici {
                         await page.type("input[name='cognome']", datiExtr['cognome']);
                         await page.type("input[name='nome']", datiExtr['nome']);
                         await page.click("button[name='BTN_CONFIRM']") // Click on button
-
-                        let content = await page.content();
-                        await fse.outputFile("out.pff", content);
+                        // get the new page opened
+                        const newTarget = await this._nar.browser.waitForTarget(target => target.opener() === page.target());
+                        await newTarget.waitForSelector("body > table > tbody > tr > td > form > table:nth-child(19) > tbody > tr > td.scheda > table.scheda > tbody > tr > td > div")
                     }
                 }
             }
@@ -91,7 +91,7 @@ export class Medici {
             return out;
         }
         return out;
-    }
+    }*/
 
 
     static async caricaCodiciFiscaliDaFileExcel(filePath, colonnaCodiceFiscale, limit = null) {
@@ -478,7 +478,8 @@ export class Medici {
 
 
     async getAssistitiDaListaPDF(pdfPath) {
-        let out = {assistiti: {}, medico: {}}
+        let out = {}
+        let lastCodice = "";
         const html = await pdf2html.text(pdfPath);
         let ready = false;
         for (let line of html.split("\n")) {
@@ -487,12 +488,15 @@ export class Medici {
             else if (ready) {
                 let assistitoRow = line.split(" ");
                 if (assistitoRow[assistitoRow.length - 2] === "Codice") {
-                    out.medico.codice = assistitoRow[assistitoRow.length - 1];
+                    if (lastCodice !== assistitoRow[assistitoRow.length - 1])
+                        lastCodice = assistitoRow[assistitoRow.length - 1];
+                    if (!out.hasOwnProperty(lastCodice))
+                        out[lastCodice] = {assistiti: {}, medico: {}}
+                    out[lastCodice].medico.codice = lastCodice;
                 } else if (assistitoRow.length >= 9) {
-
                     assistitoRow[3] = assistitoRow[3].replaceAll(assistitoRow[8], "");
                     //(assistitoRow);
-                    out.assistiti[assistitoRow[assistitoRow.length - 1]] = {
+                    out[lastCodice].assistiti[assistitoRow[assistitoRow.length - 1]] = {
                         nome: assistitoRow[3],
                         cognome: assistitoRow[2],
                         sesso: assistitoRow[assistitoRow.length - 5],
@@ -694,6 +698,7 @@ export class Medici {
         const DATA_FINE = "DATA_REVOCA";
         let importogiornaliero = parseFloat((10 / 365).toFixed(4));
         for (let riga of datiMedici) {
+            let note = "";
             let nonConsiderare = null;
             let dataInizio = moment(riga[DATA_INIZIO]);
             if (nonConsiderareSeNonInRange) {
@@ -714,9 +719,11 @@ export class Medici {
             const dataNascita = moment(Parser.cfToBirthDate(cf));
             if (dataFinePrimoCompilatore) {
                 if (dataInizio.isBefore(dataFinePrimoCompilatore)) {
-                    if (primoCompilatorePagato)
+                    if (primoCompilatorePagato) {
                         // set dataInizio the first day of the next year from dataInizio
                         dataInizio = moment(dataInizio).add(1, 'year').startOf('year');
+                        note = "Primo compilatore pagato, la data di pagamento salta all'anno successivo";
+                    }
                 } else
                     nonConsiderare = "Non nel range di date del primo compilatore: " + moment(dataInizioPrimoCompilatore).format("DD/MM/YYYY") + " - " + moment(dataFinePrimoCompilatore).format("DD/MM/YYYY");
             }
@@ -741,7 +748,8 @@ export class Medici {
                     dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
                     dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
                     numGiorni: numGiorni > 0 ? numGiorni : 0,
-                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0,
+                    note: note
                 });
                 let perAnno = null;
                 if (numGiorni > 0)
