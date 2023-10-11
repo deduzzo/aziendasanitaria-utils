@@ -559,11 +559,15 @@ const leggiOggettoDaFileJSON = async (filename) => {
 }
 
 const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
+    dataInizio = moment(dataInizio,"DD/MM/YYYY");
     if (dataFine == null)
         dataFine = moment();
-    if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
-        return dataFine.diff(dataInizio, 'months', false);
+    else
+        dataFine = moment(dataFine,"DD/MM/YYYY");
+    if (moment(dataInizio).isValid() && dataFine.isValid() && dataInizio.isSameOrBefore(dataFine)) {
+        return dataFine.diff(moment(dataInizio), 'months', false);
     }
+    else return 0;
 }
 
 

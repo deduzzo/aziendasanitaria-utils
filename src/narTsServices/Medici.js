@@ -503,6 +503,7 @@ export class Medici {
                         dataNascita: assistitoRow[assistitoRow.length - 4],
                         codiceFiscale: assistitoRow[assistitoRow.length - 1],
                         codiceComuneResidenza: assistitoRow[assistitoRow.length - 3],
+                        data_scelta: assistitoRow[assistitoRow.length - 2],
                     }
                     // TODO: GESTIRE PIU' NOMI
                 }
@@ -798,4 +799,60 @@ export class Medici {
     }
 
 
+    async creaElenchiDeceduti(fileMedici, pathData, distretti, dataQuote = null) {
+        if (!dataQuote)
+            dataQuote = moment().format("YYYY-MM-DD");
+        let data = await utils.getObjectFromFileExcel(fileMedici);
+        let lista = {medici: {}, distretti: {}, nonTrovati: []};
+        for (let row of data) {
+            if (!row['Ambito']) row['Ambito'] = "nessuno";
+            let distretto = distretti.filter(dist => row['Ambito'].toLowerCase().includes(dist));
+            distretto = distretto.length > 0 ? distretto[0] : 'nessuno';
+            if (!lista.distretti.hasOwnProperty(distretto))
+                lista.distretti[distretto] = {ambiti: {}, deceduti: [],problemi: []};
+            if (!lista.distretti[distretto].ambiti.hasOwnProperty(row['Ambito']))
+                lista.distretti[distretto].ambiti[row['Ambito']] = {medici: [], deceduti: 0};
+            lista.distretti[distretto].ambiti[row['Ambito']].medici.push(row['Cod. regionale']);
+            if (!lista.medici.hasOwnProperty(row['Cod. regionale']))
+                lista.medici[row['Cod. regionale']] = {
+                    distretto: distretto,
+                    ambito: row['Ambito'],
+                    medico: row,
+                    deceduti: 0,
+                    quote: 0
+                };
+        }
+        let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".json");
+        let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistiti.json");
+        for (let medico in lista.medici) {
+            let fileMedico = allfiles.filter(file => file.includes(medico));
+            if (fileMedico.length === 0)
+                lista.nonTrovati.push(lista.medici[medico]);
+            else if (fileMedico.length === 1) {
+                let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
+                for (let deceduto of Object.values(fileData.deceduti)) {
+                    let numQuote = 0;
+                    if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null) {
+                        let dataScelta = moment(allAssistiti[medico].assistiti[deceduto.cf].data_scelta, "DD/MM/YYYY");
+                        // se la data di decesso è superiore al 1 gennaio 1900
+                        if (moment(deceduto.data_decesso,"DD/MM/YYYY").isAfter(moment("01/01/1900","DD/MM/YYYY")))
+                            numQuote = utils.calcolaMesiDifferenza(moment(deceduto.data_decesso,"DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso, dataQuote);
+                        else {
+                            deceduto.note = "Data di decesso non valida";
+                            lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
+                        }
+                    }
+                    lista.medici[medico].deceduti += 1;
+                    lista.medici[medico].quote += numQuote;
+                    lista.distretti[lista.medici[medico].distretto].deceduti.push(deceduto);
+                    lista.distretti[lista.medici[medico].distretto].ambiti[lista.medici[medico].ambito].deceduti += 1
+                }
+            }
+        }
+        let out = [];
+        for (let medico in lista.medici) {
+            out.push({codiceRegionale: medico, nominativo: lista.medici[medico].medico['Cognome e Nome'], deceduti: lista.medici[medico].deceduti, quote: lista.medici[medico].quote});
+        }
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "quote.xlsx", out);
+    }
 }

@@ -5,7 +5,8 @@ import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
 const lock = new AsyncLock();
-import { EventEmitter } from 'events';
+import {EventEmitter} from 'events';
+import _ from 'lodash';
 
 export class Assistiti {
 
@@ -21,7 +22,7 @@ export class Assistiti {
     }
 
 
-    async #verificaDataDecessoDaTS(datiUtenti,visibile = true) {
+    async #verificaDataDecessoDaTS(datiUtenti, visibile = true, index = 1) {
         let out = {error: false, data: {}};
         let page = await this._ts.getWorkingPage(visibile);
         if (page) {
@@ -48,15 +49,15 @@ export class Assistiti {
                         return data;
                     });
                 } catch (e) {
-                    console.log("codice fiscale: " + cf + " data decesso:" + (datiUtenti[cf].data_decesso ?? "non recuperabile"));
                 }
+                console.log(index + "# -" + cf + " data decesso: " + (datiUtenti[cf].data_decesso ?? "NON RECUPERABILE"));
             }
         }
         await this._ts.doLogout();
         return datiUtenti;
     }
 
-    async verificaDatiAssititoDaNar(codiciFiscali,visibile) {
+    async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
         let out = {data: {}, nonTrovati: []};
         let page = await this._nar.getWorkingPage(visibile);
         if (page) {
@@ -86,12 +87,14 @@ export class Assistiti {
                         }
                         return dati;
                     });
-                    console.log(datiAssistito);
                     if (!datiAssistito.error) {
+                        console.log("#" + index + " " + cf + " dati su NAR ok");
                         datiAssistito.data.cf = cf;
                         out.data[cf] = datiAssistito.data;
-                    } else
+                    } else {
+                        console.log("#" + index + " " + cf + " dati su NAR ERRORE");
                         out.nonTrovati.push(cf + "_su_nar");
+                    }
                 } catch (ex) {
                     out.nonTrovati.push(cf + "_su_nar");
                 }
@@ -102,9 +105,9 @@ export class Assistiti {
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false,index = 1,visibile = true) {
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
-        console.log("#" + index + " " +" TOTALI: " + codiciFiscali.length)
+        console.log("#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage(visibile);
             page.setDefaultTimeout(600000);
@@ -141,12 +144,12 @@ export class Assistiti {
                                     if (dati.trovato && vivo) {
                                         dati.vivo = vivo;
                                         let ind = obsoleto ? 4 : 3
-                                        dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind)+") > div.cellaAss59 > div").innerText.trim();
-                                        dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +2)+") > div.cellaAss59 > div").innerText.trim();
-                                        dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +4)+") > div.cellaAss59 > div").innerText.trim();
-                                        dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +6)+") > div.cellaAss59 > div").innerText.trim();
-                                        dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +8)+") > div.cellaAss59 > div").innerText.trim();
-                                        dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child("+(ind +10)+") > div.cellaAss59 > div").innerText.trim();
+                                        dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 4) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 6) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 8) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 10) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.obsoleto = obsoleto;
                                         dati.errore = false
                                         return dati;
@@ -210,7 +213,7 @@ export class Assistiti {
                         else
                             out.out.nonTrovati.push(codiceFiscale);
                         if (!datiAssistito.trovato || !datiAssistito.vivo) {
-                            console.log("#" + index + " " +codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
+                            console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
                         }
                         if (limit)
                             if (i >= limit)
@@ -222,14 +225,13 @@ export class Assistiti {
                     }
                 }
             }
-        } else
-            out = {error: true, out: "Nessun codice fiscale trovato"}
+        }
         await this._ts.doLogout(false);
         let dateDecesso = [];
         if (out.out.morti.length > 0) {
-            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti,visibile);
+            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti, visibile, index);
             if (Object.values(datiMorti.data).length > 0)
-                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data,visibile);
+                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data, visibile, index);
         }
         out.out.morti = dateDecesso;
         return out;
@@ -263,11 +265,15 @@ export class Assistiti {
         for (let codMedico of jobsDaElaborare) {
             let ris = await this.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti), null, false);
 
-            for(let cf of Object.keys(ris.out.morti)){
-                ris.out.morti[cf].numQuoteDaRecperare = utils.calcolaMesiDifferenza(ris.out.morti[cf].data_decesso);
+            for (let cf of Object.keys(ris.out.morti)) {
+                if (ris.out.morti[cf].data_decesso && ris.out.morti[cf].data_decesso !== "")
+                    ris.out.morti[cf].numQuoteDaRecperare = utils.calcolaMesiDifferenza(ris.out.morti[cf].data_decesso);
             }
 
-            await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {deceduti: ris.out.morti, nonTrovati: ris.out.nonTrovati});
+            await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                deceduti: ris.out.morti,
+                nonTrovati: ris.out.nonTrovati
+            });
             if (Object.keys(ris.out.morti).length > 0)
                 await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
             if (ris.out.nonTrovati.length > 0)
@@ -284,41 +290,40 @@ export class Assistiti {
     }
 
 
-
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni",numOfParallelJobs = 20,visibile = false) {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 20, visibile = false) {
         EventEmitter.defaultMaxListeners = 40;
-         const processJob = async (codMedico,index) => {
-             index = (index % numOfParallelJobs) +1;
-             let assistiti = new Assistiti(impostazioniServizi);
-             let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti,true), null, false, index,visibile);
+        const processJob = async (codMedico, index) => {
+            index = (index % numOfParallelJobs) + 1;
+            let assistiti = new Assistiti(impostazioniServizi);
+            let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti, true), null, false, index, visibile);
 
-             const updateJobStatus = async (ris) => {
-                 await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
-                     deceduti: ris.out.morti,
-                     nonTrovati: ris.out.nonTrovati,
-                     obsoleti: ris.out.obsoleti,
-                 });
-                 if (Object.keys(ris.out.morti).length > 0)
-                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
-                 if (ris.out.nonTrovati.length > 0)
-                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", ris.out.nonTrovati, ["CF non trovati"]);
-                 // update jobstatus.json
-                 jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
-                 jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
-                 jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
-                 jobStatus[codMedico].nonTrovati = ris.out.nonTrovati.length;
-                 jobStatus[codMedico].completo = true;
-                 jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
-                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
-                 console.log("[" + index + "]" +" AGGIORNAMENTO JOB STATUS OK");
-             };
+            const updateJobStatus = async (ris) => {
+                await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                    deceduti: ris.out.morti,
+                    nonTrovati: ris.out.nonTrovati,
+                    obsoleti: ris.out.obsoleti,
+                });
+                if (Object.keys(ris.out.morti).length > 0)
+                    await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
+                if (ris.out.nonTrovati.length > 0)
+                    await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", ris.out.nonTrovati, ["CF non trovati"]);
+                // update jobstatus.json
+                jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
+                jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
+                jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
+                jobStatus[codMedico].nonTrovati = ris.out.nonTrovati.length;
+                jobStatus[codMedico].completo = true;
+                jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
+                await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+                console.log("[" + index + "]" + " AGGIORNAMENTO JOB STATUS OK");
+            };
 
-             return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
-                 if (err) {
-                     console.log("[" + index + "] errore elaborazione job:" + codMedico + " " + err.message + " " + err.stack);
-                 }
-             });
-         }
+            return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
+                if (err) {
+                    console.log("[" + index + "] errore elaborazione job:" + codMedico + " " + err.message + " " + err.stack);
+                }
+            });
+        }
 
 
         const taskPool = async (poolSize, tasks) => {
@@ -339,7 +344,6 @@ export class Assistiti {
         }
 
 
-
         if (!fs.existsSync(pathJob + path.sep + outPath))
             fs.mkdirSync(pathJob + path.sep + outPath);
         // get assititi.json in pathJob
@@ -357,13 +361,35 @@ export class Assistiti {
         }
         // load jobstatus.json
         let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
+        // verifica non trovati
+        for (let codiceMedico in jobStatus) {
+            let modifica = false;
+
+            if (jobStatus[codiceMedico].hasOwnProperty("ok") && jobStatus[codiceMedico].nonTrovati > jobStatus[codiceMedico].totale * 0.1) {
+                jobStatus[codiceMedico].completo = false;
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "elaborati");
+                _.unset(jobStatus[codiceMedico], "vivi");
+                _.unset(jobStatus[codiceMedico], "deceduti");
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "ok");
+                // remove all files that starts with "codiceMedico*" from pathJob + path.sep + outPath
+                let files = fs.readdirSync(pathJob + path.sep + outPath);
+                for (let file of files) {
+                    if (file.startsWith(codiceMedico))
+                        fs.unlinkSync(pathJob + path.sep + outPath + path.sep + file);
+                }
+                modifica = true;
+                console.log("[" + codiceMedico + "] " + "RIMOSSO PER TROPPI NON TROVATI");
+            }
+            if (modifica)
+                await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+        }
         // filter all jobs that have completo = false
         let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
         await taskPool(numOfParallelJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
+        console.log("PROCESSO COMPLETATO!");
     }
-
-
-
 
 
 }
