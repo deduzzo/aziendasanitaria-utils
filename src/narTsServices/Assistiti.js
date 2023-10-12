@@ -80,6 +80,8 @@ export class Assistiti {
                             dati.data.comune_nascita = document.querySelector("input[name='codiceComuneNascita_d']")?.value;
                             dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
                             dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
+                            if (!dati.data.hasOwnProperty('indirizzo'))
+                                dati.data.indirizzo = "";
                         } catch (ex) {
                             dati.error = true;
                             dati.data = "error: " + ex.message + " " + ex.stack;

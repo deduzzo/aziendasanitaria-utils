@@ -800,16 +800,18 @@ export class Medici {
 
 
     async creaElenchiDeceduti(fileMedici, pathData, distretti, dataQuote = null) {
+        let problemi = []
         if (!dataQuote)
             dataQuote = moment().format("YYYY-MM-DD");
         let data = await utils.getObjectFromFileExcel(fileMedici);
         let lista = {medici: {}, distretti: {}, nonTrovati: []};
         for (let row of data) {
             if (!row['Ambito']) row['Ambito'] = "nessuno";
-            let distretto = distretti.filter(dist => row['Ambito'].toLowerCase().includes(dist));
-            distretto = distretto.length > 0 ? distretto[0] : 'nessuno';
+            let disKeys = Object.keys(distretti);
+            let distretto = disKeys.filter(dist => row['Ambito'].toLowerCase().includes(dist));
+            distretto = distretto.length > 0 ? distretti[distretto[0]] : 'Nessuno';
             if (!lista.distretti.hasOwnProperty(distretto))
-                lista.distretti[distretto] = {ambiti: {}, deceduti: [],problemi: []};
+                lista.distretti[distretto] = {ambiti: {}, deceduti: [], problemi: []};
             if (!lista.distretti[distretto].ambiti.hasOwnProperty(row['Ambito']))
                 lista.distretti[distretto].ambiti[row['Ambito']] = {medici: [], deceduti: 0};
             lista.distretti[distretto].ambiti[row['Ambito']].medici.push(row['Cod. regionale']);
@@ -818,7 +820,8 @@ export class Medici {
                     distretto: distretto,
                     ambito: row['Ambito'],
                     medico: row,
-                    deceduti: 0,
+                    deceduti: [],
+                    numDeceduti: 0,
                     quote: 0
                 };
         }
@@ -832,18 +835,32 @@ export class Medici {
                 let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
                 for (let deceduto of Object.values(fileData.deceduti)) {
                     let numQuote = 0;
-                    if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null) {
-                        let dataScelta = moment(allAssistiti[medico].assistiti[deceduto.cf].data_scelta, "DD/MM/YYYY");
+                    let dataScelta = moment(allAssistiti[medico].assistiti[deceduto.cf].data_scelta, "DD/MM/YYYY");
+                    deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
+                    deceduto.codMedico = medico;
+                    deceduto.nomeCognomeMedico = lista.medici[medico].medico['Cognome e Nome'];
+                    deceduto.distretto = lista.medici[medico].distretto;
+                    deceduto.ambito = lista.medici[medico].ambito;
+                    if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null && moment(deceduto.data_decesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
+                        let dataInizio = moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso;
                         // se la data di decesso è superiore al 1 gennaio 1900
-                        if (moment(deceduto.data_decesso,"DD/MM/YYYY").isAfter(moment("01/01/1900","DD/MM/YYYY")))
-                            numQuote = utils.calcolaMesiDifferenza(moment(deceduto.data_decesso,"DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso, dataQuote);
-                        else {
-                            deceduto.note = "Data di decesso non valida";
+                        numQuote = utils.calcolaMesiDifferenza(dataInizio, dataQuote);
+                        deceduto.numQuoteDaRecuperare = numQuote;
+                        deceduto.note = "";
+                        if (moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta)) {
+                            deceduto.note = "Data decesso precedente alla data di scelta";
                             lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
+                            problemi.push(deceduto);
                         }
+                    } else {
+                        deceduto.numQuoteDaRecuperare = 0;
+                        deceduto.note = "Data di decesso non valida";
+                        lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
+                        problemi.push(deceduto);
                     }
-                    lista.medici[medico].deceduti += 1;
+                    lista.medici[medico].numDeceduti += 1;
                     lista.medici[medico].quote += numQuote;
+                    lista.medici[medico].deceduti.push(deceduto);
                     lista.distretti[lista.medici[medico].distretto].deceduti.push(deceduto);
                     lista.distretti[lista.medici[medico].distretto].ambiti[lista.medici[medico].ambito].deceduti += 1
                 }
@@ -851,8 +868,23 @@ export class Medici {
         }
         let out = [];
         for (let medico in lista.medici) {
-            out.push({codiceRegionale: medico, nominativo: lista.medici[medico].medico['Cognome e Nome'], deceduti: lista.medici[medico].deceduti, quote: lista.medici[medico].quote});
+            out.push(
+                {
+                    codiceRegionale: medico,
+                    nominativo: lista.medici[medico].medico['Cognome e Nome'],
+                    deceduti: lista.medici[medico].deceduti,
+                    quote: lista.medici[medico].quote
+                }
+            );
+        }
+        let outPerMedico = [];
+        for (let medico in lista.medici) {
+            for (let deceduto of lista.medici[medico].deceduti) {
+                outPerMedico.push(deceduto);
+            }
         }
         await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "quote.xlsx", out);
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "problemi.xlsx", problemi);
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "dettaglioTotale.xlsx", outPerMedico);
     }
 }
