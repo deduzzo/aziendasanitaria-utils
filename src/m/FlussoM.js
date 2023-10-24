@@ -442,6 +442,7 @@ export class FlussoM {
         } else {
             let verificaDateStruttura = this.#checkMeseAnnoStruttura(Object.values(ricetteInFile.ricette))
             ricetteInFile.codiceStruttura = verificaDateStruttura.codiceStruttura;
+            ricetteInFile.file = file;
             ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto.toString() ?? ricetteInFile.datiDaFile.idDistretto;
             ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
             ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
