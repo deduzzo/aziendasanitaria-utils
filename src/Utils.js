@@ -165,17 +165,6 @@ const ottieniDatiAssistito = async (codiceFiscale, user, password) => {
     return datiAssistito;
 }
 
-const replacer = (key, value) => {
-    if (value instanceof Map) {
-        return {
-            dataType: 'Map',
-            value: Array.from(value.entries()), // or with spread: value: [...value]
-        };
-    } else {
-        return value;
-    }
-}
-
 
 const extractAttachmentsEml = async (sourceFolder, destinationFolder) => {
     // Assicurarsi che la cartella di destinazione esista
@@ -340,24 +329,42 @@ const creaOggettoDaFileExcel = async (filename, accoppiateOggettoColonna, limit 
 
 const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null, scriviHeader = true) => {
     var workbook = new ExcelJS.Workbook();
-    // fileExcel will be a new file
+    // if data is array, convert it to object
     let worksheet = workbook.addWorksheet('dati');
     if (scriviHeader) {
-        if (customHeader)
-            worksheet.addRow(Object.values(customHeader));
-        else
-            worksheet.addRow(data ? Object.keys(data[0]) : "" );
+        if (typeof data[0] !== "string") {
+            if (customHeader)
+                worksheet.addRow(Object.values(customHeader));
+            else
+                worksheet.addRow(data ? Object.keys(data[0]) : "");
+        } else
+            worksheet.addRow([customHeader]);
     }
     for (let riga of data) {
-        worksheet.addRow(Object.values(riga));
+        if (typeof riga !== "string")
+            worksheet.addRow(Object.values(riga));
+        else
+            worksheet.addRow([riga]);
     }
     await workbook.xlsx.writeFile(filename);
 }
 
 // a function that write a txt file with the data as array, parameters: path and array
 const scriviOggettoSuFile = async (filename, data) => {
+
+    const replacer = (key, value) => {
+        if (value instanceof Map) {
+            return {
+                dataType: 'Map',
+                value: Array.from(value.entries()), // or with spread: value: [...value]
+            };
+        } else {
+            return value;
+        }
+    }
+
     // write a file with the data
-    await fs.writeFileSync(filename, JSON.stringify(data, this.replacer, "\t"), 'utf8');
+    await fs.writeFileSync(filename, JSON.stringify(data, replacer, "\t"), 'utf8');
 }
 
 
@@ -504,7 +511,7 @@ const getAgeFromCF = (codiceFiscale) => {
     return years;
 }
 
-const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerifica) => {
+const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine, numGiorniPerVerifica) => {
     if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
         const giorniPerAnno = {};
         let totali = 0;
@@ -527,7 +534,7 @@ const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine,numGiorniPerVerific
             totali += giorniDiff;
         }
 
-        const diffTotale =  totali - numGiorniPerVerifica;
+        const diffTotale = totali - numGiorniPerVerifica;
         if (diffTotale !== 0) {
             giorniPerAnno[annoCorrente] -= diffTotale;
             totali -= diffTotale;
@@ -544,6 +551,25 @@ const decodeHtml = (html) => {
     return txt.value;
 }
 
+const leggiOggettoDaFileJSON = async (filename) => {
+    let out = [];
+    let data = await fs.readFileSync(filename, 'utf8');
+    out = JSON.parse(data);
+    return out;
+}
+
+const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
+    dataInizio = moment(dataInizio,"DD/MM/YYYY");
+    if (dataFine == null)
+        dataFine = moment();
+    else
+        dataFine = moment(dataFine,"DD/MM/YYYY");
+    if (moment(dataInizio).isValid() && dataFine.isValid() && dataInizio.isSameOrBefore(dataFine)) {
+        return dataFine.diff(moment(dataInizio), 'months', false);
+    }
+    else return 0;
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -553,7 +579,6 @@ export const utils = {
     verificaLunghezzaRiga,
     mRowToJson,
     ottieniDatiAssistito,
-    replacer,
     extractAttachmentsMsg,
     extractAttachmentsEml,
     rinominaCedolini,
@@ -571,5 +596,7 @@ export const utils = {
     nowToUnixDate,
     getAgeFromCF,
     calcolaDifferenzaGiorniPerAnno,
-    decodeHtml
+    decodeHtml,
+    leggiOggettoDaFileJSON,
+    calcolaMesiDifferenza
 }

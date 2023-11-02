@@ -55,9 +55,9 @@ export class Nar {
         this._batchProcess = value;
     }
 
-    async getWorkingPage() {
+    async getWorkingPage(visibile) {
         if (!this.logged)
-            await this.doLogin()
+            await this.doLogin(visibile)
         if (!this.logged)
             return null;
         else
@@ -73,7 +73,7 @@ export class Nar {
     }
 
 
-    async doLogin() {
+    async doLogin(visibile = true) {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
         // if working path not exists
@@ -104,7 +104,7 @@ export class Nar {
                         })
                     );
                     this._browser = await puppeteer.launch({
-                        headless: false,
+                        headless: !visibile,
                         defaultViewport: {width: 1920, height: 1080},
                         args: ['--window-size=1920,1080']
                     });
@@ -136,7 +136,7 @@ export class Nar {
         return this._logged;
     }
 
-    async doLogout() {
+    async doLogout(closeBrowser = true) {
         if (this._logged) {
             this._logged = false;
             await this._browser.close();

@@ -18,19 +18,19 @@ export class Ts {
         return this._logged;
     }
 
-    async getWorkingPage() {
+    async getWorkingPage(visibile = true) {
         if (!this.logged)
-            await this.doLogin()
+            await this.doLogin(visibile)
         if (!this.logged)
             return null;
         else
             return this._workingPage;
     }
 
-    async doLogin() {
+    async doLogin(visibile = true) {
         let retry = this._retry
         while (!this._logged && retry > 0) {
-            this._browser = await puppeteer.launch({headless: false});
+            this._browser = await puppeteer.launch({headless: !visibile});
             const page = (await this._browser.pages())[0];
             try {
                 await page.goto('https://sistemats4.sanita.finanze.it/simossHome/login.jsp');
@@ -55,8 +55,7 @@ export class Ts {
             this._logged = false;
             await this._browser.close();
             return true;
-        }
-        else return false;
+        } else return false;
     }
 
 

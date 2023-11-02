@@ -36,7 +36,7 @@ export class Medici {
     static MEDICO_DI_BASE = "MDB";
 
 
-    async getPffAssistitiMedici(datiMedici) {
+    /*async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};
         try {
             if (!this._nar.logged)
@@ -79,9 +79,9 @@ export class Medici {
                         await page.type("input[name='cognome']", datiExtr['cognome']);
                         await page.type("input[name='nome']", datiExtr['nome']);
                         await page.click("button[name='BTN_CONFIRM']") // Click on button
-
-                        let content = await page.content();
-                        await fse.outputFile("out.pff", content);
+                        // get the new page opened
+                        const newTarget = await this._nar.browser.waitForTarget(target => target.opener() === page.target());
+                        await newTarget.waitForSelector("body > table > tbody > tr > td > form > table:nth-child(19) > tbody > tr > td.scheda > table.scheda > tbody > tr > td > div")
                     }
                 }
             }
@@ -91,7 +91,7 @@ export class Medici {
             return out;
         }
         return out;
-    }
+    }*/
 
 
     static async caricaCodiciFiscaliDaFileExcel(filePath, colonnaCodiceFiscale, limit = null) {
@@ -478,7 +478,8 @@ export class Medici {
 
 
     async getAssistitiDaListaPDF(pdfPath) {
-        let out = {assistiti: {}, medico: {}}
+        let out = {}
+        let lastCodice = "";
         const html = await pdf2html.text(pdfPath);
         let ready = false;
         for (let line of html.split("\n")) {
@@ -487,18 +488,22 @@ export class Medici {
             else if (ready) {
                 let assistitoRow = line.split(" ");
                 if (assistitoRow[assistitoRow.length - 2] === "Codice") {
-                    out.medico.codice = assistitoRow[assistitoRow.length - 1];
+                    if (lastCodice !== assistitoRow[assistitoRow.length - 1])
+                        lastCodice = assistitoRow[assistitoRow.length - 1];
+                    if (!out.hasOwnProperty(lastCodice))
+                        out[lastCodice] = {assistiti: {}, medico: {}}
+                    out[lastCodice].medico.codice = lastCodice;
                 } else if (assistitoRow.length >= 9) {
-
                     assistitoRow[3] = assistitoRow[3].replaceAll(assistitoRow[8], "");
                     //(assistitoRow);
-                    out.assistiti[assistitoRow[assistitoRow.length - 1]] = {
+                    out[lastCodice].assistiti[assistitoRow[assistitoRow.length - 1]] = {
                         nome: assistitoRow[3],
                         cognome: assistitoRow[2],
                         sesso: assistitoRow[assistitoRow.length - 5],
                         dataNascita: assistitoRow[assistitoRow.length - 4],
                         codiceFiscale: assistitoRow[assistitoRow.length - 1],
                         codiceComuneResidenza: assistitoRow[assistitoRow.length - 3],
+                        data_scelta: assistitoRow[assistitoRow.length - 2],
                     }
                     // TODO: GESTIRE PIU' NOMI
                 }
@@ -694,6 +699,7 @@ export class Medici {
         const DATA_FINE = "DATA_REVOCA";
         let importogiornaliero = parseFloat((10 / 365).toFixed(4));
         for (let riga of datiMedici) {
+            let note = "";
             let nonConsiderare = null;
             let dataInizio = moment(riga[DATA_INIZIO]);
             if (nonConsiderareSeNonInRange) {
@@ -714,9 +720,11 @@ export class Medici {
             const dataNascita = moment(Parser.cfToBirthDate(cf));
             if (dataFinePrimoCompilatore) {
                 if (dataInizio.isBefore(dataFinePrimoCompilatore)) {
-                    if (primoCompilatorePagato)
+                    if (primoCompilatorePagato) {
                         // set dataInizio the first day of the next year from dataInizio
                         dataInizio = moment(dataInizio).add(1, 'year').startOf('year');
+                        note = "Primo compilatore pagato, la data di pagamento salta all'anno successivo";
+                    }
                 } else
                     nonConsiderare = "Non nel range di date del primo compilatore: " + moment(dataInizioPrimoCompilatore).format("DD/MM/YYYY") + " - " + moment(dataFinePrimoCompilatore).format("DD/MM/YYYY");
             }
@@ -741,7 +749,8 @@ export class Medici {
                     dataInizioCalcolata: dataInizio.format("DD/MM/YYYY"),
                     dataFineCalcolata: dataFine.format("DD/MM/YYYY"),
                     numGiorni: numGiorni > 0 ? numGiorni : 0,
-                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0
+                    importo: numGiorni > 0 ? parseFloat((numGiorni * importogiornaliero).toFixed(2)) : 0,
+                    note: note
                 });
                 let perAnno = null;
                 if (numGiorni > 0)
@@ -790,4 +799,92 @@ export class Medici {
     }
 
 
+    async creaElenchiDeceduti(fileMedici, pathData, distretti, dataQuote = null) {
+        let problemi = []
+        if (!dataQuote)
+            dataQuote = moment().format("YYYY-MM-DD");
+        let data = await utils.getObjectFromFileExcel(fileMedici);
+        let lista = {medici: {}, distretti: {}, nonTrovati: []};
+        for (let row of data) {
+            if (!row['Ambito']) row['Ambito'] = "nessuno";
+            let disKeys = Object.keys(distretti);
+            let distretto = disKeys.filter(dist => row['Ambito'].toLowerCase().includes(dist));
+            distretto = distretto.length > 0 ? distretti[distretto[0]] : 'Nessuno';
+            if (!lista.distretti.hasOwnProperty(distretto))
+                lista.distretti[distretto] = {ambiti: {}, deceduti: [], problemi: []};
+            if (!lista.distretti[distretto].ambiti.hasOwnProperty(row['Ambito']))
+                lista.distretti[distretto].ambiti[row['Ambito']] = {medici: [], deceduti: 0};
+            lista.distretti[distretto].ambiti[row['Ambito']].medici.push(row['Cod. regionale']);
+            if (!lista.medici.hasOwnProperty(row['Cod. regionale']))
+                lista.medici[row['Cod. regionale']] = {
+                    distretto: distretto,
+                    ambito: row['Ambito'],
+                    medico: row,
+                    deceduti: [],
+                    numDeceduti: 0,
+                    quote: 0
+                };
+        }
+        let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".json");
+        let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistiti.json");
+        for (let medico in lista.medici) {
+            let fileMedico = allfiles.filter(file => file.includes(medico));
+            if (fileMedico.length === 0)
+                lista.nonTrovati.push(lista.medici[medico]);
+            else if (fileMedico.length === 1) {
+                let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
+                for (let deceduto of Object.values(fileData.deceduti)) {
+                    let numQuote = 0;
+                    let dataScelta = moment(allAssistiti[medico].assistiti[deceduto.cf].data_scelta, "DD/MM/YYYY");
+                    deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
+                    deceduto.codMedico = medico;
+                    deceduto.nomeCognomeMedico = lista.medici[medico].medico['Cognome e Nome'];
+                    deceduto.distretto = lista.medici[medico].distretto;
+                    deceduto.ambito = lista.medici[medico].ambito;
+                    if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null && moment(deceduto.data_decesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
+                        let dataInizio = moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso;
+                        // se la data di decesso è superiore al 1 gennaio 1900
+                        numQuote = utils.calcolaMesiDifferenza(dataInizio, dataQuote);
+                        deceduto.numQuoteDaRecuperare = numQuote;
+                        deceduto.note = "";
+                        if (moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta)) {
+                            deceduto.note = "Data decesso precedente alla data di scelta";
+                            lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
+                            problemi.push(deceduto);
+                        }
+                    } else {
+                        deceduto.numQuoteDaRecuperare = 0;
+                        deceduto.note = "Data di decesso non valida";
+                        lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
+                        problemi.push(deceduto);
+                    }
+                    lista.medici[medico].numDeceduti += 1;
+                    lista.medici[medico].quote += numQuote;
+                    lista.medici[medico].deceduti.push(deceduto);
+                    lista.distretti[lista.medici[medico].distretto].deceduti.push(deceduto);
+                    lista.distretti[lista.medici[medico].distretto].ambiti[lista.medici[medico].ambito].deceduti += 1
+                }
+            }
+        }
+        let out = [];
+        for (let medico in lista.medici) {
+            out.push(
+                {
+                    codiceRegionale: medico,
+                    nominativo: lista.medici[medico].medico['Cognome e Nome'],
+                    deceduti: lista.medici[medico].deceduti,
+                    quote: lista.medici[medico].quote
+                }
+            );
+        }
+        let outPerMedico = [];
+        for (let medico in lista.medici) {
+            for (let deceduto of lista.medici[medico].deceduti) {
+                outPerMedico.push(deceduto);
+            }
+        }
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "quote.xlsx", out);
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "problemi.xlsx", problemi);
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "dettaglioTotale.xlsx", outPerMedico);
+    }
 }

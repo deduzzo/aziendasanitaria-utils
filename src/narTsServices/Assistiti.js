@@ -1,5 +1,12 @@
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
+import {utils} from "../Utils.js";
+import path from "path";
+import fs from "fs";
+import AsyncLock from 'async-lock';
+const lock = new AsyncLock();
+import {EventEmitter} from 'events';
+import _ from 'lodash';
 
 export class Assistiti {
 
@@ -15,9 +22,9 @@ export class Assistiti {
     }
 
 
-    async #verificaDataDecessoDaTS(datiUtenti) {
+    async #verificaDataDecessoDaTS(datiUtenti, visibile = true, index = 1) {
         let out = {error: false, data: {}};
-        let page = await this._ts.getWorkingPage();
+        let page = await this._ts.getWorkingPage(visibile);
         if (page) {
             console.log("VERIFICA DATE DECESSO")
             for (let cf of Object.keys(datiUtenti)) {
@@ -42,17 +49,17 @@ export class Assistiti {
                         return data;
                     });
                 } catch (e) {
-                    console.log("codice fiscale: " + cf + " data decesso:" + (datiUtenti[cf].data_decesso ?? "non recuperabile"));
                 }
+                console.log(index + "# -" + cf + " data decesso: " + (datiUtenti[cf].data_decesso ?? "NON RECUPERABILE"));
             }
         }
         await this._ts.doLogout();
         return datiUtenti;
     }
 
-    async verificaDatiAssititoDaNar(codiciFiscali) {
-        let out = { data: {}, nonTrovati: []};
-        let page = await this._nar.getWorkingPage();
+    async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
+        let out = {data: {}, nonTrovati: []};
+        let page = await this._nar.getWorkingPage(visibile);
         if (page) {
             for (let cf of codiciFiscali) {
                 try {
@@ -73,6 +80,8 @@ export class Assistiti {
                             dati.data.comune_nascita = document.querySelector("input[name='codiceComuneNascita_d']")?.value;
                             dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
                             dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
+                            if (!dati.data.hasOwnProperty('indirizzo'))
+                                dati.data.indirizzo = "";
                         } catch (ex) {
                             dati.error = true;
                             dati.data = "error: " + ex.message + " " + ex.stack;
@@ -80,12 +89,14 @@ export class Assistiti {
                         }
                         return dati;
                     });
-                    console.log(datiAssistito);
                     if (!datiAssistito.error) {
+                        console.log("#" + index + " " + cf + " dati su NAR ok");
                         datiAssistito.data.cf = cf;
                         out.data[cf] = datiAssistito.data;
-                    } else
+                    } else {
+                        console.log("#" + index + " " + cf + " dati su NAR ERRORE");
                         out.nonTrovati.push(cf + "_su_nar");
+                    }
                 } catch (ex) {
                     out.nonTrovati.push(cf + "_su_nar");
                 }
@@ -96,50 +107,73 @@ export class Assistiti {
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false) {
-        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
-        console.log("codici fiscali totali:" + codiciFiscali.length)
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true) {
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
+        console.log("#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
-            let page = await this._ts.getWorkingPage();
+            let page = await this._ts.getWorkingPage(visibile);
             page.setDefaultTimeout(600000);
             if (page) {
                 let i = 0;
                 if (!out.error && codiciFiscali.length > 0) {
                     for (let codiceFiscale of codiciFiscali) {
-                        i++;
-                        await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
                         let datiAssistito = {};
-                        try {
-                            await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
-                            await page.click('#go');
-                            await page.waitForSelector("body > div:nth-child(12) > h1")
-                            datiAssistito = await page.evaluate(() => {
-                                let dati = {}
-                                let vivo = null;
-                                if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
-                                    vivo = true;
-                                else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
-                                    vivo = false;
-                                else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
-                                    vivo = null;
-                                if (vivo !== null)
-                                    dati.vivo = vivo;
-                                dati.trovato = vivo !== null;
-                                if (dati.trovato && vivo) {
-                                    dati.vivo = vivo;
-                                    dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(5) > div.cellaAss59 > div").innerText.trim();
-                                    dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(7) > div.cellaAss59 > div").innerText.trim();
-                                    dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child(9) > div.cellaAss59 > div").innerText.trim();
-                                    dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(11) > div.cellaAss59 > div").innerText.trim();
-                                    dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(13) > div.cellaAss59 > div").innerText.trim();
+                        let obsoleto = false;
+                        do {
+                            obsoleto = false;
+                            i++;
+                            await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
+                            try {
+                                await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
+                                await page.click('#go');
+                                await page.waitForSelector("body > div:nth-child(12) > h1")
+                                datiAssistito = await page.evaluate(() => {
+                                    let dati = {}
+                                    let vivo = null;
+                                    let obsoleto = false;
+                                    if (document.querySelector("body > div:nth-child(12) > div:nth-child(3) > div.cellaAss35.bold > div"))
+                                        vivo = true;
+                                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('deceduto'))
+                                        vivo = false;
+                                    else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('obsoleto')) {
+                                        vivo = true;
+                                        obsoleto = true;
+                                    } else if (document.querySelector('body > div:nth-child(12) > div > fieldset > ul').innerHTML.toLowerCase().includes('stato trovato'))
+                                        vivo = null;
+                                    if (vivo !== null)
+                                        dati.vivo = vivo;
+                                    dati.trovato = vivo !== null;
+                                    if (dati.trovato && vivo) {
+                                        dati.vivo = vivo;
+                                        let ind = obsoleto ? 4 : 3
+                                        dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 4) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 6) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 8) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 10) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.obsoleto = obsoleto;
+                                        dati.errore = false
+                                        return dati;
+                                    }
                                     return dati;
-                                }
-                                return dati;
-                            });
-                        } catch (e) {
-                            datiAssistito = {errore: true};
+                                });
+                            } catch (e) {
+                                datiAssistito = {errore: true};
+                            }
+                            if (datiAssistito.obsoleto) {
+                                if (!out.out.obsoleti.hasOwnProperty(codiceFiscale))
+                                    out.out.obsoleti[codiceFiscale] = [];
+                                let codFiscaleNuovo = datiAssistito.cf;
+                                datiAssistito.cf = codiceFiscale;
+                                out.out.obsoleti[codiceFiscale].push(datiAssistito);
+                                datiAssistito.cf = codFiscaleNuovo;
+                                codiceFiscale = codFiscaleNuovo;
+                                obsoleto = true;
+                                console.log("OBSOLETO, RITENTO");
+                            }
                         }
-
+                        while (obsoleto);
                         if (datiAssistito.trovato && datiAssistito.vivo) {
                             datiAssistito.cf = codiceFiscale;
                             if (inserisciIndirizzo) {
@@ -176,35 +210,188 @@ export class Assistiti {
                                 }
                             }
                             out.out.vivi[codiceFiscale] = datiAssistito;
-                        } else if (!datiAssistito.vivo)
+                        } else if (datiAssistito.vivo === false && datiAssistito.trovato)
                             out.out.morti.push(codiceFiscale);
                         else
                             out.out.nonTrovati.push(codiceFiscale);
                         if (!datiAssistito.trovato || !datiAssistito.vivo) {
-                            console.log(codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
+                            console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.trovato ? " NON TROVATO" : (datiAssistito.vivo ? " VIVO" : " MORTO")))
                         }
                         if (limit)
                             if (i >= limit)
                                 break;
                         // show progress
                         if (i % 10 === 0) {
-                            console.log("codici fiscali processati:" + i + " su " + codiciFiscali.length);
-                            // show stats vivi, morti and non trovati
-                            console.log("vivi:" + Object.keys(out.out.vivi).length + ", morti:" + out.out.morti.length + ", non trovati:" + out.out.nonTrovati.length);
+                            console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + ", obsoleti:" + Object.keys(out.out.obsoleti).length + "]");
                         }
                     }
                 }
             }
-        } else
-            out = {error: true, out: "Nessun codice fiscale trovato"}
-        await this._ts.doLogout();
+        }
+        await this._ts.doLogout(false);
         let dateDecesso = [];
         if (out.out.morti.length > 0) {
-            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti);
+            let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti, visibile, index);
             if (Object.values(datiMorti.data).length > 0)
-                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data);
+                dateDecesso = await this.#verificaDataDecessoDaTS(datiMorti.data, visibile, index);
         }
         out.out.morti = dateDecesso;
         return out;
     }
+
+    // asssititi.json dati di input
+    // jobstatus.json stato processo
+    // output[codicemedico].json dati di output
+    // output[codicemedico].xlsx dati di output in excel
+    async verificaAssititiInVitaJobs(pathJob, outPath = "elaborazioni") {
+        // create path if not exist outPath in pathJob
+        if (!fs.existsSync(pathJob + path.sep + outPath))
+            fs.mkdirSync(pathJob + path.sep + outPath);
+        // get assititi.json in pathJob
+        let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "assistiti.json");
+        // if !exist jobstatus.json create it
+        if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
+            let dati = {}
+            for (let codiceMedico of Object.keys(datiAssititi)) {
+                dati[codiceMedico] = {
+                    totale: Object.values(datiAssititi[codiceMedico].assistiti).length,
+                    completo: false
+                };
+            }
+            await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", dati);
+        }
+        // load jobstatus.json
+        let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
+        // filter all jobs that have completo = false
+        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
+        for (let codMedico of jobsDaElaborare) {
+            let ris = await this.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti), null, false);
+
+            for (let cf of Object.keys(ris.out.morti)) {
+                if (ris.out.morti[cf].data_decesso && ris.out.morti[cf].data_decesso !== "")
+                    ris.out.morti[cf].numQuoteDaRecperare = utils.calcolaMesiDifferenza(ris.out.morti[cf].data_decesso);
+            }
+
+            await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                deceduti: ris.out.morti,
+                nonTrovati: ris.out.nonTrovati
+            });
+            if (Object.keys(ris.out.morti).length > 0)
+                await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
+            if (ris.out.nonTrovati.length > 0)
+                await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", Object.values(ris.out.nonTrovati));
+            // update jobstatus.json
+            jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
+            jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
+            jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
+            jobStatus[codMedico].nonTrovati = ris.out.nonTrovati.length;
+            jobStatus[codMedico].completo = true;
+            jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
+            await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+        }
+    }
+
+
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 20, visibile = false) {
+        EventEmitter.defaultMaxListeners = 40;
+        const processJob = async (codMedico, index) => {
+            index = (index % numOfParallelJobs) + 1;
+            let assistiti = new Assistiti(impostazioniServizi);
+            let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti, true), null, false, index, visibile);
+
+            const updateJobStatus = async (ris) => {
+                await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                    deceduti: ris.out.morti,
+                    nonTrovati: ris.out.nonTrovati,
+                    obsoleti: ris.out.obsoleti,
+                });
+                if (Object.keys(ris.out.morti).length > 0)
+                    await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
+                if (ris.out.nonTrovati.length > 0)
+                    await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", ris.out.nonTrovati, ["CF non trovati"]);
+                // update jobstatus.json
+                jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
+                jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
+                jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
+                jobStatus[codMedico].nonTrovati = ris.out.nonTrovati.length;
+                jobStatus[codMedico].completo = true;
+                jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
+                await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+                console.log("[" + index + "]" + " AGGIORNAMENTO JOB STATUS OK");
+            };
+
+            return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
+                if (err) {
+                    console.log("[" + index + "] errore elaborazione job:" + codMedico + " " + err.message + " " + err.stack);
+                }
+            });
+        }
+
+
+        const taskPool = async (poolSize, tasks) => {
+            const results = [];
+            const executingTasks = [];
+            for (const [index, task] of tasks.entries()) {
+                const executingTask = task(index).then(res => {
+                    executingTasks.splice(executingTasks.indexOf(executingTask), 1);
+                    return res;
+                });
+                executingTasks.push(executingTask);
+                results.push(executingTask);
+                if (executingTasks.length >= poolSize) {
+                    await Promise.race(executingTasks);
+                }
+            }
+            return Promise.all(results);
+        }
+
+
+        if (!fs.existsSync(pathJob + path.sep + outPath))
+            fs.mkdirSync(pathJob + path.sep + outPath);
+        // get assititi.json in pathJob
+        let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "assistiti.json");
+        // if !exist jobstatus.json create it
+        if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
+            let dati = {}
+            for (let codiceMedico of Object.keys(datiAssititi)) {
+                dati[codiceMedico] = {
+                    totale: Object.values(datiAssititi[codiceMedico].assistiti).length,
+                    completo: false
+                };
+            }
+            await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", dati);
+        }
+        // load jobstatus.json
+        let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
+        // verifica non trovati
+        for (let codiceMedico in jobStatus) {
+            let modifica = false;
+
+            if (jobStatus[codiceMedico].hasOwnProperty("ok") && jobStatus[codiceMedico].nonTrovati > jobStatus[codiceMedico].totale * 0.1) {
+                jobStatus[codiceMedico].completo = false;
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "elaborati");
+                _.unset(jobStatus[codiceMedico], "vivi");
+                _.unset(jobStatus[codiceMedico], "deceduti");
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "ok");
+                // remove all files that starts with "codiceMedico*" from pathJob + path.sep + outPath
+                let files = fs.readdirSync(pathJob + path.sep + outPath);
+                for (let file of files) {
+                    if (file.startsWith(codiceMedico))
+                        fs.unlinkSync(pathJob + path.sep + outPath + path.sep + file);
+                }
+                modifica = true;
+                console.log("[" + codiceMedico + "] " + "RIMOSSO PER TROPPI NON TROVATI");
+            }
+            if (modifica)
+                await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+        }
+        // filter all jobs that have completo = false
+        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
+        await taskPool(numOfParallelJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
+        console.log("PROCESSO COMPLETATO!");
+    }
+
+
 }
