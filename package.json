@@ -34,6 +34,7 @@
     "moment-timezone": "^0.5.43",
     "mysql": "^2.18.1",
     "nodemailer": "^6.9.3",
+    "np": "^8.0.4",
     "openpgp": "^5.9.0",
     "path": "^0.12.7",
     "pdf2html": "^3.1.0",
