@@ -1,9 +1,5 @@
 {
   "name": "aziendasanitaria-utils",
-  "np": {
-    "yarn": false,
-    "contents": "dist"
-  },
   "engines": {
     "node": ">=14.0.0"
   },
