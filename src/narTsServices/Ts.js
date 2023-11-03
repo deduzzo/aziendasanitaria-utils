@@ -27,7 +27,7 @@ export class Ts {
             return this._workingPage;
     }
 
-    async doLogin(visibile = true) {
+    async doLogin(visibile = false) {
         let retry = this._retry
         while (!this._logged && retry > 0) {
             this._browser = await puppeteer.launch({headless: !visibile});
