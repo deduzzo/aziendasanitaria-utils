@@ -73,7 +73,7 @@ export class Nar {
     }
 
 
-    async doLogin(visibile = true) {
+    async doLogin(visibile = false) {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
         // if working path not exists

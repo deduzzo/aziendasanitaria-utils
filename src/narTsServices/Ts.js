@@ -18,7 +18,7 @@ export class Ts {
         return this._logged;
     }
 
-    async getWorkingPage(visibile = true) {
+    async getWorkingPage(visibile = false) {
         if (!this.logged)
             await this.doLogin(visibile)
         if (!this.logged)
