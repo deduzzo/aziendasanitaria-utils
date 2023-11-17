@@ -146,6 +146,7 @@ export class Assistiti {
                                     if (dati.trovato && vivo) {
                                         dati.vivo = vivo;
                                         let ind = obsoleto ? 4 : 3
+                                        dati.inAsp = document.querySelector("#menu_voci > ol").children.length > 2;
                                         dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 4) + ") > div.cellaAss59 > div").innerText.trim();
@@ -175,6 +176,8 @@ export class Assistiti {
                         }
                         while (obsoleto);
                         if (datiAssistito.trovato && datiAssistito.vivo) {
+                            if (!datiAssistito.inAsp)
+                                console.log("NON IN ASP!!");
                             datiAssistito.cf = codiceFiscale;
                             if (inserisciIndirizzo) {
                                 try {
