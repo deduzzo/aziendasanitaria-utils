@@ -242,7 +242,7 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssistitiParallels(cfs, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+    async static verificaAssistitiParallels(impostazioniServizi,cfs, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
         let codiciFiscali = Object.keys(cfs);
@@ -254,7 +254,8 @@ export class Assistiti {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            promises.push(this.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
+            let assistitiTemp = new Assistiti(impostazioniServizi);
+            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
         let results = await Promise.all(promises);
         for (let result of results) {
