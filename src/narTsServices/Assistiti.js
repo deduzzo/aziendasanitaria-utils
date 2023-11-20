@@ -242,7 +242,7 @@ export class Assistiti {
         return out;
     }
 
-    async static verificaAssistitiParallels(impostazioniServizi,cfs, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+    static async verificaAssistitiParallels(impostazioniServizi,cfs, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
         let codiciFiscali = Object.keys(cfs);
