@@ -242,56 +242,28 @@ export class Assistiti {
         return out;
     }
 
-    // asssititi.json dati di input
-    // jobstatus.json stato processo
-    // output[codicemedico].json dati di output
-    // output[codicemedico].xlsx dati di output in excel
-    async verificaAssititiInVitaJobs(pathJob, outPath = "elaborazioni") {
-        // create path if not exist outPath in pathJob
-        if (!fs.existsSync(pathJob + path.sep + outPath))
-            fs.mkdirSync(pathJob + path.sep + outPath);
-        // get assititi.json in pathJob
-        let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "assistiti.json");
-        // if !exist jobstatus.json create it
-        if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
-            let dati = {}
-            for (let codiceMedico of Object.keys(datiAssititi)) {
-                dati[codiceMedico] = {
-                    totale: Object.values(datiAssititi[codiceMedico].assistiti).length,
-                    completo: false
-                };
-            }
-            await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", dati);
+    async verificaAssistitiParallels(cf, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
+        let codiciFiscali = Object.keys(cf);
+        let jobs = [];
+        let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
+        for (let i = 0; i < numParallelsJobs; i++) {
+            let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
+            jobs.push(job);
         }
-        // load jobstatus.json
-        let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
-        // filter all jobs that have completo = false
-        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
-        for (let codMedico of jobsDaElaborare) {
-            let ris = await this.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti), null, false);
-
-            for (let cf of Object.keys(ris.out.morti)) {
-                if (ris.out.morti[cf].data_decesso && ris.out.morti[cf].data_decesso !== "")
-                    ris.out.morti[cf].numQuoteDaRecperare = utils.calcolaMesiDifferenza(ris.out.morti[cf].data_decesso);
-            }
-
-            await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
-                deceduti: ris.out.morti,
-                nonTrovati: ris.out.nonTrovati
-            });
-            if (Object.keys(ris.out.morti).length > 0)
-                await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
-            if (ris.out.nonTrovati.length > 0)
-                await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", Object.values(ris.out.nonTrovati));
-            // update jobstatus.json
-            jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
-            jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
-            jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
-            jobStatus[codMedico].nonTrovati = ris.out.nonTrovati.length;
-            jobStatus[codMedico].completo = true;
-            jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
-            await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
+        let promises = [];
+        for (let i = 0; i < jobs.length; i++) {
+            promises.push(this.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
+        let results = await Promise.all(promises);
+        for (let result of results) {
+            out.error = out.error || result.error;
+            out.out.vivi = {...out.out.vivi, ...result.out.vivi};
+            out.out.nonTrovati = [...out.out.nonTrovati, ...result.out.nonTrovati];
+            out.out.morti = [...out.out.morti, ...result.out.morti];
+            out.out.obsoleti = {...out.out.obsoleti, ...result.out.obsoleti};
+        }
+        return out;
     }
 
 
