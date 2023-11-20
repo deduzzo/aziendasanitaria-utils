@@ -242,9 +242,9 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssistitiParallels(cf, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+    async verificaAssistitiParallels(cfs, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
-        let codiciFiscali = Object.keys(cf);
+        let codiciFiscali = Object.keys(cfs);
         let jobs = [];
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {
