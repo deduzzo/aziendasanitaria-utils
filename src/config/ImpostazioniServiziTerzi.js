@@ -1,13 +1,22 @@
+/**
+ * @typedef {Object} Config
+ * @property {string} ts_username - Username for TS.
+ * @property {string} ts_password - Password for TS.
+ * @property {string} nar_username - Username for NAR.
+ * @property {string} nar_password - Password for NAR.
+ */
+
 export class ImpostazioniServiziTerzi {
 
     /**
-
+     * Creates an instance of ImpostazioniServiziTerzi.
+     * @param {Config} config - Configurazione parametri servizi
      */
-    constructor() {
-        this._ts_username = ""
-        this._ts_password = ""
-        this._nar_username = "";
-        this._nar_password = "";
+    constructor(config = {}) {
+        this._ts_username = config.ts_username || "";
+        this._ts_password = config.ts_password || "";
+        this._nar_username = config.nar_username || "";
+        this._nar_password = config.nar_password || "";
     }
 
     get ts_username() {

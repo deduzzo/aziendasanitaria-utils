@@ -7,15 +7,24 @@ import AsyncLock from 'async-lock';
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
+import {ImpostazioniServiziTerzi} from "../config/ImpostazioniServiziTerzi.js";
+
+/**
+ * @typedef {Object} Config
+ * @property {string} ts_username - Username for TS.
+ * @property {string} ts_password - Password for TS.
+ * @property {string} nar_username - Username for NAR.
+ * @property {string} nar_password - Password for NAR.
+ */
 
 export class Assistiti {
 
     /**
      *
-     * @param {ImpostazioniServiziTerzi} impostazioni
+     * @param {Config} configurazioneServiziTerzi
      */
-    constructor(impostazioni) {
-        this._impostazioni = impostazioni;
+    constructor(configurazioneServiziTerzi) {
+        this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
         this.retryTimeout = 5;
@@ -247,7 +256,8 @@ export class Assistiti {
         return out;
     }
 
-    static async verificaAssistitiParallels(impostazioniServizi,codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+
+    static async verificaAssistitiParallels(configImpostazioniServizi,codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -258,7 +268,7 @@ export class Assistiti {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(impostazioniServizi);
+            let assistitiTemp = new Assistiti(configImpostazioniServizi);
             promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
         let results = await Promise.all(promises);
