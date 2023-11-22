@@ -688,6 +688,7 @@ export class Medici {
         let nonConsiderati = []
         let importi = {};
         let perAnnoGlobale = {};
+        let natiPerAnno = {};
         let dataInizioRiferimento = moment(periodoRiferimento[0][0] + "-" + periodoRiferimento[0][1] + "-01", "YYYY-MM-DD").startOf('month');
         let dataFineRiferimento = moment(periodoRiferimento[1][0] + "-" + periodoRiferimento[1][1] + "-01", "YYYY-MM-DD").endOf('month');
         let dataInizioPrimoCompilatore = periodoPrimoCompilatore ? moment(periodoPrimoCompilatore[0][0] + "-" + periodoPrimoCompilatore[0][1] + "-01", "YYYY-MM-DD").startOf('month') : null;
@@ -718,6 +719,7 @@ export class Medici {
             const cf = riga[CF_PAZIENTE];
 
             const dataNascita = moment(Parser.cfToBirthDate(cf));
+
             if (dataFinePrimoCompilatore) {
                 if (dataInizio.isBefore(dataFinePrimoCompilatore)) {
                     if (primoCompilatorePagato) {
@@ -732,6 +734,12 @@ export class Medici {
             if (dataNascitaDaConsiderare && dataNascita.isBefore(dataNascitaDaConsiderare))
                 nonConsiderare = "Nato prima del " + moment(dataNascitaDaConsiderare).format("DD/MM/YYYY");
             if (nonConsiderare === null) {
+                if (dataNascita.year() === moment(riga[DATA_INIZIO]).year()) {
+                    if (!natiPerAnno.hasOwnProperty(dataNascita.year()))
+                        natiPerAnno[dataNascita.year()] = [];
+                    if (!natiPerAnno[dataNascita.year()].includes(cf))
+                        natiPerAnno[dataNascita.year()].push(cf);
+                }
                 if (!out.hasOwnProperty(codMedico)) {
                     out[codMedico] = {};
                     importi[codMedico] = 0.0;
@@ -795,6 +803,10 @@ export class Medici {
         await utils.scriviOggettoSuNuovoFileExcel("importi_libretti_dettaglio.xlsx", allRows);
         await utils.scriviOggettoSuNuovoFileExcel("non_considerati.xlsx", nonConsiderati);
         await utils.scriviOggettoSuNuovoFileExcel("importi_libretti_per_anno.xlsx", Object.values(perAnnoGlobale));
+
+        // show every natiPerAnno length
+        for (let key in natiPerAnno)
+            console.log("Nati nel " + key + ": " + natiPerAnno[key].length);
         return totale;
     }
 
