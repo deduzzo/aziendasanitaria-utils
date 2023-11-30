@@ -21,10 +21,11 @@ export class Medici {
      */
 
 
-    constructor(impostazioni, workingPath = null) {
+    constructor(impostazioni, visible = true, workingPath = null) {
         this._impostazioni = impostazioni;
         this._nar = new Nar(this._impostazioni);
         this._ts = new Ts(this._impostazioni);
+        this._visible = visible;
         this._retry = 20;
     }
 
@@ -93,32 +94,6 @@ export class Medici {
         return out;
     }*/
 
-
-    static async caricaCodiciFiscaliDaFileExcel(filePath, colonnaCodiceFiscale, limit = null) {
-        let codici = [];
-        let i = 0;
-        var workbook = new ExcelJS.Workbook();
-        let files = utils.getAllFilesRecursive(filePath, '.xlsx');
-        for (let filename of files) {
-            console.log('read file ', filename);
-            let fileExcel = await workbook.xlsx.readFile(filename);
-            let worksheets = (await fileExcel).worksheets;
-            for (let worksheet of worksheets) {
-                for (i = 0; i < worksheet.rowCount; i++) {
-                    if (i > 1)
-                        codici.push({
-                            cf: worksheet.getRow(i).getCell(colonnaCodiceFiscale).value.trim().toUpperCase(),
-                            file: filename,
-                            rownumber: i
-                        });
-                    if (limit)
-                        if (i > limit)
-                            break;
-                }
-            }
-        }
-        return codici;
-    }
 
     async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
         let out = null;
@@ -474,6 +449,41 @@ export class Medici {
         }
 
         return out;
+    }
+
+    async getAssistitiDaTs(codiceFiscaleMedico) {
+        let page = await this._ts.getWorkingPage(this._visible);
+        page.setDefaultTimeout(600000);
+        if (page) {
+            await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
+            await page.waitForSelector("input[name='codiceFiscale']");
+            await page.type("input[name='codiceFiscale']", codiceFiscaleMedico);
+            await page.click("#go");
+            await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
+            await page.click("#menu_voci > ol > li:nth-child(1) > a");
+            await page.waitForSelector("#mef");
+            let dati = await page.evaluate(() => {
+
+                const pulisci = (str) => {
+                    return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
+                }
+
+                let out = {cfs: [], num: 0};
+                let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
+                out.num = allElements.length;
+                for (let allElement of allElements) {
+                    if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
+                        let temp = {};
+                        temp.cognome = pulisci(allElement.children[0].textContent);
+                        temp.nome = pulisci(allElement.children[1].textContent);
+                        temp.cf = pulisci(allElement.children[2].textContent);
+                        out.cfs.push(temp);
+                    }
+                }
+                return out;
+            });
+            return dati.cfs;
+        }
     }
 
 
