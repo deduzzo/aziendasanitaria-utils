@@ -11,6 +11,7 @@ import chokidar from "chokidar";
 import moment from "moment";
 import {utils} from "../Utils.js";
 import {Parser} from "@marketto/codice-fiscale-utils";
+import {EventEmitter} from "events";
 
 export class Medici {
 
@@ -451,39 +452,113 @@ export class Medici {
         return out;
     }
 
-    async getAssistitiDaTs(codiceFiscaleMedico) {
+    async getAssistitiDaTs(cfMedici, index = 1) {
         let page = await this._ts.getWorkingPage(this._visible);
         page.setDefaultTimeout(600000);
+        let datiAssistiti = {};
         if (page) {
-            await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
-            await page.waitForSelector("input[name='codiceFiscale']");
-            await page.type("input[name='codiceFiscale']", codiceFiscaleMedico);
-            await page.click("#go");
-            await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
-            await page.click("#menu_voci > ol > li:nth-child(1) > a");
-            await page.waitForSelector("#mef");
-            let dati = await page.evaluate(() => {
+            for (let cfMedico of cfMedici) {
+                await page.goto("https://sistemats4.sanita.finanze.it/simossHome/servizi.jsp", {waitUntil: 'networkidle2'});
+                await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
+                await page.waitForSelector("input[name='codiceFiscale']");
+                await page.type("input[name='codiceFiscale']", cfMedico);
+                await page.click("#go");
+                await page.waitForSelector("#mef");
+                const error = await page.$("body > div:nth-child(12) > div > fieldset > p:nth-child(2)");
+                if (!error) {
+                    await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
+                    await page.click("#menu_voci > ol > li:nth-child(1) > a");
+                    await page.waitForSelector("#mef");
+                    // if page contains selector "body > div:nth-child(12) > div"
+                    let dati = await page.evaluate(() => {
 
-                const pulisci = (str) => {
-                    return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
-                }
+                        const pulisci = (str) => {
+                            return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
+                        }
 
-                let out = {cfs: [], num: 0};
-                let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
-                out.num = allElements.length;
-                for (let allElement of allElements) {
-                    if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
-                        let temp = {};
-                        temp.cognome = pulisci(allElement.children[0].textContent);
-                        temp.nome = pulisci(allElement.children[1].textContent);
-                        temp.cf = pulisci(allElement.children[2].textContent);
-                        out.cfs.push(temp);
-                    }
-                }
-                return out;
-            });
-            return dati.cfs;
+                        let out = {}
+                        let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
+                        for (let allElement of allElements) {
+                            if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
+                                let cf = pulisci(allElement.children[2].textContent);
+                                out[cf] = {
+                                    cognome: pulisci(allElement.children[0].textContent),
+                                    nome: pulisci(allElement.children[1].textContent),
+                                    cf: pulisci(allElement.children[2].textContent)
+                                }
+                            }
+                        }
+                        return out;
+                    });
+                    console.log("[" + index + "]" + " " + cfMedico + " " + Object.keys(dati).length + " assistiti");
+                    datiAssistiti[cfMedico] = dati;
+                } else
+                    datiAssistiti[cfMedico] = null;
+            }
+            return datiAssistiti;
         }
+    }
+
+    static async getElencoAssistitiParallels(cfMedici, impostazioni, numParallelsJobs = 20, visible = false) {
+        EventEmitter.defaultMaxListeners = 40;
+        let out = {};
+        let jobs = [];
+        let jobSize = Math.ceil(cfMedici.length / numParallelsJobs);
+        for (let i = 0; i < numParallelsJobs; i++) {
+            let job = cfMedici.slice(i * jobSize, (i + 1) * jobSize);
+            jobs.push(job);
+        }
+        let promises = [];
+        for (let i = 0; i < jobs.length; i++) {
+            let mediciTemp = new Medici(impostazioni, visible);
+            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], i));
+            console.log("job " + i + " " + jobs[i].length + " medici");
+        }
+        let results = await Promise.all(promises);
+        for (let result of results) {
+            Object.assign(out, result);
+        }
+        return out;
+    }
+
+    getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfMap) {
+        let out = {};
+        for (let codNar of Object.keys(assistitiNar)) {
+            if (assistitiTs.hasOwnProperty(codToCfMap[codNar])) {
+                let res = this.#getDifferenzeAnagrafiche(Object.keys(assistitiNar[codNar].assistiti), Object.keys(assistitiTs[codToCfMap[codNar]]));
+                out[codNar] = res;
+            }
+        }
+        return out;
+    }
+
+    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs) {
+        let differenze = [];
+        let allAssistiti = {};
+        for (let assistitoNar of assistitiNar)
+            allAssistiti[assistitoNar] = assistitoNar;
+        for (let assistitoTs of assistitiTs)
+            allAssistiti[assistitoTs] = null;
+
+        for (let assistito of Object.keys(allAssistiti)) {
+            let trovatoNar = false;
+            let trovatoTs = false;
+            if (assistitiNar.includes(assistito))
+                trovatoNar = true;
+            if (assistitiTs.includes(assistito))
+                trovatoTs = true;
+            let ris = null;
+            if (trovatoNar && !trovatoTs)
+                ris = {differenza: true, assistito: assistito, motivo: "presente solo in NAR"};
+            else if (!trovatoNar && trovatoTs)
+                ris = {differenza: true, assistito: assistito, motivo: "presente solo in SOGEI Sistema TS"};
+            else
+                ris = {differenza: false};
+            allAssistiti[assistito] = ris;
+            if (ris.differenza)
+                differenze.push(ris);
+        }
+        return {differenza: differenze.length > 0, dettaglioDifferenze: differenze};
     }
 
 
