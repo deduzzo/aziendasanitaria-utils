@@ -299,7 +299,7 @@ const creaOggettoDaFileExcel = async (filename, accoppiateOggettoColonna, limit 
     var workbook = new ExcelJS.Workbook();
     let fileExcel = await workbook.xlsx.readFile(filename);
     let worksheet = (await fileExcel).worksheets[0];
-    for (let i = 0; i < worksheet.rowCount; i++) {
+    for (let i = 0; i <= worksheet.rowCount; i++) {
         if (i > 1) {
             let riga = {_index: i - 1};
             let keys = Object.keys(accoppiateOggettoColonna)
