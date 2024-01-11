@@ -4,6 +4,7 @@ import {utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
+
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
@@ -156,10 +157,10 @@ export class Assistiti {
                                         dati.vivo = vivo;
                                         let ind = obsoleto ? 4 : 3
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
-                                            if (document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length -3].children[1].textContent.includes("205"))
+                                            if (document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length - 3].children[1].textContent.includes("205"))
                                                 dati.inAsp = "MESSINA";
                                             else
-                                                dati.inAsp = document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length -3].children[1].textContent.trim();
+                                                dati.inAsp = document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length - 3].children[1].textContent.trim();
                                         } else dati.inAsp = "TRASFERITO";
                                         dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
@@ -257,7 +258,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi,codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10,visible = false) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -278,6 +279,121 @@ export class Assistiti {
             out.out.nonTrovati = [...out.out.nonTrovati, ...result.out.nonTrovati];
             out.out.morti = Object.assign(out.out.morti, result.out.morti);
             out.out.obsoleti = {...out.out.obsoleti, ...result.out.obsoleti};
+        }
+        return out;
+    }
+
+    async controlliEsenzioneAssistito(codiceFiscale, esenzione, anno, index= 1, includiNucleo = true,visibile = false) {
+        let page = await this._ts.getWorkingPage(visibile);
+        let datiEsenzioni = {error: false, out: {}};
+        if (page) {
+            await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U67", {waitUntil: 'networkidle2'});
+            await page.goto("https://sistemats4.sanita.finanze.it/EsenzioniReddito/gestioneControlli.do", {waitUntil: 'networkidle2'});
+            await Promise.all([
+                page.waitForNavigation({waitUntil: 'networkidle2'}),
+                page.select('select[name="annoControllo"]', anno),
+            ]);
+            await page.click('input[type="radio"][name="scelta2"][value="CFT"]');
+            // wait 1 sec
+            await page.type("input[name='codiceFiscaleTitolare']", codiceFiscale);
+            // set value "CFT" to radio with name "scelta2"
+
+            await page.click('input[type="submit"][name="button"][value="Conferma"]');
+
+            await page.waitForSelector("body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table");
+
+            datiEsenzioni = await page.evaluate(() => {
+                // get table with selector "body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table"
+                let table = document.querySelector("body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table");
+                let dati = {error: false, out: {}};
+                try {
+                    for (let i = 1; i < table.rows.length; i++) {
+                        let row = table.rows[i];
+                        let temp = {}
+                        temp.value = row.cells[0].children[0].value;
+                        temp.protocollo = row.cells[1].innerText.trim();
+                        temp.esenzione = row.cells[2].innerText.trim();
+                        temp.codFiscaleEsenzione = row.cells[3].innerText.trim();
+                        temp.dataInizio = row.cells[4].innerText.trim();
+                        temp.dataFine = row.cells[5].innerText.trim();
+                        temp.esito = row.cells[6].innerText.trim();
+                        temp.descrizione = row.cells[7].innerText.trim();
+                        dati.out[temp.protocollo] = temp;
+                    }
+                } catch (ex) {
+                    dati.error = true;
+                    dati.out = ex.message + " " + ex.stack;
+                }
+                return dati;
+            });
+            for (let key of Object.keys(datiEsenzioni.out)) {
+                let riga = datiEsenzioni.out[key];
+                await page.click('input[type="radio"][name="scelta"][value="' + riga.value + '"]');
+                await Promise.all([
+                    page.waitForNavigation({waitUntil: 'networkidle2'}),
+                    await page.click('input[type="submit"][name="button"][value="Dettaglio"]')
+                ]);
+                await Promise.all([
+                    page.waitForNavigation({waitUntil: 'networkidle2'}),
+                    await page.click('input[type="submit"][name="button"][value="Dettaglio"]')
+                ]);
+
+                let ricetteProtocollo = await page.evaluate(() => {
+                    let dati = {error: false, out: {dettaglio: {}, totaleGlobale: 0.0}};
+                    // get child of component with selector "body > table > tbody > tr > td > div > form > fieldset"
+                    let tabelle = Array.from(document.querySelector("body > table > tbody > tr > td > div > form > fieldset").querySelectorAll(".tabella")).map(tabella => tabella);
+                    for (let tabella of tabelle) {
+                        let titoloTabella = tabella.rows[0].cells[0].innerText.replaceAll("\n", "").replaceAll(" ", "_").toLowerCase();
+                        dati.out.dettaglio[titoloTabella] = {dettaglio: [], totale: null};
+                        for (let i = 2; i < tabella.rows.length; i++) {
+                            let row = tabella.rows[i];
+                            if (i !== tabella.rows.length - 1)
+                                dati.out.dettaglio[titoloTabella].dettaglio.push({
+                                    ricetta: row.cells[1].innerText,
+                                    struttura: row.cells[2].innerText,
+                                    ubicazione: row.cells[3].innerText,
+                                    data_prescrizione: row.cells[4].innerText,
+                                    data_spedizione: row.cells[5].innerText,
+                                    ticket: parseFloat(row.cells[6].innerText),
+                                });
+                            else
+                                dati.out.dettaglio[titoloTabella].totale = parseFloat(row.cells[1].innerText);
+                        }
+                        dati.out.totaleGlobale+=dati.out.dettaglio[titoloTabella].totale;
+                    }
+                    return dati;
+                });
+                if (ricetteProtocollo.error)
+                    datiEsenzioni.error = true;
+                else
+                    datiEsenzioni.out[key].ricette = ricetteProtocollo.out;
+
+                await page.goBack();
+                await page.goBack();
+            }
+        }
+        console.log("#" + index + " " + codiceFiscale + " " + (datiEsenzioni.error ? "ERRORE" : "OK"));
+        return datiEsenzioni;
+    }
+
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, codiciFiscali, esenzione, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
+        EventEmitter.defaultMaxListeners = 40;
+        let out = {error: false, out: {}}
+        let jobs = [];
+        let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
+        for (let i = 0; i < numParallelsJobs; i++) {
+            let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
+            jobs.push(job);
+        }
+        let promises = [];
+        for (let i = 0; i < jobs.length; i++) {
+            let assistitiTemp = new Assistiti(configImpostazioniServizi);
+            promises.push(assistitiTemp.controlliEsenzioneAssistito(jobs[i], esenzione, anno, i + 1, includiNucleo, visible));
+        }
+        let results = await Promise.all(promises);
+        for (let result of results) {
+            out.error = out.error || result.error;
+            out.out = Object.assign(out.out, result.out);
         }
         return out;
     }

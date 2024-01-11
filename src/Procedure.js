@@ -4,7 +4,7 @@ import { Medici } from "./narTsServices/Medici.js";
 
 
 class Procedure {
-    static async getDifferenzeNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, workingPath = null,parallels = 20, visibile = false) {
+    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, workingPath = null,parallels = 20, visibile = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         let medici = new Medici(impostazioniServizi, workingPath);
