@@ -6,6 +6,8 @@ import * as os from "os";
 import fs from "fs";
 import {existsSync} from "fs";
 import moment from "moment";
+import * as Util from "util";
+import {utils as Utils} from "../Utils.js";
 
 
 export class Nar {
@@ -23,7 +25,7 @@ export class Nar {
         this._retry = 5;
         // working path for download,a temporary folder so temp dir
         this._downloadPath = path.join(os.tmpdir(), 'nar_' + Date.now());
-        this._workingPath = workingPath ?? path.join(path.join(os.homedir(), 'Desktop'), 'medici_' + (moment().format('YYYYMMDD')));
+        this._workingPath = workingPath ?? Utils.getWorkingPath()
         this._batchProcess = false;
         // create the folder if it does not exist async
     }
@@ -76,9 +78,6 @@ export class Nar {
     async doLogin(visibile = false) {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
-        // if working path not exists
-        if (existsSync(this._workingPath) === false)
-            await fs.promises.mkdir(this._workingPath, {recursive: true});
         let retry = this._retry
         while (!this._logged && retry > 0) {
             if (this._type === Nar.PAGHE || this._type === Nar.NAR) {

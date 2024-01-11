@@ -499,7 +499,7 @@ export class Medici {
         }
     }
 
-    static async getElencoAssistitiParallels(cfMedici, impostazioni, numParallelsJobs = 20, visible = false) {
+    static async getElencoAssistitiFromTsParallels(cfMedici, impostazioni, numParallelsJobs = 20, visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {};
         let jobs = [];

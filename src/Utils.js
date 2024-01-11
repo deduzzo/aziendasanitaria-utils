@@ -9,6 +9,8 @@ import pdf2html from "pdf2html";
 import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
 import {Parser} from "@marketto/codice-fiscale-utils";
+import os from "os";
+import {existsSync} from "fs";
 
 const mesi = {
     "01": "Gennaio",
@@ -570,6 +572,13 @@ const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
     else return 0;
 }
 
+const getWorkingPath = async () => {
+    let wp = path.join(path.join(os.homedir(), 'Documenti'), 'flussi_sanitari_wp', moment().format('YYYYMMDD'));
+    if (existsSync(wp) === false)
+        await fs.promises.mkdir(wp, {recursive: true});
+    return wp;
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -598,5 +607,6 @@ export const utils = {
     calcolaDifferenzaGiorniPerAnno,
     decodeHtml,
     leggiOggettoDaFileJSON,
-    calcolaMesiDifferenza
+    calcolaMesiDifferenza,
+    getWorkingPath
 }
