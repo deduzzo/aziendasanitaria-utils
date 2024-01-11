@@ -336,7 +336,7 @@ const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null
             if (customHeader)
                 worksheet.addRow(Object.values(customHeader));
             else
-                worksheet.addRow(data ? Object.keys(data[0]) : "");
+                worksheet.addRow((data !== null) ? Object.keys(data[0]) : "");
         } else
             worksheet.addRow([customHeader]);
     }
