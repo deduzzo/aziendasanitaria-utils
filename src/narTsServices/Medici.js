@@ -558,7 +558,7 @@ export class Medici {
             if (ris.differenza)
                 differenze.push(ris);
         }
-        return {differenza: differenze.length > 0, dettaglioDifferenze: differenze};
+        return {numDifferenze: differenze.length, dettaglioDifferenze: differenze};
     }
 
 
