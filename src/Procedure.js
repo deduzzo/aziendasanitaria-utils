@@ -33,11 +33,11 @@ class Procedure {
             if (!Object.hasOwnProperty(dato[colonnaCf]))
                 codFiscali[dato[colonnaCf]] = dato[colonnaCf];
         }
-        //let risultato = await Assistiti.controlliEsenzioneAssistitoParallels(impostazioniServizi, Object.keys(codFiscali), tipoEsenzione, anno, parallels, visibile);
-        let assistiti = new Assistiti(impostazioniServizi);
-        let risultato = await assistiti.controlliEsenzioneAssistito(Object.keys(codFiscali).slice(0, 30), tipoEsenzione, anno,1,true,true);
+        let risultato = await Assistiti.controlliEsenzioneAssistitoParallels(impostazioniServizi, Object.keys(codFiscali), tipoEsenzione, anno, parallels, visibile);
+        //let assistiti = new Assistiti(impostazioniServizi);
+        //let risultato = await assistiti.controlliEsenzioneAssistito(Object.keys(codFiscali).slice(0, 30), tipoEsenzione, anno,1,true,true);
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "controllo.json", risultato.out);
-
+        console.log("FINE");
     }
 
 

@@ -400,6 +400,7 @@ export class Assistiti {
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {
             let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
+            console.log("JOB#" + i + " " + job.length)
             jobs.push(job);
         }
         let promises = [];
