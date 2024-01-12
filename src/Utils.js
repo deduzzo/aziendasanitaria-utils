@@ -11,6 +11,8 @@ import excel from "excel-date-to-js";
 import {Parser} from "@marketto/codice-fiscale-utils";
 import os from "os";
 import {existsSync} from "fs";
+import libre from "libreoffice-convert";
+import {promisify} from "util";
 
 const mesi = {
     "01": "Gennaio",
@@ -561,22 +563,32 @@ const leggiOggettoDaFileJSON = async (filename) => {
 }
 
 const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
-    dataInizio = moment(dataInizio,"DD/MM/YYYY");
+    dataInizio = moment(dataInizio, "DD/MM/YYYY");
     if (dataFine == null)
         dataFine = moment();
     else
-        dataFine = moment(dataFine,"DD/MM/YYYY");
+        dataFine = moment(dataFine, "DD/MM/YYYY");
     if (moment(dataInizio).isValid() && dataFine.isValid() && dataInizio.isSameOrBefore(dataFine)) {
         return dataFine.diff(moment(dataInizio), 'months', false);
-    }
-    else return 0;
+    } else return 0;
 }
 
 const getWorkingPath = async () => {
-    let wp = path.join(path.join(os.homedir(), 'Documenti'), 'flussi_sanitari_wp', moment().format('YYYYMMDD'));
+    let wp = path.join(os.homedir(), 'flussi_sanitari_wp', moment().format('YYYYMMDD'));
     if (existsSync(wp) === false)
         await fs.promises.mkdir(wp, {recursive: true});
     return wp;
+}
+
+const convertDocxToPdf = async (docxPath, pdfPath) => {
+    libre.convertAsync = promisify(libre.convert);
+    try {
+        const docxBuffer = fs.readFileSync(docxPath);
+        const pdfBuffer = await libre.convertAsync(docxBuffer, '.pdf', undefined);
+        fs.writeFileSync(pdfPath, pdfBuffer);
+    } catch (error) {
+        console.error(`Error converting file: ${error}`);
+    }
 }
 
 
@@ -608,5 +620,6 @@ export const utils = {
     decodeHtml,
     leggiOggettoDaFileJSON,
     calcolaMesiDifferenza,
-    getWorkingPath
+    getWorkingPath,
+    convertDocxToPdf
 }
