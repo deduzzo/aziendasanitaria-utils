@@ -18,13 +18,14 @@ export class Medici {
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
+     * @param visible
      * @param workingPath
      */
 
 
-    constructor(impostazioni, visible = true, workingPath = null) {
+    constructor(impostazioni, visible = false, workingPath = null) {
         this._impostazioni = impostazioni;
-        this._nar = new Nar(this._impostazioni);
+        this._nar = new Nar(this._impostazioni,visible,workingPath);
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
@@ -284,7 +285,7 @@ export class Medici {
                     // Salva la pagina come PDF
                     await page.goto(`file://${tempFileDettaglio}`);
                     await page.pdf({
-                        path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                        path: await this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
                         format: 'A4'
                     });
                     //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
@@ -299,7 +300,7 @@ export class Medici {
         return out;
     }
 
-    async stampaCedolino(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
+    async stampaCedolino(matricola,visible = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = null;
         if (!this._nar._batchProcess) {
             await this._nar.doLogout();
@@ -309,7 +310,7 @@ export class Medici {
         do {
             out = {error: false, data: null};
             try {
-                let page = await this._nar.getWorkingPage();
+                let page = await this._nar.getWorkingPage(visible);
                 if (page) {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
                     await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
@@ -326,6 +327,13 @@ export class Medici {
                     await page.click("input[name='Anagrafica']");
                     await page.waitForSelector("input[name='matr@Filter']");
                     await page.type("input[name='matr@Filter']", matricola);
+
+                    await page.focus("input[name='dataDal@Filter']");
+                    await page.keyboard.down('Control');
+                    await page.keyboard.press('A');
+                    await page.keyboard.up('Control');
+                    await page.keyboard.press('Backspace');
+                    await page.type("input[name='dataDal@Filter']",  "01/01/2000");
                     //press f4
                     await page.waitForTimeout(1000);
                     await page.keyboard.press("F4");
@@ -374,7 +382,7 @@ export class Medici {
                     await page.waitForTimeout(300);
                     if (file) {
                         // copy the file to the working path with filename
-                        fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                        fs.copyFileSync(file, await this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
                     } else
                         out.error = true;
                     //dispose the watcher

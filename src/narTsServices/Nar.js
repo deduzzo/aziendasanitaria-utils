@@ -14,13 +14,15 @@ export class Nar {
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
+     * @param visible
      * @param workingPath string
      */
-    constructor(impostazioni, workingPath = null) {
+    constructor(impostazioni,visible = false, workingPath = null) {
         this._impostazioni = impostazioni;
         this._browser = null;
         this._logged = false;
         this._workingPage = null;
+        this._visible = visible;
         this._type = Nar.NAR;
         this._retry = 5;
         // working path for download,a temporary folder so temp dir
@@ -57,9 +59,9 @@ export class Nar {
         this._batchProcess = value;
     }
 
-    async getWorkingPage(visibile) {
+    async getWorkingPage() {
         if (!this.logged)
-            await this.doLogin(visibile)
+            await this.doLogin();
         if (!this.logged)
             return null;
         else
@@ -75,7 +77,7 @@ export class Nar {
     }
 
 
-    async doLogin(visibile = false) {
+    async doLogin() {
 
         await fs.promises.mkdir(this._downloadPath, {recursive: true});
         let retry = this._retry
@@ -103,7 +105,7 @@ export class Nar {
                         })
                     );
                     this._browser = await puppeteer.launch({
-                        headless: !visibile,
+                        headless: !this._visible,
                         defaultViewport: {width: 1920, height: 1080},
                         args: ['--window-size=1920,1080']
                     });

@@ -284,7 +284,7 @@ export class Assistiti {
         return out;
     }
 
-    async controlliEsenzioneAssistito(codiciFiscali, esenzione, anno, index = 1, includiNucleo = true, visibile = false) {
+    async controlliEsenzioneAssistito(codiciFiscali, arrayEsenzione, anno, index = 1, includiNucleo = true, visibile = false) {
         let datoFinale = {error: false, out: {}};
         let start = true;
         let i = 0;
@@ -313,14 +313,14 @@ export class Assistiti {
 
                         await page.waitForSelector("body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table");
 
-                        datiEsenzioni = await page.evaluate((esenzione) => {
+                        datiEsenzioni = await page.evaluate((arrayEsenzione) => {
                             // get table with selector "body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table"
                             let table = document.querySelector("body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table");
                             let dati = {error: false, out: {}};
                             try {
                                 for (let i = 1; i < table.rows.length; i++) {
                                     let row = table.rows[i];
-                                    if (row.cells[2].innerText.trim().toUpperCase() === esenzione.toUpperCase()) {
+                                    if (arrayEsenzione.includes(row.cells[2].innerText.trim().toUpperCase())) {
                                         let temp = {}
                                         temp.value = row.cells[0].children[0].value;
                                         temp.protocollo = row.cells[1].innerText.trim();
@@ -339,7 +339,7 @@ export class Assistiti {
                                 dati.out = ex.message + " " + ex.stack;
                             }
                             return dati;
-                        }, esenzione);
+                        }, arrayEsenzione);
                         for (let key of Object.keys(datiEsenzioni.out)) {
                             let riga = datiEsenzioni.out[key];
                             await page.click('input[type="radio"][name="scelta"][value="' + riga.value + '"]');
@@ -409,8 +409,8 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, codiciFiscali, esenzione, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
-        EventEmitter.defaultMaxListeners = 60;
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, codiciFiscali, arrayEsenzioni, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
+        EventEmitter.defaultMaxListeners = 200;
         let out = {error: false, out: {}}
         let jobs = [];
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
@@ -422,7 +422,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi);
-            promises.push(assistitiTemp.controlliEsenzioneAssistito(jobs[i], esenzione, anno, i + 1, includiNucleo, visible));
+            promises.push(assistitiTemp.controlliEsenzioneAssistito(jobs[i], arrayEsenzioni, anno, i + 1, includiNucleo, visible));
         }
         let results = await Promise.all(promises);
         for (let result of results) {
