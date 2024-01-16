@@ -71,7 +71,7 @@ class Procedure {
                                     anno: anno,
                                 });*/
                 let rigaProtocollo = rigaProtocolli[protocollo];
-                await db("protocollo").insert({
+                let prot = await db("protocollo").insert({
                     protocollo: protocollo,
                     anno: anno,
                     cf_titolare_esenzione: cf,
@@ -84,6 +84,7 @@ class Procedure {
                     importo_totale: parseFloat(rigaProtocollo.ricette.totaleGlobale.toString()).toFixed(2),
 
                 });
+                // get id of prot
                 for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
                     for (let ricetta of rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio) {
                         await db("ricetta").insert({
@@ -94,7 +95,7 @@ class Procedure {
                             data_prescrizione: ricetta.data_prescrizione,
                             data_spedizione: ricetta.data_spedizione,
                             ticket: parseFloat(ricetta.ticket).toFixed(2),
-                            id_protocollo: protocollo
+                            id_protocollo: prot[0],
                         })
                     }
                 }
