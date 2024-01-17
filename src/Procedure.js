@@ -28,15 +28,15 @@ class Procedure {
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze.json", differenze);
     }
 
-    static async getControlliEsenzione(pathElenco, colonnaCf, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 20, includiNucleo = true, visibile = false) {
+    static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 20, includiNucleo = true, visibile = false) {
         let datiRecupero = await Utils.getObjectFromFileExcel(pathElenco);
-        let codFiscali = {};
+        let protocolli = {};
         for (let dato of datiRecupero) {
-            if (!Object.hasOwnProperty(dato[colonnaCf]))
+            if (!Object.hasOwnProperty(dato[colonnaProtocolli]))
                 if (arrayEsenzioni.includes(dato[colonnaEsenzione].trim().toUpperCase()))
-                    codFiscali[dato[colonnaCf]] = dato[colonnaCf];
+                    protocolli[dato[colonnaProtocolli]] = dato[colonnaProtocolli];
         }
-        let risultato = await Assistiti.controlliEsenzioneAssistitoParallels(impostazioniServizi, Object.keys(codFiscali), arrayEsenzioni, anno, parallels, includiNucleo, visibile);
+        let risultato = await Assistiti.controlliEsenzioneAssistitoParallels(impostazioniServizi, Object.keys(protocolli), arrayEsenzioni, anno, parallels, includiNucleo, visibile);
         //let assistiti = new Assistiti(impostazioniServizi);
         //let risultato = await assistiti.controlliEsenzioneAssistito(Object.keys(codFiscali).slice(0, 30), tipoEsenzione, anno,1,true,true);
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "controllo.json", risultato.out);
@@ -62,21 +62,15 @@ class Procedure {
         let datiPrestazioni = await Utils.leggiOggettoDaFileJSON(pathFilePrestazioni);
         if (cancellaDb) {
         }
-        for (let cf of Object.keys(datiPrestazioni)) {
-            let rigaProtocolli = datiPrestazioni[cf].out;
-            for (let protocollo of Object.keys(rigaProtocolli)) {
-                /*                await db("protocollo").insert({
-                                    cf: cf,
-                                    protocollo: protocollo,
-                                    anno: anno,
-                                });*/
-                let rigaProtocollo = rigaProtocolli[protocollo];
+        for (let protocollo of Object.keys(datiPrestazioni)) {
+                let rigaProtocollo = datiPrestazioni[protocollo];
                 let prot = await db("protocollo").insert({
                     protocollo: protocollo,
                     anno: anno,
-                    cf_titolare_esenzione: cf,
+                    cf_esente: rigaProtocollo.cfEsente,
+                    cf_dichiarante: rigaProtocollo.cfDichiarante,
+                    cf_titolare: rigaProtocollo.cfTitolare,
                     esenzione: rigaProtocollo.esenzione,
-                    cod_fiscale: rigaProtocollo.codFiscaleEsenzione,
                     data_inizio: rigaProtocollo.dataInizio,
                     data_fine: rigaProtocollo.dataFine,
                     esito: rigaProtocollo.esito,
@@ -99,9 +93,9 @@ class Procedure {
                         })
                     }
                 }
-                console.log("ricette inserite per protocollo " + protocollo + " cf " + cf);
-            }
+                console.log("protocollo " + protocollo + " inserito");
         }
+        return 0;
     }
 
 }

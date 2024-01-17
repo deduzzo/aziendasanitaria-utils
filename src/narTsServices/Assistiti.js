@@ -284,11 +284,11 @@ export class Assistiti {
         return out;
     }
 
-    async controlliEsenzioneAssistito(codiciFiscali, arrayEsenzione, anno, index = 1, includiNucleo = true, visibile = false) {
+    async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiNucleo = true, visibile = false) {
         let datoFinale = {error: false, out: {}};
         let start = true;
         let i = 0;
-        for (let codiceFiscale of codiciFiscali) {
+        for (let protocollo of protocolli) {
             let ok = true;
             do {
                 let datiEsenzioni = {error: false, out: {}};
@@ -304,9 +304,9 @@ export class Assistiti {
                             page.waitForNavigation({waitUntil: 'networkidle2'}),
                             page.select('select[name="annoControllo"]', anno),
                         ]);
-                        await page.click('input[type="radio"][name="scelta2"][value="CFT"]');
+                        await page.click('input[type="radio"][name="scelta2"][value="PROT"]');
                         // wait 1 sec
-                        await page.type("input[name='codiceFiscaleTitolare']", codiceFiscale);
+                        await page.type("input[name='protocollo']", protocollo);
                         // set value "CFT" to radio with name "scelta2"
 
                         await page.click('input[type="submit"][name="button"][value="Conferma"]');
@@ -325,7 +325,6 @@ export class Assistiti {
                                         temp.value = row.cells[0].children[0].value;
                                         temp.protocollo = row.cells[1].innerText.trim();
                                         temp.esenzione = row.cells[2].innerText.trim();
-                                        temp.codFiscaleEsenzione = row.cells[3].innerText.trim();
                                         temp.dataInizio = row.cells[4].innerText.trim();
                                         temp.dataFine = row.cells[5].innerText.trim();
                                         temp.esito = row.cells[6].innerText.trim();
@@ -349,6 +348,16 @@ export class Assistiti {
                                 page.waitForNavigation({waitUntil: 'networkidle2'}),
                                 await page.click('input[type="submit"][name="button"][value="Dettaglio"]')
                             ]);
+                            let dettagliProtocollo = await page.evaluate(() => {
+                                let out = {};
+                                out.cfEsente = document.querySelector('input[name="CF_SOG_ESENTE"]').value;
+                                out.cfDichiarante = document.querySelector('input[name="CF_AUTOCER"]').value;
+                                out.cfTitolare = document.querySelector('input[name="CF_SOG_TITOLARE"]').value;
+                                return out;
+                            });
+                            riga.cfEsente = dettagliProtocollo.cfEsente === "" ? null : dettagliProtocollo.cfEsente;
+                            riga.cfDichiarante = dettagliProtocollo.cfDichiarante === "" ? null : dettagliProtocollo.cfDichiarante;
+                            riga.cfTitolare = dettagliProtocollo.cfTitolare === "" ? null : dettagliProtocollo.cfTitolare;
                             await Promise.all([
                                 page.waitForNavigation({waitUntil: 'networkidle2'}),
                                 await page.click('input[type="submit"][name="button"][value="Dettaglio"]')
@@ -392,15 +401,15 @@ export class Assistiti {
                     if (datiEsenzioni.error)
                         datoFinale.error = true;
                     if (i % 5 === 0)
-                        console.log("#" + index + " " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% ");
+                        console.log("#" + index + " " + i + "/" + protocolli.length + " " + (i / protocolli.length * 100).toFixed(2) + "% ");
                 } catch (e) {
                     ok = false;
                 }
                 if (ok) {
                     i++;
-                    datoFinale.out[codiceFiscale] = datiEsenzioni;
+                    datoFinale.out[protocollo] = datiEsenzioni.out[protocollo];
                 } else {
-                    console.log("#" + index + " " + codiceFiscale + " ERRORE, RITENTO");
+                    console.log("#" + index + " " + protocollo + " ERRORE, RITENTO");
                     await this._ts.doLogout();
                     //this._ts = new Ts(this._impostazioni);
                 }
@@ -409,13 +418,13 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, codiciFiscali, arrayEsenzioni, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
         EventEmitter.defaultMaxListeners = 200;
         let out = {error: false, out: {}}
         let jobs = [];
-        let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
+        let jobSize = Math.ceil(protocolli.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {
-            let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
+            let job = protocolli.slice(i * jobSize, (i + 1) * jobSize);
             console.log("JOB#" + i + " " + job.length)
             jobs.push(job);
         }
