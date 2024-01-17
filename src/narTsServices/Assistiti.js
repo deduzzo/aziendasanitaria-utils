@@ -402,7 +402,7 @@ export class Assistiti {
                 } else {
                     console.log("#" + index + " " + codiceFiscale + " ERRORE, RITENTO");
                     await this._ts.doLogout();
-                    this._ts = new Ts(this._impostazioni);
+                    //this._ts = new Ts(this._impostazioni);
                 }
             } while (!ok);
         }

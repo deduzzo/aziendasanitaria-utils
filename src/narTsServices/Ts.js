@@ -51,9 +51,10 @@ export class Ts {
     }
 
     async doLogout() {
+        this._logged = false;
         if (this._logged) {
-            this._logged = false;
             await this._browser.close();
+            this._browser = null;
             return true;
         } else return false;
     }
