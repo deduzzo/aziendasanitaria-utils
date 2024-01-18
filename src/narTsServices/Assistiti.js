@@ -287,10 +287,14 @@ export class Assistiti {
     async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiNucleo = true, visibile = false) {
         let datoFinale = {error: false, out: {}};
         let start = true;
+        let numErrori = 0;
         let i = 0;
         for (let protocollo of protocolli) {
             let ok = true;
             do {
+                if (numErrori > 5) {
+                    return {error: true, out: "TROPPI ERRORI"};
+                }
                 let datiEsenzioni = {error: false, out: {}};
                 try {
                     let page = await this._ts.getWorkingPage(visibile);
@@ -410,6 +414,7 @@ export class Assistiti {
                     datoFinale.out[protocollo] = datiEsenzioni.out[protocollo];
                 } else {
                     console.log("#" + index + " " + protocollo + " ERRORE, RITENTO");
+                    numErrori++;
                     start = true;
                     //await this._ts.doLogout();
                     //this._ts = new Ts(this._impostazioni);
