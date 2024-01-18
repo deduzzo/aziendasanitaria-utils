@@ -426,49 +426,67 @@ export class Assistiti {
 
     static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiNucleo = true, visible = false) {
         EventEmitter.defaultMaxListeners = 200;
-        let out = { error: false, out: Object.assign({},protocolli) };
-        protocolli = Object.keys(protocolli);
-        // Dividi i protocolli in gruppi più piccoli
-        let jobs = [];
-        for (let i = 0; i < protocolli.length; i += maxItemsPerJob) {
-            jobs.push(protocolli.slice(i, i + maxItemsPerJob));
+        let out = {error: false, out: Object.assign({}, protocolli)};
+        let protocolliMancanti = {}
+        for (let dato of Object.keys(protocolli)) {
+            if (protocolli[dato] == null)
+                protocolliMancanti[dato] = null;
         }
 
-        // Funzione per processare un singolo job
-        async function processJob(job, index = 1) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi);
-            let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiNucleo, visible);
-            if (!result.error) {
-                for (const key in result.out) {
-                    out.out[key] = result.out[key];
-                }
-                await lock.acquire('fileWriteLock', async function() {
+        protocolli = Object.keys(protocolliMancanti);
+
+        if (Object.keys(protocolliMancanti).length > 0) {
+            // Dividi i protocolli in gruppi più piccoli
+            let jobs = [];
+            for (let i = 0; i < protocolli.length; i += maxItemsPerJob) {
+                jobs.push(protocolli.slice(i, i + maxItemsPerJob));
+            }
+
+            const aggiornaFile = async (index) => {
+                await lock.acquire('fileWriteLock', async function () {
                     await Utils.scriviOggettoSuFile(workingPath + path.sep + anno + ".json", out.out);
                     console.log("[" + index + "] AGGIORNAMENTO FILE OK")
                 });
             }
-        }
 
-        // Gestisce l'esecuzione parallela dei jobs
-        async function manageParallelJobs(jobs) {
-            let activeJobs = [];
-            let index = 1;
-            while (jobs.length > 0) {
-                if (activeJobs.length < numParallelsJobs) {
-                    let job = jobs.shift();
-                    console.log("Rimangono " + jobs.length + " jobs ");
-                    let jobPromise = processJob(job,index++).then(() => {
-                        activeJobs = activeJobs.filter(j => j !== jobPromise);
+            // Funzione per processare un singolo job
+            async function processJob(job, index = 1) {
+                let assistitiTemp = new Assistiti(configImpostazioniServizi);
+                let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiNucleo, visible);
+                if (!result.error) {
+                    await lock.acquire('updateData', async function () {
+                        for (const key in result.out) {
+                            out.out[key] = result.out[key];
+                        }
                     });
-                    activeJobs.push(jobPromise);
-                } else {
-                    await Promise.race(activeJobs);
-                }
+                    if (index % numParallelsJobs === 0)
+                        await aggiornaFile(index);
+                } else
+                    out.error = true;
             }
-            await Promise.all(activeJobs);
-        }
 
-        await manageParallelJobs(jobs);
+            // Gestisce l'esecuzione parallela dei jobs
+            async function manageParallelJobs(jobs) {
+                let activeJobs = [];
+                let index = 1;
+                while (jobs.length > 0) {
+                    if (activeJobs.length < numParallelsJobs) {
+                        let job = jobs.shift();
+                        console.log("Rimangono " + jobs.length + " jobs ");
+                        let jobPromise = processJob(job, index++).then(() => {
+                            activeJobs = activeJobs.filter(j => j !== jobPromise);
+                        });
+                        activeJobs.push(jobPromise);
+                    } else {
+                        await Promise.race(activeJobs);
+                    }
+                }
+                await Promise.all(activeJobs);
+            }
+
+            await manageParallelJobs(jobs);
+            await aggiornaFile(0);
+        }
         return out;
     }
 

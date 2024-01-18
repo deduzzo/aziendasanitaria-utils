@@ -30,40 +30,52 @@ class Procedure {
     }
 
     static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 50, maxItemPerJob = 50, includiNucleo = true, visibile = false) {
-        let datiRecupero = null;
-        let protocolli = {};
-        if (fs.existsSync(workingPath + path.sep + anno + ".json")) {
-            datiRecupero = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + anno + ".json");
-            for (let dato of Object.keys(datiRecupero)) {
-                if (datiRecupero[dato] == null)
-                    protocolli[dato] = null;
+        let risultato = {};
+        do {
+            let datiRecupero = null;
+            if (fs.existsSync(workingPath + path.sep + anno + ".json")) {
+                datiRecupero = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + anno + ".json");
+            } else {
+                datiRecupero = await Utils.getObjectFromFileExcel(pathElenco);
+                let protTemp = {};
+                for (let dato of datiRecupero) {
+                    if (!Object.hasOwnProperty(dato[colonnaProtocolli]))
+                        if (arrayEsenzioni.includes(dato[colonnaEsenzione].trim().toUpperCase()))
+                            protTemp[dato[colonnaProtocolli]] = null;
+                }
+                datiRecupero = protTemp;
+                await Utils.scriviOggettoSuFile(workingPath + path.sep + anno + ".json", datiRecupero);
             }
+            risultato = await Assistiti.controlliEsenzioneAssistitoParallels(
+                impostazioniServizi,
+                datiRecupero,
+                arrayEsenzioni,
+                anno,
+                workingPath,
+                parallels,
+                maxItemPerJob,
+                includiNucleo,
+                visibile);
         }
-        else {
-            datiRecupero = await Utils.getObjectFromFileExcel(pathElenco);
-            for (let dato of datiRecupero) {
-                if (!Object.hasOwnProperty(dato[colonnaProtocolli]))
-                    if (arrayEsenzioni.includes(dato[colonnaEsenzione].trim().toUpperCase()))
-                        protocolli[dato[colonnaProtocolli]] = null;
-            }
-            await Utils.scriviOggettoSuFile(workingPath + path.sep + anno + ".json", protocolli);
-        }
-        let risultato = await Assistiti.controlliEsenzioneAssistitoParallels(
-            impostazioniServizi,
-            protocolli,
-            arrayEsenzioni,
-            anno,
-            workingPath,
-            parallels,
-            maxItemPerJob,
-            includiNucleo,
-            visibile);
 
-        console.log("FINE");
-        return 0;
+        while (risultato
+
+                .out
+                .error
+            ===
+            true
+            )
+        console
+            .log(
+                "FINE"
+            )
+        ;
+        return
+        0;
     }
 
-    static async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
+    static
+    async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
         // da,a array mese anno
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
@@ -74,7 +86,8 @@ class Procedure {
         } while (da.isSameOrBefore(a));
     }
 
-    static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
+    static
+    async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
         const db = knex({
             client: 'mysql',
             connection: datiDb
