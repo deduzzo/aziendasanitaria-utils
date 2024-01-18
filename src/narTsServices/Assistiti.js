@@ -1,6 +1,6 @@
 import {Nar} from "./Nar.js";
 import {Ts} from "./Ts.js";
-import {utils} from "../Utils.js";
+import {utils as Utils, utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
@@ -410,7 +410,8 @@ export class Assistiti {
                     datoFinale.out[protocollo] = datiEsenzioni.out[protocollo];
                 } else {
                     console.log("#" + index + " " + protocollo + " ERRORE, RITENTO");
-                    await this._ts.doLogout();
+                    start = true;
+                    //await this._ts.doLogout();
                     //this._ts = new Ts(this._impostazioni);
                 }
             } while (!ok);
@@ -418,26 +419,51 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, numParallelsJobs = 10, includiNucleo = true, visible = false) {
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiNucleo = true, visible = false) {
         EventEmitter.defaultMaxListeners = 200;
-        let out = {error: false, out: {}}
+        let out = { error: false, out: Object.assign({},protocolli) };
+        protocolli = Object.keys(protocolli);
+        // Dividi i protocolli in gruppi più piccoli
         let jobs = [];
-        let jobSize = Math.ceil(protocolli.length / numParallelsJobs);
-        for (let i = 0; i < numParallelsJobs; i++) {
-            let job = protocolli.slice(i * jobSize, (i + 1) * jobSize);
-            console.log("JOB#" + i + " " + job.length)
-            jobs.push(job);
+        for (let i = 0; i < protocolli.length; i += maxItemsPerJob) {
+            jobs.push(protocolli.slice(i, i + maxItemsPerJob));
         }
-        let promises = [];
-        for (let i = 0; i < jobs.length; i++) {
+
+        // Funzione per processare un singolo job
+        async function processJob(job, index = 1) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi);
-            promises.push(assistitiTemp.controlliEsenzioneAssistito(jobs[i], arrayEsenzioni, anno, i + 1, includiNucleo, visible));
+            let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiNucleo, visible);
+            if (!result.error) {
+                for (const key in result.out) {
+                    out.out[key] = result.out[key];
+                }
+                await lock.acquire('fileWriteLock', async function() {
+                    await Utils.scriviOggettoSuFile(workingPath + path.sep + anno + ".json", out.out);
+                    console.log("[" + index + "] AGGIORNAMENTO FILE OK")
+                });
+            }
         }
-        let results = await Promise.all(promises);
-        for (let result of results) {
-            out.error = out.error || result.error;
-            out.out = Object.assign(out.out, result.out);
+
+        // Gestisce l'esecuzione parallela dei jobs
+        async function manageParallelJobs(jobs) {
+            let activeJobs = [];
+            let index = 1;
+            while (jobs.length > 0) {
+                if (activeJobs.length < numParallelsJobs) {
+                    let job = jobs.shift();
+                    console.log("Rimangono " + jobs.length + " jobs ");
+                    let jobPromise = processJob(job,index++).then(() => {
+                        activeJobs = activeJobs.filter(j => j !== jobPromise);
+                    });
+                    activeJobs.push(jobPromise);
+                } else {
+                    await Promise.race(activeJobs);
+                }
+            }
+            await Promise.all(activeJobs);
         }
+
+        await manageParallelJobs(jobs);
         return out;
     }
 
