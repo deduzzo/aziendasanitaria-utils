@@ -56,22 +56,9 @@ class Procedure {
                 maxItemPerJob,
                 includiNucleo,
                 visibile);
-        }
-
-        while (risultato
-
-                .out
-                .error
-            ===
-            true
-            )
-        console
-            .log(
-                "FINE"
-            )
-        ;
-        return
-        0;
+        } while (risultato.out.error === true)
+        console.log("FINE " + anno);
+        return 0;
     }
 
     static
