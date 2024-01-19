@@ -421,6 +421,7 @@ export class Assistiti {
                 }
             } while (!ok);
         }
+        await this._ts.doLogout();
         return datoFinale;
     }
 
