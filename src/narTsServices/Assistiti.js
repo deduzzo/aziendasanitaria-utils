@@ -421,7 +421,7 @@ export class Assistiti {
                 }
             } while (!ok);
         }
-        await this._ts.doLogout();
+        await this._ts._browser.close();
         return datoFinale;
     }
 
@@ -454,6 +454,7 @@ export class Assistiti {
             async function processJob(job, index = 1) {
                 let assistitiTemp = new Assistiti(configImpostazioniServizi);
                 let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiNucleo, visible);
+                assistitiTemp = null;
                 if (!result.error) {
                     await lock.acquire('updateData', async function () {
                         for (const key in result.out) {
