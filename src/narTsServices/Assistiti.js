@@ -284,7 +284,7 @@ export class Assistiti {
         return out;
     }
 
-    async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiNucleo = true, visibile = false) {
+    async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiPrestazioni = true, visibile = false) {
         let datoFinale = {error: false, out: {}};
         let start = true;
         let numErrori = 0;
@@ -378,6 +378,7 @@ export class Assistiti {
                                         let row = tabella.rows[i];
                                         if (i !== tabella.rows.length - 1)
                                             dati.out.dettaglio[titoloTabella].dettaglio.push({
+                                                value: row.cells[0].children[0].value,
                                                 ricetta: row.cells[1].innerText,
                                                 struttura: row.cells[2].innerText,
                                                 ubicazione: row.cells[3].innerText,
@@ -394,9 +395,48 @@ export class Assistiti {
                             });
                             if (ricetteProtocollo.error)
                                 datiEsenzioni.error = true;
-                            else
+                            else {
                                 datiEsenzioni.out[key].ricette = ricetteProtocollo.out;
-
+                                if (includiPrestazioni) {
+                                    for (let tipo in ricetteProtocollo.out.dettaglio) {
+                                        for (let ricetta of ricetteProtocollo.out.dettaglio[tipo].dettaglio) {
+                                            await page.click('input[type="radio"][name="scelta"][value="' + ricetta.value + '"]');
+                                            delete ricetta.value;
+                                            await Promise.all([
+                                                page.waitForNavigation({waitUntil: 'networkidle2'}),
+                                                await page.click('input[type="submit"][name="button"][value="Dettaglio"]')
+                                            ]);
+                                            let prestazioni = await page.evaluate(() => {
+                                                let dati = {error: false, out: {dettaglio: [], tariffaGlobale: 0.0}};
+                                                // get child of component with selector "body > table > tbody > tr > td > div > form > fieldset"
+                                                let table = document.querySelector("body > table > tbody > tr > td > div > form > fieldset > div:nth-child(6) > table");
+                                                try {
+                                                    for (let i = 1; i < table.rows.length; i++) {
+                                                        let row = table.rows[i];
+                                                        let temp = {}
+                                                        temp.regione = row.cells[0].innerText.trim();
+                                                        temp.data_erogazione = row.cells[1].innerText.trim();
+                                                        temp.quantita = parseInt(row.cells[2].innerText.trim());
+                                                        temp.codice_prodotto = row.cells[3].innerText.trim();
+                                                        temp.descrizione = row.cells[4].innerText.trim();
+                                                        temp.tariffa = parseFloat(row.cells[5].innerText.trim());
+                                                        dati.out.tariffaGlobale += temp.tariffa;
+                                                        dati.out.dettaglio.push(temp);
+                                                    }
+                                                } catch (ex) {
+                                                    dati.error = true;
+                                                    dati.out = ex.message + " " + ex.stack;
+                                                }
+                                                return dati;
+                                            });
+                                            if (!prestazioni.error) {
+                                                ricetta.prestazioni = prestazioni.out;
+                                            }
+                                            await page.goBack();
+                                        }
+                                    }
+                                }
+                            }
                             await page.goBack();
                             await page.goBack();
                         }
@@ -425,7 +465,7 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiNucleo = true, visible = false) {
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiPrestazioni = true, visible = false) {
         EventEmitter.defaultMaxListeners = 200;
         let out = {error: false, out: Object.assign({}, protocolli)};
         let protocolliMancanti = {}
@@ -453,7 +493,7 @@ export class Assistiti {
             // Funzione per processare un singolo job
             async function processJob(job, index = 1) {
                 let assistitiTemp = new Assistiti(configImpostazioniServizi);
-                let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiNucleo, visible);
+                let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visible);
                 assistitiTemp = null;
                 if (!result.error) {
                     await lock.acquire('updateData', async function () {

@@ -29,7 +29,7 @@ class Procedure {
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze.json", differenze);
     }
 
-    static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 50, maxItemPerJob = 50, includiNucleo = true, visibile = false) {
+    static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 50, maxItemPerJob = 50, includiPrestazioni = true, visibile = false) {
         let risultato = {};
         do {
             let datiRecupero = null;
@@ -54,7 +54,7 @@ class Procedure {
                 workingPath,
                 parallels,
                 maxItemPerJob,
-                includiNucleo,
+                includiPrestazioni,
                 visibile);
         } while (risultato.out.error === true)
         console.log("FINE " + anno);
