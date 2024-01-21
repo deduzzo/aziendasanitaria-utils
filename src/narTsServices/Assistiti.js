@@ -493,7 +493,13 @@ export class Assistiti {
             // Funzione per processare un singolo job
             async function processJob(job, index = 1) {
                 let assistitiTemp = new Assistiti(configImpostazioniServizi);
-                let result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visible);
+                let result = null;
+                try {
+                    result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visible);
+                } catch (e) {
+                    console.log("[" + index + "] errore elaborazione job:" + job);
+                    result = {error: true, out: "errore elaborazione job:" + job};
+                }
                 assistitiTemp = null;
                 if (!result.error) {
                     await lock.acquire('updateData', async function () {
