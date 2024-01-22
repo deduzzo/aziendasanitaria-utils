@@ -500,6 +500,7 @@ export class Assistiti {
                     console.log("[" + index + "] errore elaborazione job:" + job);
                     result = {error: true, out: "errore elaborazione job:" + job};
                 }
+                await assistitiTemp._ts.doLogout();
                 assistitiTemp = null;
                 if (!result.error) {
                     await lock.acquire('updateData', async function () {
