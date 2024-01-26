@@ -8,7 +8,7 @@ import fs from "fs";
 
 
 class Procedure {
-    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, workingPath = null, parallels = 20, visibile = false) {
+    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi,  soloAttivi = true,workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         let medici = new Medici(impostazioniServizi, workingPath);
@@ -17,7 +17,8 @@ class Procedure {
         let datiMediciPediatriCompleto = await Utils.getObjectFromFileExcel(pathFileExcelMediciPediatri);
         let codToCfMap = {};
         for (let dato of datiMediciPediatriCompleto) {
-            codToCfMap[dato['codice regionale'].toString()] = dato['Codice fiscale'];
+            if (tipologia.includes(dato[colonnaCategoria]) && (!soloAttivi || !dato.hasOwnProperty(colonnaFineRapporto)))
+            codToCfMap[dato[colonnaCodRegionale].toString()] = dato[colonnaCodFiscale];
         }
         let temp = await Medici.getElencoAssistitiFromTsParallels(Object.values(codToCfMap), impostazioniServizi, parallels, visibile);
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);

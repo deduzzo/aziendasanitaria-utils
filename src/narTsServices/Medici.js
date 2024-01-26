@@ -15,6 +15,14 @@ import {EventEmitter} from "events";
 
 export class Medici {
 
+    static CF = "cf";
+    static MATRICOLA = "matricola";
+    static NOME = "nome";
+    static COGNOME = "cognome";
+    static DATA_FINE_RAPPORTO = "dataFineRapporto";
+    static MEDICO_DI_BASE_NAR = "MDB";
+    static MEDICO_DI_BASE_FILE ="Medico di base";
+    static PEDIATRA_FILE = "Pediatra di Libera Scelta";
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
@@ -31,12 +39,6 @@ export class Medici {
         this._retry = 20;
     }
 
-    static CF = "cf";
-    static MATRICOLA = "matricola";
-    static NOME = "nome";
-    static COGNOME = "cognome";
-    static DATA_FINE_RAPPORTO = "dataFineRapporto";
-    static MEDICO_DI_BASE = "MDB";
 
 
     /*async getPffAssistitiMedici(datiMedici) {
@@ -402,7 +404,7 @@ export class Medici {
         return out;
     }
 
-    async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE) {
+    async getDataFineRapporto(datiMedici, type = Medici.MEDICO_DI_BASE_NAR) {
         let out = {error: false, data: [], notFound: []};
         try {
             let page = this._nar.getWorkingPage();
