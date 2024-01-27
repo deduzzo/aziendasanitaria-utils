@@ -494,7 +494,6 @@ export class Medici {
                                 out[cf] = {
                                     cognome: pulisci(allElement.children[0].textContent),
                                     nome: pulisci(allElement.children[1].textContent),
-                                    cf: pulisci(allElement.children[2].textContent)
                                 }
                             }
                         }
@@ -533,16 +532,24 @@ export class Medici {
 
     getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfMap) {
         let out = {};
+        let narTocfMap = {};
+        for (let cf of Object.keys(codToCfMap))
+            narTocfMap[codToCfMap[cf].cod_regionale] = cf;
         for (let codNar of Object.keys(assistitiNar)) {
-            if (assistitiTs.hasOwnProperty(codToCfMap[codNar])) {
-                let res = this.#getDifferenzeAnagrafiche(Object.keys(assistitiNar[codNar].assistiti), Object.keys(assistitiTs[codToCfMap[codNar]]));
+            let cfMedico = narTocfMap[parseInt(codNar)];
+            if (assistitiTs.hasOwnProperty(cfMedico)) {
+                let res = this.#getDifferenzeAnagrafiche(
+                    Object.keys(assistitiNar[codNar].assistiti),
+                    Object.keys(assistitiTs[cfMedico]),
+                    cfMedico
+                );
                 out[codNar] = res;
             }
         }
         return out;
     }
 
-    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs) {
+    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs, cf) {
         let differenze = [];
         let allAssistiti = {};
         for (let assistitoNar of assistitiNar)
@@ -568,7 +575,7 @@ export class Medici {
             if (ris.differenza)
                 differenze.push(ris);
         }
-        return {numDifferenze: differenze.length, dettaglioDifferenze: differenze};
+        return {cfMedico: cf, numDifferenze: differenze.length, dettaglioDifferenze: differenze};
     }
 
 
@@ -591,8 +598,9 @@ export class Medici {
                 } else if (assistitoRow.length >= 9) {
                     assistitoRow[3] = assistitoRow[3].replaceAll(assistitoRow[8], "");
                     //(assistitoRow);
+                    // remove all numbers from string assistitoRow[3]
                     out[lastCodice].assistiti[assistitoRow[assistitoRow.length - 1]] = {
-                        nome: assistitoRow[3],
+                        nome: assistitoRow[3].replace(/\d+/g, ''),
                         cognome: assistitoRow[2],
                         sesso: assistitoRow[assistitoRow.length - 5],
                         dataNascita: assistitoRow[assistitoRow.length - 4],

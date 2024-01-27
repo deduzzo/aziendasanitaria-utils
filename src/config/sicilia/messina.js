@@ -9,6 +9,17 @@ const distretti = {
     9: "S.Agata"
 }
 
+const distrettiByKeyword = [
+    "messina",
+    "taormina",
+    "milazzo",
+    "lipari",
+    "barcellona",
+    "patti",
+    "mistretta",
+    "agata"
+]
+
 const recapitiDistretti =
     {
         1: ["convest.menord@asp.messina.it","distretto.mesud@asp.messina.it"],
@@ -40,4 +51,4 @@ const listaPrestazioniVolumi = ["897","8901","8913","9502","8926","87371","87372
     "88731","88732","8878","88772","4523","4542","4524","4513","4516","8952","8950","8941","8944","95411","89371","89372",
     "9511","93081"]
 
-export {struttureDistrettiMap,distretti,comuniDistretti, recapitiDistretti, listaPrestazioniVolumi}
+export {struttureDistrettiMap,distretti,comuniDistretti, recapitiDistretti, listaPrestazioniVolumi, distrettiByKeyword}

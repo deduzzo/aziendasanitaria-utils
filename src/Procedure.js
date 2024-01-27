@@ -8,25 +8,75 @@ import fs from "fs";
 
 
 class Procedure {
-    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi,  soloAttivi = true,workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria") {
+    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = true, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         let medici = new Medici(impostazioniServizi, workingPath);
-        let allAssistiti = await medici.getAssistitiDaListaPDF(pathAssistitiPdfNar);
-        await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiNar.json", allAssistiti);
         let datiMediciPediatriCompleto = await Utils.getObjectFromFileExcel(pathFileExcelMediciPediatri);
-        let codToCfMap = {};
+        let codToCfDistrettoMap = {};
+        let mediciPerDistretto = {};
         for (let dato of datiMediciPediatriCompleto) {
+            // find any of distretty kewrord in string dato[colonnaDistretto]
+            let distretto = distretti.filter(distrettoKeyword =>
+                dato[colonnaDistretto]?.toLowerCase().includes(distrettoKeyword.toLowerCase())
+            );
+            let cfM = dato[colonnaCodFiscale].toString();
+            let codReg = dato[colonnaCodRegionale];
+            let nomeCogn = dato[colonnaCodRegionale];
+            if (distretto.length === 0)
+                distretto = ['N.D.'];
             if (tipologia.includes(dato[colonnaCategoria]) && (!soloAttivi || !dato.hasOwnProperty(colonnaFineRapporto)))
-            codToCfMap[dato[colonnaCodRegionale].toString()] = dato[colonnaCodFiscale];
+                codToCfDistrettoMap[cfM] = {
+                    cod_regionale: codReg,
+                    distretto: distretto[0],
+                    nome_cognome: nomeCogn,
+                };
+            // medici per distretto
+            if (!mediciPerDistretto.hasOwnProperty(distretto[0]))
+                mediciPerDistretto[distretto[0]] = [];
+            mediciPerDistretto[distretto[0]].push({
+                cod_regionale: codReg,
+                cf: cfM,
+                nome_cognome: nomeCogn,
+            });
         }
-        let temp = await Medici.getElencoAssistitiFromTsParallels(Object.values(codToCfMap), impostazioniServizi, parallels, visibile);
-        await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);
+
+        if (!fs.existsSync(workingPath + path.sep + "assistitiNar.json")) {
+            let allAssistiti = await medici.getAssistitiDaListaPDF(pathAssistitiPdfNar);
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiNar.json", allAssistiti);
+        }
+        if (!fs.existsSync(workingPath + path.sep + "assistitiTs.json")) {
+            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), impostazioniServizi, parallels, visibile);
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);
+        }
+
+        // per codice regionale
+        let assistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
+        //per codice fiscale
+        let assistitiTs = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiTs.json");
+
+        // SALVA FILE NAR E TS PER DISTRETTO
+        let allAssistitiDistrettuali = {};
+        for (let distretto of Object.keys(mediciPerDistretto)) {
+            let assistitiNarDistretto = {};
+            let assistitiTsDistretto = {};
+            for (let mediciDistretto of mediciPerDistretto[distretto]) {
+                let codReg = mediciDistretto.cod_regionale;
+                let cf = mediciDistretto.cf;
+                if (assistitiNar.hasOwnProperty(codReg))
+                    assistitiNarDistretto[codReg] = assistitiNar[codReg];
+                if (assistitiTs.hasOwnProperty(cf))
+                    assistitiTsDistretto[cf] = assistitiTs[cf];
+            }
+            allAssistitiDistrettuali[distretto] = {
+                nar: assistitiNarDistretto,
+                ts: assistitiTsDistretto
+            };
+        }
+
 
         // VERIFICA DIFFERENZE
-        let assistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
-        let assistitiTs = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiTs.json");
-        let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfMap);
+        let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfDistrettoMap);
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze.json", differenze);
     }
 
@@ -121,4 +171,6 @@ class Procedure {
 
 }
 
-export {Procedure};
+export {
+    Procedure
+};
