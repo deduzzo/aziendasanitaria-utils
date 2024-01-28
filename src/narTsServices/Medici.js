@@ -21,8 +21,9 @@ export class Medici {
     static COGNOME = "cognome";
     static DATA_FINE_RAPPORTO = "dataFineRapporto";
     static MEDICO_DI_BASE_NAR = "MDB";
-    static MEDICO_DI_BASE_FILE ="Medico di base";
+    static MEDICO_DI_BASE_FILE = "Medico di base";
     static PEDIATRA_FILE = "Pediatra di Libera Scelta";
+
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
@@ -33,12 +34,11 @@ export class Medici {
 
     constructor(impostazioni, visible = false, workingPath = null) {
         this._impostazioni = impostazioni;
-        this._nar = new Nar(this._impostazioni,visible,workingPath);
+        this._nar = new Nar(this._impostazioni, visible, workingPath);
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
     }
-
 
 
     /*async getPffAssistitiMedici(datiMedici) {
@@ -302,7 +302,7 @@ export class Medici {
         return out;
     }
 
-    async stampaCedolino(matricola,visible = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
+    async stampaCedolino(matricola, visible = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = null;
         if (!this._nar._batchProcess) {
             await this._nar.doLogout();
@@ -335,7 +335,7 @@ export class Medici {
                     await page.keyboard.press('A');
                     await page.keyboard.up('Control');
                     await page.keyboard.press('Backspace');
-                    await page.type("input[name='dataDal@Filter']",  "01/01/2000");
+                    await page.type("input[name='dataDal@Filter']", "01/01/2000");
                     //press f4
                     await page.waitForTimeout(1000);
                     await page.keyboard.press("F4");
@@ -462,12 +462,13 @@ export class Medici {
         return out;
     }
 
-    async getAssistitiDaTs(cfMedici, index = 1) {
+    async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap,index = 1) {
         let page = await this._ts.getWorkingPage(this._visible);
         page.setDefaultTimeout(600000);
         let datiAssistiti = {};
         if (page) {
-            for (let cfMedico of cfMedici) {
+            for (let codRegionale of codRegMedici) {
+                let cfMedico = codToCfDistrettoMap[codRegionale].cf;
                 await page.goto("https://sistemats4.sanita.finanze.it/simossHome/servizi.jsp", {waitUntil: 'networkidle2'});
                 await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
                 await page.waitForSelector("input[name='codiceFiscale']");
@@ -486,41 +487,42 @@ export class Medici {
                             return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
                         }
 
-                        let out = {}
+                        let out = [];
                         let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
                         for (let allElement of allElements) {
                             if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
                                 let cf = pulisci(allElement.children[2].textContent);
-                                out[cf] = {
+                                out.push({
+                                    cf: cf,
                                     cognome: pulisci(allElement.children[0].textContent),
                                     nome: pulisci(allElement.children[1].textContent),
-                                }
+                                });
                             }
                         }
                         return out;
                     });
-                    console.log("[" + index + "]" + " " + cfMedico + " " + Object.keys(dati).length + " assistiti");
-                    datiAssistiti[cfMedico] = dati;
+                    console.log("[" + index + "]" + " " + cfMedico + " cod regionale " +codRegionale+ " " + Object.keys(dati).length + " assistiti");
+                    datiAssistiti[codRegionale] = dati;
                 } else
-                    datiAssistiti[cfMedico] = null;
+                    datiAssistiti[codRegionale] = null;
             }
             return datiAssistiti;
         }
     }
 
-    static async getElencoAssistitiFromTsParallels(cfMedici, impostazioni, numParallelsJobs = 20, visible = false) {
+    static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap,impostazioni, numParallelsJobs = 20, visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {};
         let jobs = [];
-        let jobSize = Math.ceil(cfMedici.length / numParallelsJobs);
+        let jobSize = Math.ceil(codRegionali.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {
-            let job = cfMedici.slice(i * jobSize, (i + 1) * jobSize);
+            let job = codRegionali.slice(i * jobSize, (i + 1) * jobSize);
             jobs.push(job);
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let mediciTemp = new Medici(impostazioni, visible);
-            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], i));
+            promises.push(mediciTemp.getAssistitiDaTs(jobs[i],codToCfDistrettoMap, i));
             console.log("job " + i + " " + jobs[i].length + " medici");
         }
         let results = await Promise.all(promises);
@@ -579,7 +581,7 @@ export class Medici {
     }
 
 
-    async getAssistitiDaListaPDF(pdfPath) {
+    async getAssistitiDaListaPDF(pdfPath, codToCfDistrettoMap) {
         let out = {}
         let lastCodice = "";
         const html = await pdf2html.text(pdfPath);
@@ -589,17 +591,21 @@ export class Medici {
                 ready = true;
             else if (ready) {
                 let assistitoRow = line.split(" ");
-                if (assistitoRow[assistitoRow.length - 2] === "Codice") {
+                if (assistitoRow[assistitoRow.length - 2] === "Codice" && assistitoRow[assistitoRow.length - 1] !== "fiscale") {
                     if (lastCodice !== assistitoRow[assistitoRow.length - 1])
                         lastCodice = assistitoRow[assistitoRow.length - 1];
                     if (!out.hasOwnProperty(lastCodice))
-                        out[lastCodice] = {assistiti: {}, medico: {}}
+                        out[lastCodice] = {assistiti: [], medico: {}}
                     out[lastCodice].medico.codice = lastCodice;
+                    console.log(lastCodice);
+                    out[lastCodice].medico.cf = codToCfDistrettoMap[lastCodice].cf;
+                    out[lastCodice].medico.distretto = codToCfDistrettoMap[lastCodice].distretto;
+                    out[lastCodice].medico.nominativo = codToCfDistrettoMap[lastCodice].nome_cognome;
                 } else if (assistitoRow.length >= 9) {
                     assistitoRow[3] = assistitoRow[3].replaceAll(assistitoRow[8], "");
                     //(assistitoRow);
                     // remove all numbers from string assistitoRow[3]
-                    out[lastCodice].assistiti[assistitoRow[assistitoRow.length - 1]] = {
+                    out[lastCodice].assistiti.push({
                         nome: assistitoRow[3].replace(/\d+/g, ''),
                         cognome: assistitoRow[2],
                         sesso: assistitoRow[assistitoRow.length - 5],
@@ -607,7 +613,7 @@ export class Medici {
                         codiceFiscale: assistitoRow[assistitoRow.length - 1],
                         codiceComuneResidenza: assistitoRow[assistitoRow.length - 3],
                         data_scelta: assistitoRow[assistitoRow.length - 2],
-                    }
+                    });
                     // TODO: GESTIRE PIU' NOMI
                 }
             }

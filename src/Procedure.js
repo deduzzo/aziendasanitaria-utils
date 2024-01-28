@@ -8,7 +8,7 @@ import fs from "fs";
 
 
 class Procedure {
-    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = true, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
+    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         let medici = new Medici(impostazioniServizi, workingPath);
@@ -22,31 +22,32 @@ class Procedure {
             );
             let cfM = dato[colonnaCodFiscale].toString();
             let codReg = dato[colonnaCodRegionale];
-            let nomeCogn = dato[colonnaCodRegionale];
+            let nomeCogn = dato[colonnaNomeCognome];
             if (distretto.length === 0)
                 distretto = ['N.D.'];
             if (tipologia.includes(dato[colonnaCategoria]) && (!soloAttivi || !dato.hasOwnProperty(colonnaFineRapporto)))
-                codToCfDistrettoMap[cfM] = {
+                codToCfDistrettoMap[codReg] = {
                     cod_regionale: codReg,
                     distretto: distretto[0],
                     nome_cognome: nomeCogn,
+                    cf: cfM
                 };
             // medici per distretto
             if (!mediciPerDistretto.hasOwnProperty(distretto[0]))
                 mediciPerDistretto[distretto[0]] = [];
             mediciPerDistretto[distretto[0]].push({
-                cod_regionale: codReg,
-                cf: cfM,
-                nome_cognome: nomeCogn,
+                cod_regionale_medico: codReg,
+                cf_medico: cfM,
+                nome_cognome_medico: nomeCogn,
             });
         }
 
         if (!fs.existsSync(workingPath + path.sep + "assistitiNar.json")) {
-            let allAssistiti = await medici.getAssistitiDaListaPDF(pathAssistitiPdfNar);
+            let allAssistiti = await medici.getAssistitiDaListaPDF(pathAssistitiPdfNar, codToCfDistrettoMap, 'cf');
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiNar.json", allAssistiti);
         }
         if (!fs.existsSync(workingPath + path.sep + "assistitiTs.json")) {
-            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), impostazioniServizi, parallels, visibile);
+            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), codToCfDistrettoMap, impostazioniServizi, parallels, visibile);
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);
         }
 
@@ -58,22 +59,25 @@ class Procedure {
         // SALVA FILE NAR E TS PER DISTRETTO
         let allAssistitiDistrettuali = {};
         for (let distretto of Object.keys(mediciPerDistretto)) {
-            let assistitiNarDistretto = {};
-            let assistitiTsDistretto = {};
-            for (let mediciDistretto of mediciPerDistretto[distretto]) {
-                let codReg = mediciDistretto.cod_regionale;
-                let cf = mediciDistretto.cf;
-                if (assistitiNar.hasOwnProperty(codReg))
-                    assistitiNarDistretto[codReg] = assistitiNar[codReg];
-                if (assistitiTs.hasOwnProperty(cf))
-                    assistitiTsDistretto[cf] = assistitiTs[cf];
+            allAssistitiDistrettuali[distretto] = {nar: [], ts: []};
+            for (let medico of mediciPerDistretto[distretto]) {
+                let codReg = medico.cod_regionale_medico;
+                if (assistitiNar.hasOwnProperty(codReg)) {
+                    for (let assistito of assistitiNar[codReg].assistiti) {
+                        allAssistitiDistrettuali[distretto].nar.push({...assistito, ...medico});
+                    }
+                    for (let assistito of assistitiTs[codReg]) {
+                        allAssistitiDistrettuali[distretto].ts.push({...assistito, ...medico});
+                    }
+                }
             }
-            allAssistitiDistrettuali[distretto] = {
-                nar: assistitiNarDistretto,
-                ts: assistitiTsDistretto
-            };
         }
-
+        for (let distretto of Object.keys(allAssistitiDistrettuali)) {
+            if (!fs.existsSync(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx"))
+                await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].nar);
+            if (!fs.existsSync(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx"))
+                await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].ts);
+        }
 
         // VERIFICA DIFFERENZE
         let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfDistrettoMap);
