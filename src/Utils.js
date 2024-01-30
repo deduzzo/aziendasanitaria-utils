@@ -335,20 +335,22 @@ const scriviOggettoSuNuovoFileExcel = async (filename, data, customHeader = null
     var workbook = new ExcelJS.Workbook();
     // if data is array, convert it to object
     let worksheet = workbook.addWorksheet('dati');
-    if (scriviHeader) {
-        if (typeof data[0] !== "string") {
-            if (customHeader)
-                worksheet.addRow(Object.values(customHeader));
+    if (data && Object.values(data).length > 0) {
+        if (scriviHeader) {
+            if (typeof data[0] !== "string") {
+                if (customHeader)
+                    worksheet.addRow(Object.values(customHeader));
+                else
+                    worksheet.addRow((data !== null) ? Object.keys(data[0]) : "");
+            } else
+                worksheet.addRow([customHeader]);
+        }
+        for (let riga of data) {
+            if (typeof riga !== "string")
+                worksheet.addRow(Object.values(riga));
             else
-                worksheet.addRow((data !== null) ? Object.keys(data[0]) : "");
-        } else
-            worksheet.addRow([customHeader]);
-    }
-    for (let riga of data) {
-        if (typeof riga !== "string")
-            worksheet.addRow(Object.values(riga));
-        else
-            worksheet.addRow([riga]);
+                worksheet.addRow([riga]);
+        }
     }
     await workbook.xlsx.writeFile(filename);
 }

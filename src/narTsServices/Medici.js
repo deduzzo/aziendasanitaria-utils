@@ -534,16 +534,11 @@ export class Medici {
 
     getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfMap) {
         let out = {};
-        let narTocfMap = {};
-        for (let cf of Object.keys(codToCfMap))
-            narTocfMap[codToCfMap[cf].cod_regionale] = cf;
         for (let codNar of Object.keys(assistitiNar)) {
-            let cfMedico = narTocfMap[parseInt(codNar)];
-            if (assistitiTs.hasOwnProperty(cfMedico)) {
+            if (assistitiTs.hasOwnProperty(codNar)) {
                 let res = this.#getDifferenzeAnagrafiche(
-                    Object.keys(assistitiNar[codNar].assistiti),
-                    Object.keys(assistitiTs[cfMedico]),
-                    cfMedico
+                    assistitiNar[codNar].assistiti,
+                    assistitiTs[codNar]
                 );
                 out[codNar] = res;
             }
@@ -551,33 +546,43 @@ export class Medici {
         return out;
     }
 
-    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs, cf) {
+    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs) {
         let differenze = [];
+        let allAssistitiTs = [];
+        let allAssistitiNar = [];
         let allAssistiti = {};
-        for (let assistitoNar of assistitiNar)
-            allAssistiti[assistitoNar] = assistitoNar;
-        for (let assistitoTs of assistitiTs)
-            allAssistiti[assistitoTs] = null;
-
+        for (let assistito of assistitiNar) {
+            if (!allAssistiti.hasOwnProperty(assistito.codiceFiscale))
+                allAssistiti[assistito.codiceFiscale] = null;
+            allAssistitiNar.push(assistito.codiceFiscale);
+        }
+        for (let assistito of assistitiTs) {
+            if (!allAssistiti.hasOwnProperty(assistito.cf))
+                allAssistiti[assistito.cf] = null;
+            allAssistitiTs.push(assistito.cf);
+        }
         for (let assistito of Object.keys(allAssistiti)) {
             let trovatoNar = false;
             let trovatoTs = false;
-            if (assistitiNar.includes(assistito))
+            if (allAssistitiNar.includes(assistito))
                 trovatoNar = true;
-            if (assistitiTs.includes(assistito))
+            if (allAssistitiTs.includes(assistito))
                 trovatoTs = true;
             let ris = null;
             if (trovatoNar && !trovatoTs)
                 ris = {differenza: true, assistito: assistito, motivo: "presente solo in NAR"};
             else if (!trovatoNar && trovatoTs)
-                ris = {differenza: true, assistito: assistito, motivo: "presente solo in SOGEI Sistema TS"};
+                ris = {differenza: true, assistito: assistito, motivo: "presente su Sistema TS"};
             else
                 ris = {differenza: false};
             allAssistiti[assistito] = ris;
-            if (ris.differenza)
+            if (ris.differenza) {
+                // remove differenza from ris
+                delete ris.differenza;
                 differenze.push(ris);
+            }
         }
-        return {cfMedico: cf, numDifferenze: differenze.length, dettaglioDifferenze: differenze};
+        return {numDifferenze: differenze.length, dettaglioDifferenze: differenze};
     }
 
 

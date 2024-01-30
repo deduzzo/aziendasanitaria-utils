@@ -5,6 +5,7 @@ import {Assistiti} from "./narTsServices/Assistiti.js";
 import moment from "moment";
 import knex from "knex";
 import fs from "fs";
+import sqlite3 from 'sqlite3';
 
 
 class Procedure {
@@ -24,7 +25,7 @@ class Procedure {
             let codReg = dato[colonnaCodRegionale];
             let nomeCogn = dato[colonnaNomeCognome];
             if (distretto.length === 0)
-                distretto = ['N.D.'];
+                distretto = ['ND'];
             if (tipologia.includes(dato[colonnaCategoria]) && (!soloAttivi || !dato.hasOwnProperty(colonnaFineRapporto)))
                 codToCfDistrettoMap[codReg] = {
                     cod_regionale: codReg,
@@ -72,12 +73,17 @@ class Procedure {
                 }
             }
         }
+
         for (let distretto of Object.keys(allAssistitiDistrettuali)) {
+            console.log("DISTRETTO " + distretto);
             if (!fs.existsSync(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx"))
                 await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].nar);
             if (!fs.existsSync(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx"))
                 await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].ts);
         }
+
+        if (!fs.existsSync(workingPath + path.sep + "medici.json"))
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + "medici.json", Object.values(codToCfDistrettoMap));
 
         // VERIFICA DIFFERENZE
         let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfDistrettoMap);
@@ -116,8 +122,64 @@ class Procedure {
         return 0;
     }
 
-    static
-    async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
+    static async generaDbSqliteDaElencoAssistiti(pathFileAssistitiNar, pathFileAssistitiTs, nomeDb = "assistiti.db", workingPath = null) {
+        const insertDb = (sql, params) => {
+            return new Promise((resolve, reject) => {
+                db.run(sql, params, function(err) {
+                    if (err) {
+                        reject(err.message);
+                    } else {
+                        resolve(this.lastID);
+                    }
+                });
+            });
+        };
+
+
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+        // leggi i dati
+        let datiAssistitiTs = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + pathFileAssistitiTs);
+        let datiAssistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + pathFileAssistitiNar);
+        // Crea un nuovo database SQLite (o apre uno esistente)
+        let db = new sqlite3.Database(workingPath + path.sep + nomeDb, (err) => {
+            if (err) {
+                console.error(err.message);
+                return;
+            }
+            console.log('Connesso al database SQLite.');
+        });
+
+        db.run('CREATE TABLE IF NOT EXISTS medico (codice_regionale TEXT PRIMARY KEY, cf TEXT UNIQUE, nominativo TEXT, mail TEXT, telefono TEXT, distretto TEXT)');
+        db.run('CREATE TABLE IF NOT EXISTS assistito (codice_fiscale TEXT PRIMARY KEY, codice_regionale_ts TEXT, codice_regionale_nar TEXT, FOREIGN KEY(codice_regionale_ts) REFERENCES medico(codice_regionale), FOREIGN KEY(codice_regionale_nar) REFERENCES medico(codice_regionale))');
+        // inserisci i dati medici
+        for (let dato of Object.values(datiAssistitiNar)) {
+            let sql = `INSERT INTO medico(codice_regionale, cf, nominativo, distretto) VALUES (?, ?, ?, ?)`;
+            let params = [dato.medico.codice, dato.medico.cf, dato.medico.nominativo, dato.medico.distretto];
+            let id = await insertDb(sql, params);
+            for (let assistito of dato.assistiti) {
+                let sql = `INSERT INTO assistito(codice_fiscale, codice_regionale_nar) VALUES (?, ?)`;
+                let params = [assistito.codiceFiscale, dato.medico.codice];
+                db.run(sql, params, function (err) {
+                    if (err) {
+                        return console.error(err.message);
+                    }
+                    // ottieni l'id appena inserito
+                    console.log(`A row has been inserted with rowid ${this.lastID}`);
+                });
+            }
+        }
+        // Chiudi il database
+        db.close((err) => {
+            if (err) {
+                console.error(err.message);
+                return;
+            }
+            console.log('Connessione al database chiusa.');
+        });
+    }
+
+    static async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
         // da,a array mese anno
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
@@ -128,8 +190,7 @@ class Procedure {
         } while (da.isSameOrBefore(a));
     }
 
-    static
-    async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
+    static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
         const db = knex({
             client: 'mysql',
             connection: datiDb
