@@ -386,7 +386,7 @@ export class FlussoM {
         const reader = new MDBReader(buffer);
 
         const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
-        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && p["Anno"] === new Date().getFullYear().toString());
+        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) -2));
         let mancanti = []
         let struttureOut = {}
         struttureFiltrate.forEach(p => {
@@ -1582,18 +1582,20 @@ export class FlussoM {
                 for (let dato in prestazioniMap[codStr][tab]) {
                     let brancheTxt = "";
 
-                    prestazioniBrancheMap[dato].forEach(p => brancheTxt += " (" + p + ") " + brancheMap[p] + " - ")
+                    if (prestazioniBrancheMap[dato]) {
+                        prestazioniBrancheMap[dato].forEach(p => brancheTxt += " (" + p + ") " + brancheMap[p] + " - ")
 
-                    sheets[tabs[tab]].insertRow(2,
-                        {
-                            id: codStr,
-                            descrStruttura: strutture[codStr].denominazione,
-                            idPrest: dato,
-                            descPrest: catalogoMap[dato].descrizione,
-                            branche: brancheTxt.substring(0, brancheTxt.length - 3),
-                            totalePrest: prestazioniMap[codStr][tab][dato].num,
-                            importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
-                        });
+                        sheets[tabs[tab]].insertRow(2,
+                            {
+                                id: codStr,
+                                descrStruttura: strutture[codStr]?.denominazione ?? ("cod. " + codStr),
+                                idPrest: dato,
+                                descPrest: catalogoMap[dato].descrizione,
+                                branche: brancheTxt.substring(0, brancheTxt.length - 3),
+                                totalePrest: prestazioniMap[codStr][tab][dato].num,
+                                importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
+                            });
+                    }
                 }
             }
             await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + codStr + "_" + anno.toString() + ".xlsx");
