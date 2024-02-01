@@ -134,7 +134,17 @@ class Procedure {
                 });
             });
         };
-
+        const getFromDb = (sql, params) => {
+            return new Promise((resolve, reject) => {
+                db.all(sql, params, function(err, rows) {
+                    if (err) {
+                        reject(err.message);
+                    } else {
+                        resolve(rows);
+                    }
+                });
+            });
+        }
 
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
@@ -142,41 +152,71 @@ class Procedure {
         let datiAssistitiTs = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + pathFileAssistitiTs);
         let datiAssistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + pathFileAssistitiNar);
         // Crea un nuovo database SQLite (o apre uno esistente)
-        let db = new sqlite3.Database(workingPath + path.sep + nomeDb, (err) => {
-            if (err) {
-                console.error(err.message);
-                return;
-            }
-            console.log('Connesso al database SQLite.');
-        });
+        let db = await new sqlite3.Database(workingPath + path.sep + nomeDb);
 
-        db.run('CREATE TABLE IF NOT EXISTS medico (codice_regionale TEXT PRIMARY KEY, cf TEXT UNIQUE, nominativo TEXT, mail TEXT, telefono TEXT, distretto TEXT)');
-        db.run('CREATE TABLE IF NOT EXISTS assistito (codice_fiscale TEXT PRIMARY KEY, codice_regionale_ts TEXT, codice_regionale_nar TEXT, FOREIGN KEY(codice_regionale_ts) REFERENCES medico(codice_regionale), FOREIGN KEY(codice_regionale_nar) REFERENCES medico(codice_regionale))');
-        // inserisci i dati medici
+        await db.run('CREATE TABLE IF NOT EXISTS medico (codice_regionale TEXT PRIMARY KEY, cf TEXT UNIQUE, nominativo TEXT, mail TEXT, telefono TEXT, distretto TEXT)');
+        await db.run('CREATE TABLE IF NOT EXISTS assistito (codice_fiscale TEXT PRIMARY KEY, codice_regionale_ts TEXT, codice_regionale_nar TEXT, FOREIGN KEY(codice_regionale_ts) REFERENCES medico(codice_regionale), FOREIGN KEY(codice_regionale_nar) REFERENCES medico(codice_regionale))');
+        let i = 0;
+        let count = Object.keys(datiAssistitiNar).length;
+        let errori = [];
         for (let dato of Object.values(datiAssistitiNar)) {
+            i++;
+            console.log("FASE 1: Elaborazione " + i + " di " + count);
             let sql = `INSERT INTO medico(codice_regionale, cf, nominativo, distretto) VALUES (?, ?, ?, ?)`;
             let params = [dato.medico.codice, dato.medico.cf, dato.medico.nominativo, dato.medico.distretto];
             let id = await insertDb(sql, params);
             for (let assistito of dato.assistiti) {
-                let sql = `INSERT INTO assistito(codice_fiscale, codice_regionale_nar) VALUES (?, ?)`;
-                let params = [assistito.codiceFiscale, dato.medico.codice];
-                db.run(sql, params, function (err) {
-                    if (err) {
-                        return console.error(err.message);
-                    }
-                    // ottieni l'id appena inserito
-                    console.log(`A row has been inserted with rowid ${this.lastID}`);
-                });
+                let sql = `SELECT * FROM assistito WHERE codice_fiscale = ?`;
+                let params = [assistito.codiceFiscale];
+                let rows = await getFromDb(sql, params);
+
+                if (rows.length === 0) {
+                    let sql = `INSERT INTO assistito(codice_fiscale, codice_regionale_nar)
+                               VALUES (?, ?)`;
+                    let params = [assistito.codiceFiscale, dato.medico.codice];
+                    let id = await insertDb(sql, params);
+                }
+                else
+                {
+                    errori.push({...assistito, medico: dato.medico});
+                }
             }
         }
-        // Chiudi il database
-        db.close((err) => {
-            if (err) {
-                console.error(err.message);
-                return;
+        // write errori on file
+        await Utils.scriviOggettoSuFile(workingPath + path.sep + "erroriNar.json", errori);
+        i = 0;
+        count = Object.keys(datiAssistitiTs).length;
+        for (let codReg in datiAssistitiTs) {
+            i++;
+            console.log("FASE 2: Elaborazione " + i + " di " + count + " cod reg " + codReg);
+            let dato = datiAssistitiTs[codReg];
+            if (dato) {
+                for (let riga of dato) {
+                    // verifica se esiste l'assisito
+                    let sql = `SELECT *
+                               FROM assistito
+                               WHERE codice_fiscale = ?`;
+                    let params = [riga.cf];
+                    let rows = await getFromDb(sql, params);
+
+                    if (rows.length === 0) {
+                        let sql = `INSERT INTO assistito(codice_fiscale, codice_regionale_ts)
+                                   VALUES (?, ?)`;
+                        let params = [riga.cf, codReg];
+                        let id = await insertDb(sql, params);
+                    } else {
+                        let sql = `UPDATE assistito
+                                   SET codice_regionale_ts = ?
+                                   WHERE codice_fiscale = ?`;
+                        let params = [codReg, riga.cf];
+                        let id = await insertDb(sql, params);
+                    }
+                }
             }
-            console.log('Connessione al database chiusa.');
-        });
+        }
+
+        // Chiudi il database
+        await db.close();
     }
 
     static async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
