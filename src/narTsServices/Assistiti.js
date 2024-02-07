@@ -274,12 +274,14 @@ export class Assistiti {
             promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
         let results = await Promise.all(promises);
+        promises = null;
         for (let result of results) {
             out.error = out.error || result.error;
             out.out.vivi = Object.assign(out.out.vivi, result.out.vivi);
             out.out.nonTrovati = [...out.out.nonTrovati, ...result.out.nonTrovati];
             out.out.morti = Object.assign(out.out.morti, result.out.morti);
             out.out.obsoleti = {...out.out.obsoleti, ...result.out.obsoleti};
+            result = null;
         }
         return out;
     }
@@ -605,6 +607,7 @@ export class Assistiti {
                 if (err) {
                     console.log("[" + index + "] errore elaborazione job:" + codMedico + " " + err.message + " " + err.stack);
                 }
+                ris = null;
             });
         }
 
