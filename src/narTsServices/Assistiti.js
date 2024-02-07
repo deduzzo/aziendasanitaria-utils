@@ -248,6 +248,7 @@ export class Assistiti {
             }
         }
         await this._ts.doLogout(false);
+        this._ts._browser = null;
         let dateDecesso = [];
         if (out.out.morti.length > 0) {
             let datiMorti = await this.verificaDatiAssititoDaNar(out.out.morti, visibile, index);
