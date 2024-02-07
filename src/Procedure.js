@@ -57,9 +57,9 @@ class Procedure {
     static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath = null, parallels = 20, visibile = false, nomeFile = "assistitiTs.json",) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
-        if (!fs.existsSync(workingPath + path.sep + "assistitiTs.json")) {
+        if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
             let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), codToCfDistrettoMap, impostazioniServizi, parallels, visibile);
-            await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + nomeFile, temp);
         }
     }
 
@@ -318,20 +318,18 @@ class Procedure {
 
     await
 
-    async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, nomeFilePdfAssistiti = "assistiti.pdf", workingPath = null, cartellaElaborazione = "elaborazioni", numParallelsJobs = 20, visible = false) {
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
-
         let medici = new Medici(impostazioniServizi);
-        let assistiti = new Assistiti(impostazioniServizi);
-        let datiMedici = {
-            "318883": [2023, 8],
-        };
-        await medici.getAssistitiDaListaPDF(datiMedici);
-        //let out = await medici.getAssistitiDaListaPDF("C:\\Users\\roberto.dedomenico\\Desktop\\de salvo\\de_salvo.pdf");
-        //await utility.scriviOggettoSuFile("C:\\Users\\roberto.dedomenico\\Desktop\\de salvo\\assistiti.json", out);
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            distretti,
+            workingPath);
 
+        await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, distretti, workingPath);
 
         await Assistiti.verificaAssititiInVitaParallelsJobs(
             impostazioniServizi,
@@ -355,6 +353,8 @@ class Procedure {
                 'taormina': "Taormina"
             }
             , "31/03/2023");*/
+
+        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
     }
 
 

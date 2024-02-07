@@ -1422,7 +1422,7 @@ export class FlussoM {
                                 if (!outData[tab].hasOwnProperty(file.codiceStruttura))
                                     outData[tab][file.codiceStruttura] = {
                                         id: file.codiceStruttura,
-                                        descrizione: strutture[file.codiceStruttura].denominazione,
+                                        descrizione: strutture.hasOwnProperty(file.codiceStruttura) ? strutture[file.codiceStruttura].denominazione : ("struttura " + file.codiceStruttura),
                                         distretto: this.settings.datiStruttureRegione.distretti[file.idDistretto]
                                     }
                                 if (!outData[tab][file.codiceStruttura].hasOwnProperty(mese)) {
