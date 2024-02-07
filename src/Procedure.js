@@ -287,7 +287,7 @@ class Procedure {
             // get id of prot
             for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
                 for (let ricetta of rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio) {
-                    await db("ricetta").insert({
+                    let idRicetta = await db("ricetta").insert({
                         numero: ricetta.ricetta,
                         tipologia: tipoRicetta === "ricette_specialistiche" ? "specialistica" : "farmaceutica",
                         struttura: ricetta.struttura,
@@ -297,6 +297,18 @@ class Procedure {
                         ticket: parseFloat(ricetta.ticket).toFixed(2),
                         id_protocollo: prot[0],
                     })
+                    if (ricetta.hasOwnProperty("prestazioni") && ricetta.prestazioni.hasOwnProperty("dettaglio"))
+                    for (let prestazione of ricetta.prestazioni.dettaglio) {
+                        let idPrestazione = await db("prestazione").insert({
+                            regione: prestazione.regione,
+                            data_erogazione: prestazione.data_erogazione,
+                            quantita: prestazione.quantita,
+                            codice_prodotto: prestazione.codice_prodotto,
+                            descrizione: prestazione.descrizione,
+                            tariffa: prestazione.tariffa,
+                            id_ricetta: idRicetta[0],
+                        })
+                    }
                 }
             }
             console.log("protocollo " + protocollo + " inserito");
