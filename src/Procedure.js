@@ -9,15 +9,13 @@ import sqlite3 from 'sqlite3';
 
 
 class Procedure {
-    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
-        if (workingPath == null)
-            workingPath = await Utils.getWorkingPath();
-        let medici = new Medici(impostazioniServizi, workingPath);
+
+    static async getOggettiMediciDistretto(impostazioniServizi, pathFileExcelMediciPediatri, distretti, workingPath = null, soloAttivi = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
         let datiMediciPediatriCompleto = await Utils.getObjectFromFileExcel(pathFileExcelMediciPediatri);
         let codToCfDistrettoMap = {};
         let mediciPerDistretto = {};
         for (let dato of datiMediciPediatriCompleto) {
-            // find any of distretty kewrord in string dato[colonnaDistretto]
+            // find any of distretti keyword in string dato[colonnaDistretto]
             let distretto = distretti.filter(distrettoKeyword =>
                 dato[colonnaDistretto]?.toLowerCase().includes(distrettoKeyword.toLowerCase())
             );
@@ -42,15 +40,46 @@ class Procedure {
                 nome_cognome_medico: nomeCogn,
             });
         }
+        return {codToCfDistrettoMap: codToCfDistrettoMap, mediciPerDistretto: mediciPerDistretto};
+    }
 
-        if (!fs.existsSync(workingPath + path.sep + "assistitiNar.json")) {
-            let allAssistiti = await medici.getAssistitiDaListaPDF(pathAssistitiPdfNar, codToCfDistrettoMap, 'cf');
+    static async getAssistitiFileFromNar(impostazioniServizi, pathFilePdf, codToCfDistrettoMap, distretti, workingPath = null, nomeFile = "assistitiNar.json",) {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+        let medici = new Medici(impostazioniServizi);
+
+        if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
+            let allAssistiti = await medici.getAssistitiDaListaPDF(pathFilePdf, codToCfDistrettoMap, 'cf');
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiNar.json", allAssistiti);
         }
-        if (!fs.existsSync(workingPath + path.sep + "assistitiTs.json")) {
+    }
+
+    static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath = null, parallels = 20, visibile = false, nomeFile = "assistitiTs.json",) {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+        if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
             let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), codToCfDistrettoMap, impostazioniServizi, parallels, visibile);
-            await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiTs.json", temp);
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + nomeFile, temp);
         }
+    }
+
+    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathFileExcelMediciPediatri,
+            distretti,
+            workingPath,
+            soloAttivi,
+            tipologia,
+            colonnaFineRapporto,
+            colonnaNomeCognome,
+            colonnaCodRegionale,
+            colonnaCodFiscale,
+            colonnaCategoria,
+            colonnaDistretto);
+        await Procedure.getAssistitiFileFromNar(impostazioniServizi, pathAssistitiPdfNar, codToCfDistrettoMap, distretti, workingPath);
+        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, parallels, visibile);
+
 
         // per codice regionale
         let assistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
@@ -125,7 +154,7 @@ class Procedure {
     static async generaDbSqliteDaElencoAssistiti(pathFileAssistitiNar, pathFileAssistitiTs, nomeDb = "assistiti.db", workingPath = null) {
         const insertDb = (sql, params) => {
             return new Promise((resolve, reject) => {
-                db.run(sql, params, function(err) {
+                db.run(sql, params, function (err) {
                     if (err) {
                         reject(err.message);
                     } else {
@@ -136,7 +165,7 @@ class Procedure {
         };
         const getFromDb = (sql, params) => {
             return new Promise((resolve, reject) => {
-                db.all(sql, params, function(err, rows) {
+                db.all(sql, params, function (err, rows) {
                     if (err) {
                         reject(err.message);
                     } else {
@@ -162,11 +191,14 @@ class Procedure {
         for (let dato of Object.values(datiAssistitiNar)) {
             i++;
             console.log("FASE 1: Elaborazione " + i + " di " + count);
-            let sql = `INSERT INTO medico(codice_regionale, cf, nominativo, distretto) VALUES (?, ?, ?, ?)`;
+            let sql = `INSERT INTO medico(codice_regionale, cf, nominativo, distretto)
+                       VALUES (?, ?, ?, ?)`;
             let params = [dato.medico.codice, dato.medico.cf, dato.medico.nominativo, dato.medico.distretto];
             let id = await insertDb(sql, params);
             for (let assistito of dato.assistiti) {
-                let sql = `SELECT * FROM assistito WHERE codice_fiscale = ?`;
+                let sql = `SELECT *
+                           FROM assistito
+                           WHERE codice_fiscale = ?`;
                 let params = [assistito.codiceFiscale];
                 let rows = await getFromDb(sql, params);
 
@@ -175,9 +207,7 @@ class Procedure {
                                VALUES (?, ?)`;
                     let params = [assistito.codiceFiscale, dato.medico.codice];
                     let id = await insertDb(sql, params);
-                }
-                else
-                {
+                } else {
                     errori.push({...assistito, medico: dato.medico});
                 }
             }
@@ -257,7 +287,7 @@ class Procedure {
             // get id of prot
             for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
                 for (let ricetta of rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio) {
-                    await db("ricetta").insert({
+                    let idRicetta = await db("ricetta").insert({
                         numero: ricetta.ricetta,
                         tipologia: tipoRicetta === "ricette_specialistiche" ? "specialistica" : "farmaceutica",
                         struttura: ricetta.struttura,
@@ -267,12 +297,66 @@ class Procedure {
                         ticket: parseFloat(ricetta.ticket).toFixed(2),
                         id_protocollo: prot[0],
                     })
+                    if (ricetta.hasOwnProperty("prestazioni") && ricetta.prestazioni.hasOwnProperty("dettaglio"))
+                    for (let prestazione of ricetta.prestazioni.dettaglio) {
+                        let idPrestazione = await db("prestazione").insert({
+                            regione: prestazione.regione,
+                            data_erogazione: prestazione.data_erogazione,
+                            quantita: prestazione.quantita,
+                            codice_prodotto: prestazione.codice_prodotto,
+                            descrizione: prestazione.descrizione,
+                            tariffa: prestazione.tariffa,
+                            id_ricetta: idRicetta[0],
+                        })
+                    }
                 }
             }
             console.log("protocollo " + protocollo + " inserito");
         }
         return 0;
     }
+
+    await
+
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+
+        let medici = new Medici(impostazioniServizi);
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            distretti,
+            workingPath);
+
+        await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, distretti, workingPath);
+
+        await Assistiti.verificaAssititiInVitaParallelsJobs(
+            impostazioniServizi,
+            workingPath,
+            cartellaElaborazione,
+            numParallelsJobs,
+            visible);
+
+
+        /*await medici.creaElenchiDeceduti(
+            "C:\\Users\\roberto.dedomenico\\Desktop\\de salvo\\medici.xlsx",
+            "C:\\Users\\roberto.dedomenico\\Desktop\\de salvo",
+            {
+                'messina': 'Messina',
+                'milazzo': "Milazzo",
+                'agata': "S. Agata",
+                'mistretta': "Mistretta",
+                'patti': "Patti",
+                'lipari': "Lipari",
+                'barcellona': 'Barcellona',
+                'taormina': "Taormina"
+            }
+            , "31/03/2023");*/
+
+        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
+    }
+
 
 }
 

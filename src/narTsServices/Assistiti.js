@@ -120,7 +120,7 @@ export class Assistiti {
 
     async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
-        console.log("#" + index + " " + " TOTALI: " + codiciFiscali.length)
+        console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
             let page = await this._ts.getWorkingPage(visibile);
             page.setDefaultTimeout(600000);
@@ -260,7 +260,7 @@ export class Assistiti {
 
 
     static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
-        EventEmitter.defaultMaxListeners = 40;
+        EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
@@ -569,12 +569,16 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 20, visibile = false) {
-        EventEmitter.defaultMaxListeners = 40;
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 5, visibile = false, nomeFile = "assistitiNar.json") {
+        EventEmitter.defaultMaxListeners = 100;
         const processJob = async (codMedico, index) => {
             index = (index % numOfParallelJobs) + 1;
-            let assistiti = new Assistiti(impostazioniServizi);
-            let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti, true), null, false, index, visibile);
+            //let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti, true), null, false, index, visibile);
+            let assistitiCfArray = [];
+            for (let cf of datiAssititi[codMedico].assistiti) {
+                assistitiCfArray.push(cf.codiceFiscale);
+            }
+            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, 5, visibile);
 
             const updateJobStatus = async (ris) => {
                 await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
@@ -626,7 +630,7 @@ export class Assistiti {
         if (!fs.existsSync(pathJob + path.sep + outPath))
             fs.mkdirSync(pathJob + path.sep + outPath);
         // get assititi.json in pathJob
-        let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "assistiti.json");
+        let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + nomeFile);
         // if !exist jobstatus.json create it
         if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
             let dati = {}
