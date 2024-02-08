@@ -28,6 +28,7 @@ class Procedure {
                 codToCfDistrettoMap[codReg] = {
                     cod_regionale: codReg,
                     distretto: distretto[0],
+                    ambito: dato[colonnaDistretto] ?? "ND",
                     nome_cognome: nomeCogn,
                     cf: cfM
                 };
@@ -38,6 +39,7 @@ class Procedure {
                 cod_regionale_medico: codReg,
                 cf_medico: cfM,
                 nome_cognome_medico: nomeCogn,
+                ambito: dato[colonnaDistretto] ?? "ND",
             });
         }
         return {codToCfDistrettoMap: codToCfDistrettoMap, mediciPerDistretto: mediciPerDistretto};
