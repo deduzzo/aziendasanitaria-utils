@@ -34,7 +34,6 @@ export class Assistiti {
 
 
     async #verificaDataDecessoDaTS(datiUtenti, visibile = true, index = 1) {
-        let out = {error: false, data: {}};
         let page = await this._ts.getWorkingPage(visibile);
         if (page) {
             console.log("VERIFICA DATE DECESSO")
@@ -65,6 +64,9 @@ export class Assistiti {
             }
         }
         await this._ts.doLogout();
+        if (this._ts._browser)
+            await this._ts._browser.close();
+        this._ts._browser = null;
         return datiUtenti;
     }
 
@@ -114,6 +116,9 @@ export class Assistiti {
             }
         }
         await this._nar.doLogout();
+        if (this._nar._browser)
+            await this._nar._browser.close();
+        this._nar._browser = null;
         return out;
     }
 
@@ -248,6 +253,8 @@ export class Assistiti {
             }
         }
         await this._ts.doLogout(false);
+        if (this._ts._browser)
+            await this._ts._browser.close();
         this._ts._browser = null;
         let dateDecesso = [];
         if (out.out.morti.length > 0) {
@@ -464,7 +471,9 @@ export class Assistiti {
                 }
             } while (!ok);
         }
-        await this._ts._browser.close();
+        if (this._ts._browser)
+            await this._ts._browser.close();
+        this._ts._browser = null;
         return datoFinale;
     }
 
@@ -581,7 +590,7 @@ export class Assistiti {
             for (let cf of datiAssititi[codMedico].assistiti) {
                 assistitiCfArray.push(cf.codiceFiscale);
             }
-            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, 5, visibile);
+            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, numOfParallelJobs, visibile);
 
             const updateJobStatus = async (ris) => {
                 await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {

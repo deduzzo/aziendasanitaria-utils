@@ -129,7 +129,8 @@ export class Nar {
                     this._logged = true;
                 } catch (e) {
                     this._logged = false;
-                    await this._browser.close();
+                    if (this._browser)
+                        await this._browser.close();
                     retry--;
                 }
             } else this._logged = false;

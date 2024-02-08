@@ -30,6 +30,7 @@ export class Ts {
     async doLogin(visibile = false) {
         let retry = this._retry
         while (!this._logged && retry > 0) {
+            this._browser = null;
             this._browser = await puppeteer.launch({headless: !visibile});
             const page = (await this._browser.pages())[0];
             try {
@@ -44,6 +45,7 @@ export class Ts {
                 console.log(e);
                 this._logged = false;
                 await this._browser.close();
+                this._browser = null;
                 retry--;
             }
         }

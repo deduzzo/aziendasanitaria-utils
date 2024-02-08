@@ -63,23 +63,9 @@ class Procedure {
         }
     }
 
-    static async getDifferenzeAssistitiNarTs(pathAssistitiPdfNar, pathFileExcelMediciPediatri, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
-        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
-            impostazioniServizi,
-            pathFileExcelMediciPediatri,
-            distretti,
-            workingPath,
-            soloAttivi,
-            tipologia,
-            colonnaFineRapporto,
-            colonnaNomeCognome,
-            colonnaCodRegionale,
-            colonnaCodFiscale,
-            colonnaCategoria,
-            colonnaDistretto);
+    static async getDifferenzeAssistitiNarTs(mediciPerDistretto,codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false) {
         await Procedure.getAssistitiFileFromNar(impostazioniServizi, pathAssistitiPdfNar, codToCfDistrettoMap, distretti, workingPath);
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, parallels, visibile);
-
 
         // per codice regionale
         let assistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
@@ -115,6 +101,7 @@ class Procedure {
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "medici.json", Object.values(codToCfDistrettoMap));
 
         // VERIFICA DIFFERENZE
+        let medici = new Medici(impostazioniServizi);
         let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfDistrettoMap);
         await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze.json", differenze);
     }
@@ -318,7 +305,7 @@ class Procedure {
 
     await
 
-    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 6, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -339,22 +326,18 @@ class Procedure {
             visible);
 
 
-        /*await medici.creaElenchiDeceduti(
-            "C:\\Users\\roberto.dedomenico\\Desktop\\de salvo\\medici.xlsx",
-            "C:\\Users\\roberto.dedomenico\\Desktop\\de salvo",
-            {
-                'messina': 'Messina',
-                'milazzo': "Milazzo",
-                'agata': "S. Agata",
-                'mistretta': "Mistretta",
-                'patti': "Patti",
-                'lipari': "Lipari",
-                'barcellona': 'Barcellona',
-                'taormina': "Taormina"
-            }
-            , "31/03/2023");*/
+        await medici.creaElenchiDeceduti(mediciPerDistretto,workingPath, distretti, dataQuote);
 
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
+
+        await Procedure.getDifferenzeAssistitiNarTs(
+            mediciPerDistretto,
+            codToCfDistrettoMap,
+            workingPath + path.sep + nomeFilePdfAssistiti,
+            impostazioniServizi,
+            distretti);
+
+
     }
 
 

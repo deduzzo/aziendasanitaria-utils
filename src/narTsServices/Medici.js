@@ -925,7 +925,7 @@ export class Medici {
     }
 
 
-    async creaElenchiDeceduti(fileMedici, pathData, distretti, dataQuote = null) {
+    async creaElenchiDeceduti(mediciPerDistretto, pathData, distretti, dataQuote = null) {
         let problemi = []
         if (!dataQuote)
             dataQuote = moment().format("YYYY-MM-DD");
