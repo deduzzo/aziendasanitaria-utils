@@ -310,7 +310,12 @@ export class FlussoM {
                     totale.totale = totale.totale + rt.totale;
                     totale.ticket = totale.ticket + rt.totaleTicket;
                     if (!totale.perStrutture.hasOwnProperty(rt.codiceStruttura))
-                        totale.perStrutture[rt.codiceStruttura] = {totale: 0, ticket: 0, numPrestazioni: 0, totalePrestazioniCalcolate: 0}
+                        totale.perStrutture[rt.codiceStruttura] = {
+                            totale: 0,
+                            ticket: 0,
+                            numPrestazioni: 0,
+                            totalePrestazioniCalcolate: 0
+                        }
                     totale.perStrutture[rt.codiceStruttura].totale = parseFloat((totale.perStrutture[rt.codiceStruttura].totale + rt.totale).toFixed(2));
                     totale.perStrutture[rt.codiceStruttura].ticket = parseFloat((totale.perStrutture[rt.codiceStruttura].ticket + rt.totaleTicket).toFixed(2));
                     totale.perStrutture[rt.codiceStruttura].numPrestazioni = parseFloat((totale.perStrutture[rt.codiceStruttura].numPrestazioni + rt.numPrestazioni).toFixed(2));
@@ -395,7 +400,7 @@ export class FlussoM {
         const reader = new MDBReader(buffer);
 
         const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
-        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) -2));
+        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) - 2));
         let mancanti = []
         let struttureOut = {}
         struttureFiltrate.forEach(p => {
@@ -1615,12 +1620,19 @@ export class FlussoM {
         console.log(error)
     }
 
-    async mostraDatiFlussoMese(filePath, strutture = []) {
-        let data = await this.#elaboraFileFlussoM(filePath);
-        if (strutture.includes(Object.keys(data.perStrutture)))
-            console.log(filePath.perStrutture[strutture]);
-        else
-            console.log("Non disponibile");
+    async mostraDatiFlussoPerStruttura(folderPath, strutture = []) {
+        let allFiles = utils.getAllFilesRecursive(folderPath, this._settings.extensions);
+        for (const file of allFiles) {
+            let data = await this.#elaboraFileFlussoM(file);
+            let struttureFinale = strutture.length > 0 ? strutture : Object.keys(data.perStrutture);
+            for (let struttura of struttureFinale) {
+                console.log("Struttura " + struttura + " file " + file);
+                if (data.perStrutture.hasOwnProperty(struttura))
+                    console.log(data.perStrutture[struttura]);
+                else
+                    console.log("Struttura" + struttura + " non presente");
+            }
+        }
     }
 
 }
