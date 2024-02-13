@@ -12,6 +12,7 @@ import moment from "moment";
 import {utils} from "../Utils.js";
 import {Parser} from "@marketto/codice-fiscale-utils";
 import {EventEmitter} from "events";
+import {Procedure} from "../Procedure.js";
 
 export class Medici {
 
@@ -749,23 +750,22 @@ export class Medici {
 
     /*
     * @param {array} datiMedici
-    * @param {array} riferimento
     *
     * Esempio:
     *
     *
-    let out = await medici.batchVerificheBustePagaDettagli({
-        "314505": [
-            [2019, 6],
-        ],
-        "316318": [
-            [2019, 3],
-            [2019, 4],
-        ]
-    },[[2010, 1], [2023, 6]]);
+        const medici = new Medici(impostazioniServizi);
+
+    let datiMedici = {
+        "318883": {from: [2022, 12], to: [2023, 12]},
+        "318884": {from: [2022, 12], to: [2023, 12]}
+    };
+
+
+    let out = await medici.batchVerificheBustePagaDettagli(datiMedici);
     *
      */
-    async batchVerificheBustePagaDettagli(datiMedici, riferimento) {
+    async batchVerificheBustePagaDettagli(datiMedici) {
         process.setMaxListeners(30);
         this._nar.batchProcess = true;
         this._nar.type = Nar.PAGHE;
@@ -774,18 +774,26 @@ export class Medici {
         let times = 0;
         for (let matr of Object.keys(datiMedici)) {
             let dati = datiMedici[matr];
-            for (let i = 0; i < dati.length; i++) {
-                let busta = dati[i];
-                let out1 = await this.analizzaBustaPaga(matr, busta[1], busta[0], busta[1], busta[0]);
-                let ou2 = await this.stampaCedolino(matr, busta[1], busta[0], busta[1], busta[0]);
-                if (!error)
-                    if (out1.error || ou2.error)
-                        error = true;
-                times++;
-                if (times % 10 === 0) {
-                    await this._nar.doLogout();
-                }
+            let dataInizio = moment(dati.from[0] + "-" + dati.from[1] + "-01", "YYYY-MM-DD");
+            let dataFine = moment(dati.to[0] + "-" + dati.to[1] + "-01", "YYYY-MM-DD");
+            let dataInizioTemp = new moment(dataInizio);
+            while (dataInizioTemp.isSameOrBefore(dataFine)) {
+                    let mese = dataInizioTemp.month() + 1;
+                    let anno = dataInizioTemp.year();
+                    let out1 = await this.analizzaBustaPaga(matr, mese, anno, mese, anno);
+                    // write dati busta object to json file
+                    let path2 = await this._nar.getWorkingPath() + path.sep + matr + "_" + anno + mese.toString().padStart(2, '0') + '_datibusta.json';
+                    await utils.scriviOggettoSuFile(path2, out1);
+                    if (!error)
+                        if (out1.error)
+                            error = true;
+                    times++;
+                    if (times % 10 === 0) {
+                        await this._nar.doLogout();
+                    }
+                dataInizioTemp.add(1, 'month');
             }
+            await Procedure.salvaCedoliniMedici(matr,this._impostazioni,dataInizio.month()+1,dataInizio.year(),dataFine.month()+1,dataFine.year());
         }
         this._nar.batchProcess = false;
         await this._nar.doLogout();

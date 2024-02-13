@@ -286,8 +286,10 @@ export class FlussoM {
             totale: 0,
             ticket: 0,
             numPrestazioni: 0,
-            totalePrestazioniCalcolate: 0
+            totalePrestazioniCalcolate: 0,
+            perStrutture: {}
         }
+
         let prestMap = {}
         let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let error = null;
@@ -307,6 +309,12 @@ export class FlussoM {
                     this.#calcolaTotaliPrestazioni(rt.prestazioni, prestMap)
                     totale.totale = totale.totale + rt.totale;
                     totale.ticket = totale.ticket + rt.totaleTicket;
+                    if (!totale.perStrutture.hasOwnProperty(rt.codiceStruttura))
+                        totale.perStrutture[rt.codiceStruttura] = {totale: 0, ticket: 0, numPrestazioni: 0, totalePrestazioniCalcolate: 0}
+                    totale.perStrutture[rt.codiceStruttura].totale = parseFloat((totale.perStrutture[rt.codiceStruttura].totale + rt.totale).toFixed(2));
+                    totale.perStrutture[rt.codiceStruttura].ticket = parseFloat((totale.perStrutture[rt.codiceStruttura].ticket + rt.totaleTicket).toFixed(2));
+                    totale.perStrutture[rt.codiceStruttura].numPrestazioni = parseFloat((totale.perStrutture[rt.codiceStruttura].numPrestazioni + rt.numPrestazioni).toFixed(2));
+                    totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate = parseFloat((totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate).toFixed(2));
                     ricettaTemp = [];
                 }
                 i++;
@@ -328,6 +336,7 @@ export class FlussoM {
                 totaleLordo: parseFloat((totale.totale + totale.ticket).toFixed(2)),
                 totaleTicket: totale.ticket,
                 numPrestazioni: totale.numPrestazioni,
+                perStrutture: totale.perStrutture,
                 totaleLordoPrestazioniCalcolate: parseFloat(totale.totalePrestazioniCalcolate.toFixed(2)),
                 calcolaPrestazioniPerMese: calcolaPrestazioniPerMese,
                 prestazioni: totale.prestazioniMap,
@@ -443,7 +452,7 @@ export class FlussoM {
             let verificaDateStruttura = this.#checkMeseAnnoStruttura(Object.values(ricetteInFile.ricette))
             ricetteInFile.codiceStruttura = verificaDateStruttura.codiceStruttura;
             ricetteInFile.file = file;
-            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto.toString() ?? ricetteInFile.datiDaFile.idDistretto;
+            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto.toString() ?? (ricetteInFile.datiDaFile?.idDistretto ?? "X");
             ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
             ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
             ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
@@ -1244,18 +1253,18 @@ export class FlussoM {
                 (prestazione.prestID !== "897" && prestazione.prestID !== "8901")
             ) {
 
-                if (!prestazioniBrancheMap[prestazione.prestID].includes(prestazione.brancaID)) {
+                if (!prestazioniBrancheMap[prestazione.prestID]?.includes(prestazione.brancaID)) {
                     if (!outt.hasOwnProperty("erroriBranche"))
                         outt.erroriBranche = []
                     outt.erroriBranche.push(prestazione)
                     prestazione.brancaID = prestazioniBrancheMap[prestazione.prestID];
                 }
-                if (parseFloat((catalogoMap[prestazione.prestID].tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale) {
+                if (parseFloat((catalogoMap[prestazione.prestID]?.tariffa * prestazione.quant).toFixed(2)) !== prestazione.totale) {
                     if (!outt.hasOwnProperty("erroriPrezzi"))
                         outt.erroriPrezzi = []
                     outt.erroriPrezzi.push({
                         prezzoSegnato: riga.totale,
-                        prezzoCorretto: (catalogoMap[prestazione.prestID].tariffa * riga.quant)
+                        prezzoCorretto: (catalogoMap[prestazione.prestID]?.tariffa * riga.quant) ?? 0
                     })
                 }
 
@@ -1405,8 +1414,8 @@ export class FlussoM {
         let error = [];
         let outData = {}
         for (let file of data) {
-            let anno = file.annoPrevalente ?? file.datiDaFile?.anno;
-            let mese = file.mesePrevalente ?? file.datiDaFile?.mese;
+            let anno = file.datiDaFile?.anno ?? file.annoPrevalente;
+            let mese = file.datiDaFile?.mese ?? file.mesePrevalente;
             if (anno === null || mese == null)
                 error.push({tipo: "Mese anno non validi", file: file});
             else {
@@ -1604,6 +1613,14 @@ export class FlussoM {
         //if (fileUnico)
         //    await workbook.xlsx.writeFile(this._settings.out_folder + path.sep +  anno.toString() + ".xlsx");
         console.log(error)
+    }
+
+    async mostraDatiFlussoMese(filePath, strutture = []) {
+        let data = await this.#elaboraFileFlussoM(filePath);
+        if (strutture.includes(Object.keys(data.perStrutture)))
+            console.log(filePath.perStrutture[strutture]);
+        else
+            console.log("Non disponibile");
     }
 
 }
