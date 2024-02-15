@@ -1,4 +1,4 @@
-
+import path from 'path';
 export class ImpostazioniFlussoM {
 
     /**
@@ -7,6 +7,7 @@ export class ImpostazioniFlussoM {
      * @param {String} in_folder Path assoluto della cartella che contiene i flussi da analizzare
      * @param {String} out_folder Path assoluto della cartella in cui si salveranno i dati dell'elaborazione (ATTENZIONE: la cartella verrà cancellata se esiste)
      * @param {String} flowlookDBFilePath Path assoluto del file Flowlook.mdb
+     * @param {String} dbPath Path assoluto della cartella con i file excel dei dati regionali
      * @param {StruttureDistrettiPerProvincia} datiStruttureRegione Istanza della classe ImpostazioneFlusso
      * @param {ImpostazioniMail} impostazioniMail Impostazioni mail
      * @param {ImpostazioniServizi} impostazioniServizi Impostazioni servizi
@@ -27,6 +28,8 @@ export class ImpostazioniFlussoM {
         this._flowlookDBTableCatalogoUnicoRegionale = "tCatalogoUnicoRegionale";
         this._flowlookDBTableNomenclatore = "tNomenclatore";
         this._tCatalogoUnicoRegionalePrestazioneBranca = "tCatalogoUnicoRegionale_Prestazione_Branca"
+        // this._dbPath is the path of the executable + "/data"
+        this._dbPath = process.cwd() + path.sep + "data";
     }
 
 
@@ -68,6 +71,14 @@ export class ImpostazioniFlussoM {
 
     set flowlookDBFilePath(value) {
         this._flowlookDBFilePath = value;
+    }
+
+    get dbPath() {
+        return this._dbPath;
+    }
+
+    set dbPath(value) {
+        this._dbPath = value;
     }
 
     get datiStruttureRegione() {

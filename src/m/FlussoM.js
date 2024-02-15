@@ -36,6 +36,7 @@ export class FlussoM {
         this._starts = value;
     }
 
+    static NOME_FILE_STRUTTURE_EXCEL = "MOD.STS.11_-_DATI_ANAGRAFICI.xlsx";
     static PER_STRUTTURA = "PER_STRUTTURA"
     static PER_STRUTTURA_ANNO_MESE = "PER_STRUTTURA_ANNO_MESE"
     static TAB_TOTALI_PER_MESE = "TAB_TOTALI_PER_MESE"
@@ -414,6 +415,27 @@ export class FlussoM {
                     codiceComune: p['CodiceComune'],
                     idDistretto: this._settings.datiStruttureRegione.comuniDistretti[p["CodiceComune"]],
                     dataUltimoAggiornamento: moment(p['DataAggiornamento'], 'DD/MM/YYYY')
+                };
+            } else
+                mancanti.push(p);
+        })
+        return struttureOut;
+    }
+
+    async loadStruttureFromExcel() {
+        let filePath = this._settings.dbPath + path.sep + FlussoM.NOME_FILE_STRUTTURE_EXCEL;
+        let strutture = await utils.getObjectFromFileExcel(filePath);
+        let struttureFiltrate = strutture.filter(p => p["Codice Azienda"] === this._settings.codiceAzienda && p["Codice Regione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) - 2));
+        let mancanti = []
+        let struttureOut = {}
+        struttureFiltrate.forEach(p => {
+            if (this._settings.datiStruttureRegione.comuniDistretti.hasOwnProperty(p["Codice Comune"])) {
+                struttureOut[p['Codice struttura']] = {
+                    codiceRegione: p['Codice Regione'],
+                    codiceAzienda: p['Codice Azienda'],
+                    denominazione: p['Denominazione struttura'],
+                    codiceComune: p['Codice Comune'],
+                    idDistretto: this._settings.datiStruttureRegione.comuniDistretti[p["Codice Comune"]],
                 };
             } else
                 mancanti.push(p);
