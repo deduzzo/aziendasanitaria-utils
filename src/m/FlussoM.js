@@ -9,6 +9,7 @@ import MDBReader from "mdb-reader";
 import {DatiStruttureProgettoTs} from "./DatiStruttureProgettoTs.js";
 import ExcelJS from "exceljs"
 import loki from 'lokijs';
+import {hashFile} from "hasha";
 
 export class FlussoM {
     /**
@@ -316,10 +317,10 @@ export class FlussoM {
                             numPrestazioni: 0,
                             totalePrestazioniCalcolate: 0
                         }
-                    totale.perStrutture[rt.codiceStruttura].totale = parseFloat((totale.perStrutture[rt.codiceStruttura].totale + rt.totale).toFixed(2));
-                    totale.perStrutture[rt.codiceStruttura].ticket = parseFloat((totale.perStrutture[rt.codiceStruttura].ticket + rt.totaleTicket).toFixed(2));
-                    totale.perStrutture[rt.codiceStruttura].numPrestazioni = parseFloat((totale.perStrutture[rt.codiceStruttura].numPrestazioni + rt.numPrestazioni).toFixed(2));
-                    totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate = parseFloat((totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate).toFixed(2));
+                    totale.perStrutture[rt.codiceStruttura].totale = totale.perStrutture[rt.codiceStruttura].totale + rt.totale;
+                    totale.perStrutture[rt.codiceStruttura].ticket = totale.perStrutture[rt.codiceStruttura].ticket + rt.totaleTicket;
+                    totale.perStrutture[rt.codiceStruttura].numPrestazioni = totale.perStrutture[rt.codiceStruttura].numPrestazioni + rt.numPrestazioni;
+                    totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate = totale.perStrutture[rt.codiceStruttura].totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
                     ricettaTemp = [];
                 }
                 i++;
@@ -356,7 +357,8 @@ export class FlussoM {
                 rowError: i + 1,
                 nomeFile: path.basename(filePath),
                 absolutePath: filePath,
-                hash: md5File.sync(filePath)
+                //hash: md5File.sync(filePath)
+                hash: await hashFile(filePath,{algorithm: 'md5'})
             }
     }
 
@@ -1621,7 +1623,7 @@ export class FlussoM {
     }
 
     async mostraDatiFlussoPerStruttura(folderPath, strutture = []) {
-        let allFiles = utils.getAllFilesRecursive(folderPath, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(folderPath, this._settings.extensions).sort();
         for (const file of allFiles) {
             let data = await this.#elaboraFileFlussoM(file);
             let struttureFinale = strutture.length > 0 ? strutture : Object.keys(data.perStrutture);
@@ -1630,8 +1632,9 @@ export class FlussoM {
                 if (data.perStrutture.hasOwnProperty(struttura))
                     console.log(data.perStrutture[struttura]);
                 else
-                    console.log("Struttura" + struttura + " non presente");
+                    console.log("Struttura " + struttura + " non presente");
             }
+            data = null;
         }
     }
 
