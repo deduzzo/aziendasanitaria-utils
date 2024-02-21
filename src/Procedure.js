@@ -305,8 +305,6 @@ class Procedure {
         return 0;
     }
 
-    await
-
     static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 6, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
@@ -338,9 +336,24 @@ class Procedure {
             workingPath + path.sep + nomeFilePdfAssistiti,
             impostazioniServizi,
             distretti);
-
-
     }
+
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = true, salvaFile = true) {
+        let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
+        let cfs = [];
+        for (let assistito of assistiti) {
+            cfs.push(assistito[colonnaCf]);
+        }
+        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi);
+        if (salvaFile) {
+            let parentFolder= path.dirname(fileExcel);
+            await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "vivi.xlsx", Object.values(ris.out.vivi));
+            await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "morti.xlsx", Object.values(ris.out.morti));
+            if (ris.out.nonTrovati.length > 0)
+                await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
+        }
+    }
+
 
 
 }
