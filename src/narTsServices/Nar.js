@@ -16,19 +16,20 @@ export class Nar {
      * @param {ImpostazioniServiziTerzi} impostazioni
      * @param visible
      * @param workingPath string
+     * @param batchProcess
      */
-    constructor(impostazioni,visible = false, workingPath = null) {
+    constructor(impostazioni,visible = false, workingPath = null,batchProcess = false,type = Nar.NAR) {
         this._impostazioni = impostazioni;
         this._browser = null;
         this._logged = false;
         this._workingPage = null;
         this._visible = visible;
-        this._type = Nar.NAR;
+        this._type = type;
         this._retry = 5;
         // working path for download,a temporary folder so temp dir
         this._downloadPath = path.join(os.tmpdir(), 'nar_' + Date.now());
         this._workingPath = workingPath ?? Utils.getWorkingPath()
-        this._batchProcess = false;
+        this._batchProcess = batchProcess;
         // create the folder if it does not exist async
     }
 

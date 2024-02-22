@@ -6,6 +6,7 @@ import moment from "moment";
 import knex from "knex";
 import fs from "fs";
 import sqlite3 from 'sqlite3';
+import {Nar} from "./narTsServices/Nar.js";
 
 
 class Procedure {
@@ -238,13 +239,14 @@ class Procedure {
         await db.close();
     }
 
-    static async salvaCedoliniMedici(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno,visible = false) {
         // da,a array mese anno
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
-        let medici = new Medici(impostazioniServizi, true);
+        let medici = new Medici(impostazioniServizi,visible,null,true,Nar.PAGHE);
         do {
-            let out = await medici.stampaCedolino(matricola, true, da.month() + 1, da.year(), da.month() + 1, da.year());
+            let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
+            let out2 = await medici.analizzaBustaPaga(matricola,da.month() + 1, da.year(), da.month() + 1, da.year());
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a));
     }

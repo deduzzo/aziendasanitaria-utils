@@ -10,7 +10,7 @@ import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
 import {Parser} from "@marketto/codice-fiscale-utils";
 import os from "os";
-import {existsSync} from "fs";
+import {existsSync,mkdirSync} from "fs";
 import libre from "libreoffice-convert";
 import {promisify} from "util";
 
@@ -575,10 +575,10 @@ const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
     } else return 0;
 }
 
-const getWorkingPath = async () => {
+const getWorkingPath = () => {
     let wp = path.join(os.homedir(), 'flussi_sanitari_wp', moment().format('YYYYMMDD'));
     if (existsSync(wp) === false)
-        await fs.promises.mkdir(wp, {recursive: true});
+        mkdirSync(wp, { recursive: true });
     return wp;
 }
 

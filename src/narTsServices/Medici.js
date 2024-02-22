@@ -30,17 +30,18 @@ export class Medici {
      * @param {ImpostazioniServiziTerzi} impostazioni
      * @param visible
      * @param workingPath
+     * @param batchProcess
+     * @param narType
      */
 
 
-    constructor(impostazioni, visible = false, workingPath = null) {
+    constructor(impostazioni, visible = false, workingPath = null,batchProcess = false,narType = Nar.NAR) {
         this._impostazioni = impostazioni;
-        this._nar = new Nar(this._impostazioni, visible, workingPath);
+        this._nar = new Nar(this._impostazioni, visible, workingPath, batchProcess,narType);
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
     }
-
 
     /*async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};
@@ -288,7 +289,7 @@ export class Medici {
                     // Salva la pagina come PDF
                     await page.goto(`file://${tempFileDettaglio}`);
                     await page.pdf({
-                        path: await this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                        path:  this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
                         format: 'A4'
                     });
                     //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
@@ -305,15 +306,14 @@ export class Medici {
 
     async stampaCedolino(matricola, visible = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = null;
-        if (!this._nar._batchProcess) {
+        if (!this._nar._batchProcess || this._nar.type !== Nar.PAGHE) {
             await this._nar.doLogout();
-            this._nar.type = Nar.PAGHE;
         }
         let retry = this._retry;
         do {
             out = {error: false, data: null};
             try {
-                let page = await this._nar.getWorkingPage(visible);
+                let page = await this._nar.getWorkingPage();
                 if (page) {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
                     await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
@@ -385,7 +385,7 @@ export class Medici {
                     await page.waitForTimeout(300);
                     if (file) {
                         // copy the file to the working path with filename
-                        fs.copyFileSync(file, await this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                        fs.copyFileSync(file,  this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
                     } else
                         out.error = true;
                     //dispose the watcher
@@ -782,7 +782,7 @@ export class Medici {
                 let anno = dataInizioTemp.year();
                 let out1 = await this.analizzaBustaPaga(matr, mese, anno, mese, anno);
                 // write dati busta object to json file
-                let path2 = await this._nar.getWorkingPath() + path.sep + matr + "_" + anno + mese.toString().padStart(2, '0') + '_datibusta.json';
+                let path2 = this._nar.getWorkingPath() + path.sep + matr + "_" + anno + mese.toString().padStart(2, '0') + '_datibusta.json';
                 await utils.scriviOggettoSuFile(path2, out1);
                 if (!error)
                     if (out1.error)
