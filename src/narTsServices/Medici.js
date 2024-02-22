@@ -463,7 +463,7 @@ export class Medici {
         return out;
     }
 
-    async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap,index = 1) {
+    async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap, index = 1) {
         let page = await this._ts.getWorkingPage(this._visible);
         page.setDefaultTimeout(600000);
         let datiAssistiti = {};
@@ -502,7 +502,7 @@ export class Medici {
                         }
                         return out;
                     });
-                    console.log("[" + index + "]" + " " + cfMedico + " cod regionale " +codRegionale+ " " + Object.keys(dati).length + " assistiti");
+                    console.log("[" + index + "]" + " " + cfMedico + " cod regionale " + codRegionale + " " + Object.keys(dati).length + " assistiti");
                     datiAssistiti[codRegionale] = dati;
                 } else
                     datiAssistiti[codRegionale] = null;
@@ -511,7 +511,7 @@ export class Medici {
         }
     }
 
-    static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap,impostazioni, numParallelsJobs = 20, visible = false) {
+    static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap, impostazioni, numParallelsJobs = 20, visible = false) {
         EventEmitter.defaultMaxListeners = 40;
         let out = {};
         let jobs = [];
@@ -523,7 +523,7 @@ export class Medici {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let mediciTemp = new Medici(impostazioni, visible);
-            promises.push(mediciTemp.getAssistitiDaTs(jobs[i],codToCfDistrettoMap, i));
+            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], codToCfDistrettoMap, i));
             console.log("job " + i + " " + jobs[i].length + " medici");
         }
         let results = await Promise.all(promises);
@@ -778,22 +778,22 @@ export class Medici {
             let dataFine = moment(dati.to[0] + "-" + dati.to[1] + "-01", "YYYY-MM-DD");
             let dataInizioTemp = new moment(dataInizio);
             while (dataInizioTemp.isSameOrBefore(dataFine)) {
-                    let mese = dataInizioTemp.month() + 1;
-                    let anno = dataInizioTemp.year();
-                    let out1 = await this.analizzaBustaPaga(matr, mese, anno, mese, anno);
-                    // write dati busta object to json file
-                    let path2 = await this._nar.getWorkingPath() + path.sep + matr + "_" + anno + mese.toString().padStart(2, '0') + '_datibusta.json';
-                    await utils.scriviOggettoSuFile(path2, out1);
-                    if (!error)
-                        if (out1.error)
-                            error = true;
-                    times++;
-                    if (times % 10 === 0) {
-                        await this._nar.doLogout();
-                    }
+                let mese = dataInizioTemp.month() + 1;
+                let anno = dataInizioTemp.year();
+                let out1 = await this.analizzaBustaPaga(matr, mese, anno, mese, anno);
+                // write dati busta object to json file
+                let path2 = await this._nar.getWorkingPath() + path.sep + matr + "_" + anno + mese.toString().padStart(2, '0') + '_datibusta.json';
+                await utils.scriviOggettoSuFile(path2, out1);
+                if (!error)
+                    if (out1.error)
+                        error = true;
+                times++;
+                if (times % 10 === 0) {
+                    await this._nar.doLogout();
+                }
                 dataInizioTemp.add(1, 'month');
             }
-            await Procedure.salvaCedoliniMedici(matr,this._impostazioni,dataInizio.month()+1,dataInizio.year(),dataFine.month()+1,dataFine.year());
+            await Procedure.salvaCedoliniMedici(matr, this._impostazioni, dataInizio.month() + 1, dataInizio.year(), dataFine.month() + 1, dataFine.year());
         }
         this._nar.batchProcess = false;
         await this._nar.doLogout();
@@ -933,48 +933,32 @@ export class Medici {
     }
 
 
-    async creaElenchiDeceduti(mediciPerDistretto, pathData, distretti, dataQuote = null) {
-        let problemi = []
+    async creaElenchiDeceduti(codToCfDistrettoMap, pathData, distretti, dataQuote = null) {
+        let lista = {perDistretto: {}, nonTrovati: []};
         if (!dataQuote)
             dataQuote = moment().format("YYYY-MM-DD");
-        let data = await utils.getObjectFromFileExcel(fileMedici);
-        let lista = {medici: {}, distretti: {}, nonTrovati: []};
-        for (let row of data) {
-            if (!row['Ambito']) row['Ambito'] = "nessuno";
-            let disKeys = Object.keys(distretti);
-            let distretto = disKeys.filter(dist => row['Ambito'].toLowerCase().includes(dist));
-            distretto = distretto.length > 0 ? distretti[distretto[0]] : 'Nessuno';
-            if (!lista.distretti.hasOwnProperty(distretto))
-                lista.distretti[distretto] = {ambiti: {}, deceduti: [], problemi: []};
-            if (!lista.distretti[distretto].ambiti.hasOwnProperty(row['Ambito']))
-                lista.distretti[distretto].ambiti[row['Ambito']] = {medici: [], deceduti: 0};
-            lista.distretti[distretto].ambiti[row['Ambito']].medici.push(row['Cod. regionale']);
-            if (!lista.medici.hasOwnProperty(row['Cod. regionale']))
-                lista.medici[row['Cod. regionale']] = {
-                    distretto: distretto,
-                    ambito: row['Ambito'],
-                    medico: row,
-                    deceduti: [],
-                    numDeceduti: 0,
-                    quote: 0
-                };
-        }
         let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".json");
-        let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistiti.json");
-        for (let medico in lista.medici) {
+        let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistitiNar.json");
+        for (let medico in codToCfDistrettoMap) {
             let fileMedico = allfiles.filter(file => file.includes(medico));
             if (fileMedico.length === 0)
-                lista.nonTrovati.push(lista.medici[medico]);
+                lista.nonTrovati.push(codToCfDistrettoMap[medico]);
             else if (fileMedico.length === 1) {
                 let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
                 for (let deceduto of Object.values(fileData.deceduti)) {
+                    if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
+                        lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {recuperi:[],problemi:[],medici:{}};
+                    let allAssistitiMedicoMap = {};
+                    for (let assistito of Object.values(allAssistiti[medico].assistiti)) {
+                        allAssistitiMedicoMap[assistito.codiceFiscale] = assistito;
+                    }
                     let numQuote = 0;
-                    let dataScelta = moment(allAssistiti[medico].assistiti[deceduto.cf].data_scelta, "DD/MM/YYYY");
+                    let dataScelta = moment(allAssistitiMedicoMap[deceduto.cf].data_scelta, "DD/MM/YYYY");
                     deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
                     deceduto.codMedico = medico;
-                    deceduto.nomeCognomeMedico = lista.medici[medico].medico['Cognome e Nome'];
-                    deceduto.distretto = lista.medici[medico].distretto;
-                    deceduto.ambito = lista.medici[medico].ambito;
+                    deceduto.nomeCognomeMedico = codToCfDistrettoMap[medico].nome_cognome;
+                    deceduto.distretto = codToCfDistrettoMap[medico].distretto;
+                    deceduto.ambito = codToCfDistrettoMap[medico].ambito;
                     if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null && moment(deceduto.data_decesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
                         let dataInizio = moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso;
                         // se la data di decesso è superiore al 1 gennaio 1900
@@ -983,23 +967,31 @@ export class Medici {
                         deceduto.note = "";
                         if (moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta)) {
                             deceduto.note = "Data decesso precedente alla data di scelta";
-                            lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
-                            problemi.push(deceduto);
+                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
+                        }
+                        else {
+                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].recuperi.push(deceduto);
+                            if (!lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici.hasOwnProperty(medico))
+                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico] = {
+                                    codice: medico,
+                                    distretto: codToCfDistrettoMap[medico].distretto,
+                                    ambito: codToCfDistrettoMap[medico].ambito,
+                                    nomeCognome: codToCfDistrettoMap[medico].nome_cognome,
+                                    numDeceduti: 0,
+                                    quote: 0
+                                };
+                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].numDeceduti += 1;
+                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].quote += numQuote;
                         }
                     } else {
                         deceduto.numQuoteDaRecuperare = 0;
                         deceduto.note = "Data di decesso non valida";
-                        lista.distretti[lista.medici[medico].distretto].problemi.push(deceduto);
-                        problemi.push(deceduto);
+                        lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
                     }
-                    lista.medici[medico].numDeceduti += 1;
-                    lista.medici[medico].quote += numQuote;
-                    lista.medici[medico].deceduti.push(deceduto);
-                    lista.distretti[lista.medici[medico].distretto].deceduti.push(deceduto);
-                    lista.distretti[lista.medici[medico].distretto].ambiti[lista.medici[medico].ambito].deceduti += 1
                 }
             }
         }
+        // DA CONTINUARE
         let out = [];
         for (let medico in lista.medici) {
             out.push(

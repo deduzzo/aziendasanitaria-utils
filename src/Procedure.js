@@ -326,7 +326,7 @@ class Procedure {
             visible);
 
 
-        await medici.creaElenchiDeceduti(mediciPerDistretto,workingPath, distretti, dataQuote);
+        await medici.creaElenchiDeceduti(codToCfDistrettoMap,workingPath, distretti, dataQuote);
 
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
 
