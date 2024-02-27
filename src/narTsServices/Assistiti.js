@@ -25,9 +25,9 @@ export class Assistiti {
      *
      * @param {Config} configurazioneServiziTerzi
      */
-    constructor(configurazioneServiziTerzi) {
+    constructor(configurazioneServiziTerzi,visible = false) {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
-        this._nar = new Nar(this._impostazioni);
+        this._nar = new Nar(this._impostazioni,visible);
         this._ts = new Ts(this._impostazioni);
         this.retryTimeout = 5;
     }
@@ -278,7 +278,7 @@ export class Assistiti {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi);
+            let assistitiTemp = new Assistiti(configImpostazioniServizi,visible);
             promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
         let results = await Promise.all(promises);
