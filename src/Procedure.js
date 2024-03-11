@@ -347,8 +347,7 @@ class Procedure {
             cfs.push(assistito[colonnaCf]);
         }
         // get the first 50 cfs
-        let cfs2 = cfs.slice(0, 50);
-        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs2, verificaIndirizzi,numParallels,visible);
+        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi,numParallels,visible);
         if (salvaFile) {
             let parentFolder= path.dirname(fileExcel);
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "vivi.xlsx", Object.values(ris.out.vivi));
