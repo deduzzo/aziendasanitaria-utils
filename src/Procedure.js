@@ -66,7 +66,7 @@ class Procedure {
         }
     }
 
-    static async getDifferenzeAssistitiNarTs(mediciPerDistretto,codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false) {
+    static async #getDifferenzeAssistitiNarTs(mediciPerDistretto,codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false) {
         await Procedure.getAssistitiFileFromNar(impostazioniServizi, pathAssistitiPdfNar, codToCfDistrettoMap, distretti, workingPath);
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, parallels, visibile);
 
@@ -332,7 +332,7 @@ class Procedure {
 
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
 
-        await Procedure.getDifferenzeAssistitiNarTs(
+        await Procedure.#getDifferenzeAssistitiNarTs(
             mediciPerDistretto,
             codToCfDistrettoMap,
             workingPath + path.sep + nomeFilePdfAssistiti,

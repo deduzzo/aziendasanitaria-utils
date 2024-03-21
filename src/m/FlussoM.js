@@ -359,7 +359,7 @@ export class FlussoM {
                 nomeFile: path.basename(filePath),
                 absolutePath: filePath,
                 //hash: md5File.sync(filePath)
-                hash: await hashFile(filePath,{algorithm: 'md5'})
+                hash: await hashFile(filePath, {algorithm: 'md5'})
             }
     }
 
@@ -1597,6 +1597,22 @@ export class FlussoM {
         })
 
 
+        const workbookTotale = new ExcelJS.Workbook();
+        let sheetsGlobale = [];
+
+        for (let sheet of Object.values(tabs)) {
+            sheetsGlobale[sheet] = workbookTotale.addWorksheet(sheet);
+            sheetsGlobale[sheet].columns = [
+                {header: 'Id Struttura', key: 'id'},
+                {header: 'Descrizione', key: 'descrStruttura'},
+                {header: 'ID Prestazione', key: 'idPrest'},
+                {header: 'Descr. Prest', key: 'descPrest'},
+                {header: 'Branca', key: 'branche'},
+                {header: 'totale', key: 'totalePrest'},
+                {header: 'importo', key: 'importo'},
+            ];
+        }
+
         let i = 0;
         for (let codStr in prestazioniMap) {
             console.log("Progresso " + ++i + " di " + Object.keys(prestazioniMap).length);
@@ -1634,13 +1650,24 @@ export class FlussoM {
                                 totalePrest: prestazioniMap[codStr][tab][dato].num,
                                 importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
                             });
+                        sheetsGlobale[tabs[tab]].insertRow(2,
+                            {
+                                id: codStr,
+                                descrStruttura: strutture[codStr]?.denominazione ?? ("cod. " + codStr),
+                                idPrest: dato,
+                                descPrest: catalogoMap[dato].descrizione,
+                                branche: brancheTxt.substring(0, brancheTxt.length - 3),
+                                totalePrest: prestazioniMap[codStr][tab][dato].num,
+                                importo: parseFloat(prestazioniMap[codStr][tab][dato].totale.toFixed(2))
+                            });
                     }
                 }
             }
             await workbook.xlsx.writeFile(this._settings.out_folder + path.sep + codStr + "_" + anno.toString() + ".xlsx");
         }
-        //if (fileUnico)
-        //    await workbook.xlsx.writeFile(this._settings.out_folder + path.sep +  anno.toString() + ".xlsx");
+
+        if (fileUnico)
+            await workbookTotale.xlsx.writeFile(this._settings.out_folder + path.sep + anno.toString() + ".xlsx");
         console.log(error)
     }
 
