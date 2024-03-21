@@ -66,7 +66,8 @@ class Procedure {
         }
     }
 
-    static async #getDifferenzeAssistitiNarTs(mediciPerDistretto,codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, soloAttivi = false, workingPath = null, parallels = 20, visibile = false) {
+    static async #getDifferenzeAssistitiNarTs(mediciPerDistretto, codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, workingPath = null, soloAttivi = false, parallels = 20, visibile = false) {
+
         await Procedure.getAssistitiFileFromNar(impostazioniServizi, pathAssistitiPdfNar, codToCfDistrettoMap, distretti, workingPath);
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, parallels, visibile);
 
@@ -78,7 +79,7 @@ class Procedure {
         // SALVA FILE NAR E TS PER DISTRETTO
         let allAssistitiDistrettuali = {};
         for (let distretto of Object.keys(mediciPerDistretto)) {
-            allAssistitiDistrettuali[distretto] = {nar: [], ts: []};
+            allAssistitiDistrettuali[distretto] = {nar: [], ts: [], codRegNar: {}, codRegTs: {}};
             for (let medico of mediciPerDistretto[distretto]) {
                 let codReg = medico.cod_regionale_medico;
                 if (assistitiNar.hasOwnProperty(codReg)) {
@@ -88,25 +89,37 @@ class Procedure {
                     for (let assistito of assistitiTs[codReg]) {
                         allAssistitiDistrettuali[distretto].ts.push({...assistito, ...medico});
                     }
+                    allAssistitiDistrettuali[distretto].codRegNar[codReg] = assistitiNar[codReg].assistiti;
+                    allAssistitiDistrettuali[distretto].codRegTs[codReg] = assistitiTs[codReg];
                 }
             }
         }
 
+        if (!fs.existsSync(workingPath + path.sep + "differenze"))
+            fs.mkdirSync(workingPath + path.sep + "differenze");
+
+        let medici = new Medici(impostazioniServizi);
         for (let distretto of Object.keys(allAssistitiDistrettuali)) {
             console.log("DISTRETTO " + distretto);
-            if (!fs.existsSync(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx"))
-                await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNar_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].nar);
-            if (!fs.existsSync(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx"))
-                await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiTs_" + distretto + ".xlsx", allAssistitiDistrettuali[distretto].ts);
+            if (!fs.existsSync(workingPath + path.sep + "differenze" + path.sep + distretto))
+                fs.mkdirSync(workingPath + path.sep + "differenze" + path.sep + distretto);
+
+            await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "assistitiNar.xlsx", allAssistitiDistrettuali[distretto].nar);
+            await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "assistitiTs.xlsx", allAssistitiDistrettuali[distretto].ts);
+
+            // VERIFICA DIFFERENZE
+            let differenze = medici.getAllDifferenzeAnagrafiche(allAssistitiDistrettuali[distretto], codToCfDistrettoMap,distretti[distretto]);
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "differenze.json", differenze);
+            let allDettaglioDifferenze = [];
+            for (let codReg in differenze) {
+                allDettaglioDifferenze.push(...differenze[codReg].dettaglioDifferenze);
+            }
+            await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "differenze.xlsx", allDettaglioDifferenze);
         }
 
-        if (!fs.existsSync(workingPath + path.sep + "medici.json"))
-            await Utils.scriviOggettoSuFile(workingPath + path.sep + "medici.json", Object.values(codToCfDistrettoMap));
+/*        if (!fs.existsSync(workingPath + path.sep + "medici.json"))
+            await Utils.scriviOggettoSuFile(workingPath + path.sep + "medici.json", Object.values(codToCfDistrettoMap));*/
 
-        // VERIFICA DIFFERENZE
-        let medici = new Medici(impostazioniServizi);
-        let differenze = medici.getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfDistrettoMap);
-        await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze.json", differenze);
     }
 
     static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 50, maxItemPerJob = 50, includiPrestazioni = true, visibile = false) {
@@ -239,14 +252,14 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno,visible = false) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false) {
         // da,a array mese anno
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
-        let medici = new Medici(impostazioniServizi,visible,null,true,Nar.PAGHE);
+        let medici = new Medici(impostazioniServizi, visible, null, true, Nar.PAGHE);
         do {
             let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
-            let out2 = await medici.analizzaBustaPaga(matricola,da.month() + 1, da.year(), da.month() + 1, da.year());
+            let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), da.month() + 1, da.year());
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a));
     }
@@ -289,17 +302,17 @@ class Procedure {
                         id_protocollo: prot[0],
                     })
                     if (ricetta.hasOwnProperty("prestazioni") && ricetta.prestazioni.hasOwnProperty("dettaglio"))
-                    for (let prestazione of ricetta.prestazioni.dettaglio) {
-                        let idPrestazione = await db("prestazione").insert({
-                            regione: prestazione.regione,
-                            data_erogazione: prestazione.data_erogazione,
-                            quantita: prestazione.quantita,
-                            codice_prodotto: prestazione.codice_prodotto,
-                            descrizione: prestazione.descrizione,
-                            tariffa: prestazione.tariffa,
-                            id_ricetta: idRicetta[0],
-                        })
-                    }
+                        for (let prestazione of ricetta.prestazioni.dettaglio) {
+                            let idPrestazione = await db("prestazione").insert({
+                                regione: prestazione.regione,
+                                data_erogazione: prestazione.data_erogazione,
+                                quantita: prestazione.quantita,
+                                codice_prodotto: prestazione.codice_prodotto,
+                                descrizione: prestazione.descrizione,
+                                tariffa: prestazione.tariffa,
+                                id_ricetta: idRicetta[0],
+                            })
+                        }
                 }
             }
             console.log("protocollo " + protocollo + " inserito");
@@ -307,7 +320,7 @@ class Procedure {
         return 0;
     }
 
-    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote,workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 6, visible = false) {
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 6, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -315,10 +328,10 @@ class Procedure {
         let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
             impostazioniServizi,
             pathExcelMedici,
-            distretti,
+            Object.keys(distretti),
             workingPath);
 
-        await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, distretti, workingPath);
+        await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, Object.keys(distretti), workingPath);
 
         await Assistiti.verificaAssititiInVitaParallelsJobs(
             impostazioniServizi,
@@ -328,7 +341,7 @@ class Procedure {
             visible);
 
 
-        await medici.creaElenchiDeceduti(codToCfDistrettoMap,workingPath, distretti, dataQuote);
+        await medici.creaElenchiDeceduti(codToCfDistrettoMap, workingPath, distretti, dataQuote);
 
         await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
 
@@ -337,26 +350,26 @@ class Procedure {
             codToCfDistrettoMap,
             workingPath + path.sep + nomeFilePdfAssistiti,
             impostazioniServizi,
-            distretti);
+            distretti,
+            workingPath)
     }
 
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = true, visible = false,numParallels = 10, salvaFile = true) {
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = true, visible = false, numParallels = 10, salvaFile = true) {
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
             cfs.push(assistito[colonnaCf]);
         }
         // get the first 50 cfs
-        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi,numParallels,visible);
+        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi, numParallels, visible);
         if (salvaFile) {
-            let parentFolder= path.dirname(fileExcel);
+            let parentFolder = path.dirname(fileExcel);
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "vivi.xlsx", Object.values(ris.out.vivi));
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "morti.xlsx", Object.values(ris.out.morti));
             if (ris.out.nonTrovati.length > 0)
                 await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
         }
     }
-
 
 
 }

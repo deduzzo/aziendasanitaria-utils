@@ -9,16 +9,16 @@ const distretti = {
     9: "S.Agata"
 }
 
-const distrettiByKeyword = [
-    "messina",
-    "taormina",
-    "milazzo",
-    "lipari",
-    "barcellona",
-    "patti",
-    "mistretta",
-    "agata"
-]
+const distrettiByKeyword = {
+    "messina" : distretti[1],
+    "taormina": distretti[3],
+    "milazzo": distretti[4],
+    "lipari": distretti[5],
+    "barcellona": distretti[6],
+    "patti": distretti[7],
+    "mistretta": distretti[8],
+    "agata": distretti[9]
+}
 
 const recapitiDistretti =
     {

@@ -35,9 +35,9 @@ export class Medici {
      */
 
 
-    constructor(impostazioni, visible = false, workingPath = null,batchProcess = false,narType = Nar.NAR) {
+    constructor(impostazioni, visible = false, workingPath = null, batchProcess = false, narType = Nar.NAR) {
         this._impostazioni = impostazioni;
-        this._nar = new Nar(this._impostazioni, visible, workingPath, batchProcess,narType);
+        this._nar = new Nar(this._impostazioni, visible, workingPath, batchProcess, narType);
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
@@ -289,7 +289,7 @@ export class Medici {
                     // Salva la pagina come PDF
                     await page.goto(`file://${tempFileDettaglio}`);
                     await page.pdf({
-                        path:  this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                        path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
                         format: 'A4'
                     });
                     //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
@@ -385,7 +385,7 @@ export class Medici {
                     await page.waitForTimeout(300);
                     if (file) {
                         // copy the file to the working path with filename
-                        fs.copyFileSync(file,  this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                        fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
                     } else
                         out.error = true;
                     //dispose the watcher
@@ -533,13 +533,16 @@ export class Medici {
         return out;
     }
 
-    getAllDifferenzeAnagrafiche(assistitiNar, assistitiTs, codToCfMap) {
+    getAllDifferenzeAnagrafiche(assistitiNarTs, codToCfMap, distretto) {
         let out = {};
-        for (let codNar of Object.keys(assistitiNar)) {
-            if (assistitiTs.hasOwnProperty(codNar)) {
+
+        for (let codNar of Object.keys(assistitiNarTs.codRegNar)) {
+            if (assistitiNarTs.codRegTs.hasOwnProperty(codNar)) {
                 let res = this.#getDifferenzeAnagrafiche(
-                    assistitiNar[codNar].assistiti,
-                    assistitiTs[codNar]
+                    assistitiNarTs.codRegNar[codNar],
+                    assistitiNarTs.codRegTs[codNar],
+                    codToCfMap[codNar],
+                    distretto
                 );
                 out[codNar] = res;
             }
@@ -547,19 +550,34 @@ export class Medici {
         return out;
     }
 
-    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs) {
+    #getDifferenzeAnagrafiche(assistitiNar, assistitiTs, datiMedico, distretto) {
         let differenze = [];
         let allAssistitiTs = [];
         let allAssistitiNar = [];
         let allAssistiti = {};
+        let infoAggiuntive = {
+            codice_regionale_medico: datiMedico.cod_regionale,
+            distretto: distretto,
+            ambito_medico: datiMedico.ambito,
+            nome_cognome_medico: datiMedico.nome_cognome,
+            codice_fiscale_medico: datiMedico.cf
+        }
         for (let assistito of assistitiNar) {
             if (!allAssistiti.hasOwnProperty(assistito.codiceFiscale))
-                allAssistiti[assistito.codiceFiscale] = null;
+                allAssistiti[assistito.codiceFiscale] = {
+                    nome: assistito.nome,
+                    cognome: assistito.cognome,
+                    codiceFiscale: assistito.codiceFiscale
+                };
             allAssistitiNar.push(assistito.codiceFiscale);
         }
         for (let assistito of assistitiTs) {
             if (!allAssistiti.hasOwnProperty(assistito.cf))
-                allAssistiti[assistito.cf] = null;
+                allAssistiti[assistito.cf] = {
+                    nome_assistito: assistito.nome,
+                    cognome_assistito: assistito.cognome,
+                    codice_fiscale_assistito: assistito.cf
+                };
             allAssistitiTs.push(assistito.cf);
         }
         for (let assistito of Object.keys(allAssistiti)) {
@@ -570,16 +588,19 @@ export class Medici {
             if (allAssistitiTs.includes(assistito))
                 trovatoTs = true;
             let ris = null;
-            if (trovatoNar && !trovatoTs)
-                ris = {differenza: true, assistito: assistito, motivo: "presente solo in NAR"};
-            else if (!trovatoNar && trovatoTs)
-                ris = {differenza: true, assistito: assistito, motivo: "presente su Sistema TS"};
-            else
-                ris = {differenza: false};
-            allAssistiti[assistito] = ris;
-            if (ris.differenza) {
-                // remove differenza from ris
-                delete ris.differenza;
+            if (trovatoNar && !trovatoTs) {
+                ris = {
+                    ...infoAggiuntive,
+                    ...allAssistiti[assistito],
+                    motivo: "assistito presente SOLO su sistema NAR"
+                };
+            } else if (!trovatoNar && trovatoTs)
+                ris = {
+                    ...infoAggiuntive,
+                    ...allAssistiti[assistito],
+                    motivo: "assistito presente SOLO su sistema TS"
+                };
+            if (ris) {
                 differenze.push(ris);
             }
         }
@@ -947,17 +968,24 @@ export class Medici {
                 let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
                 for (let deceduto of Object.values(fileData.deceduti)) {
                     if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
-                        lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {recuperi:[],problemi:[],medici:{}};
+                        lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {
+                            recuperi: [],
+                            problemi: [],
+                            medici: {}
+                        };
                     let allAssistitiMedicoMap = {};
                     for (let assistito of Object.values(allAssistiti[medico].assistiti)) {
                         allAssistitiMedicoMap[assistito.codiceFiscale] = assistito;
                     }
                     let numQuote = 0;
                     let dataScelta = moment(allAssistitiMedicoMap[deceduto.cf].data_scelta, "DD/MM/YYYY");
+
+                    if (!deceduto.hasOwnProperty('indirizzo') || deceduto.indirizzo === "" || deceduto.indirizzo === null)
+                        deceduto.indirizzo = "-";
                     deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
                     deceduto.codMedico = medico;
                     deceduto.nomeCognomeMedico = codToCfDistrettoMap[medico].nome_cognome;
-                    deceduto.distretto = codToCfDistrettoMap[medico].distretto;
+                    deceduto.distretto = distretti[codToCfDistrettoMap[medico].distretto];
                     deceduto.ambito = codToCfDistrettoMap[medico].ambito;
                     if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null && moment(deceduto.data_decesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
                         let dataInizio = moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso;
@@ -968,13 +996,12 @@ export class Medici {
                         if (moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta)) {
                             deceduto.note = "Data decesso precedente alla data di scelta";
                             lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
-                        }
-                        else {
+                        } else {
                             lista.perDistretto[codToCfDistrettoMap[medico].distretto].recuperi.push(deceduto);
                             if (!lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici.hasOwnProperty(medico))
                                 lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico] = {
                                     codice: medico,
-                                    distretto: codToCfDistrettoMap[medico].distretto,
+                                    distretto: distretti[codToCfDistrettoMap[medico].distretto],
                                     ambito: codToCfDistrettoMap[medico].ambito,
                                     nomeCognome: codToCfDistrettoMap[medico].nome_cognome,
                                     numDeceduti: 0,
@@ -991,26 +1018,31 @@ export class Medici {
                 }
             }
         }
-        // DA CONTINUARE
-        let out = [];
-        for (let medico in lista.medici) {
-            out.push(
-                {
-                    codiceRegionale: medico,
-                    nominativo: lista.medici[medico].medico['Cognome e Nome'],
-                    deceduti: lista.medici[medico].deceduti,
-                    quote: lista.medici[medico].quote
-                }
-            );
+        let out = {};
+        for (let distretto in lista.perDistretto) {
+            if (!out.hasOwnProperty(distretto))
+                out[distretto] = {recuperi: [], problemi: []};
+            out[distretto].recuperi.push(...lista.perDistretto[distretto].recuperi);
+            out[distretto].problemi.push(...lista.perDistretto[distretto].problemi);
         }
-        let outPerMedico = [];
-        for (let medico in lista.medici) {
-            for (let deceduto of lista.medici[medico].deceduti) {
-                outPerMedico.push(deceduto);
-            }
+        let global = {recuperi: [], problemi: []};
+        for (let distretto in out) {
+            // add column distretto in each recuperi and problemi
+            for (let recupero of out[distretto].recuperi)
+                global.recuperi.push(recupero);
+            for (let problema of out[distretto].problemi)
+                global.problemi.push(problema);
         }
-        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "quote.xlsx", out);
-        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "problemi.xlsx", problemi);
-        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "dettaglioTotale.xlsx", outPerMedico);
+        // create folder if exist pathData + path.sep + "recuperi" + path.sep
+        if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep))
+            fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep);
+        if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep))
+            fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep);
+        for (let distretto in out) {
+            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_recuperi.xlsx", out[distretto].recuperi);
+            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_problemi.xlsx", out[distretto].problemi);
+        }
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_recuperi.xlsx", global.recuperi);
+        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_problemi.xlsx", global.problemi);
     }
 }
