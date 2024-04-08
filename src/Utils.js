@@ -412,26 +412,28 @@ const estraiDataDiNascita = (codiceFiscale) => {
     return {dataString: stringDate, eta: eta};
 }
 
-const getObjectFromFileExcel = async (filePath, numSheet = 0) => {
+const getObjectFromFileExcel = async (filePath, numSheet = null) => {
     let out = [];
     let header = {};
     let workbook = new ExcelJS.Workbook();
     let fileExcel = await workbook.xlsx.readFile(filePath);
-    let worksheet = fileExcel.worksheets[numSheet];
+    let selectedWs = !numSheet ? fileExcel.worksheets : [fileExcel.worksheets[numSheet]];
 
-    worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
-        let riga = {};
-        if (rowNumber === 1) {
-            row.eachCell((cell, colNumber) => {
-                header[colNumber] = cell.value;
-            });
-        } else {
-            row.eachCell({includeEmpty: false}, (cell, colNumber) => {
-                riga[header[colNumber]] = cell.value;
-            });
-            out.push(riga);
-        }
-    });
+    for (let worksheet of selectedWs) {
+        worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
+            let riga = {};
+            if (rowNumber === 1) {
+                row.eachCell((cell, colNumber) => {
+                    header[colNumber] = cell.value;
+                });
+            } else {
+                row.eachCell({includeEmpty: false}, (cell, colNumber) => {
+                    riga[header[colNumber]] = cell.value;
+                });
+                out.push(riga);
+            }
+        });
+    }
 
     return out;
 }
