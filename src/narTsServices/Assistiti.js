@@ -46,7 +46,7 @@ export class Assistiti {
                     await page.type("input[name='dataNascita']", dato.data_nascita);
                     await page.type("select[name='sesso']", dato.sesso);
                     await page.type("input[name='comuneNascita']", dato.comune_nascita);
-                    await page.type("input[name='provinciaNascita']", dato.provincia_nascita);
+                    await page.type("input[name='provinciaNascita']", dato.provincia_nascita !== "SE" ? dato.provincia_nascita : "EE");
                     await page.click('#go');
                     await page.waitForSelector("body > div:nth-child(12) > h1")
                     datiUtenti[cf].data_decesso = await page.evaluate(() => {
