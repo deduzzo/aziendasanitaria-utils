@@ -99,6 +99,7 @@ class Procedure {
             fs.mkdirSync(workingPath + path.sep + "differenze");
 
         let medici = new Medici(impostazioniServizi);
+        let allDifferenze = [];
         for (let distretto of Object.keys(allAssistitiDistrettuali)) {
             console.log("DISTRETTO " + distretto);
             if (!fs.existsSync(workingPath + path.sep + "differenze" + path.sep + distretto))
@@ -114,11 +115,11 @@ class Procedure {
             for (let codReg in differenze) {
                 allDettaglioDifferenze.push(...differenze[codReg].dettaglioDifferenze);
             }
+            allDifferenze.push(...allDettaglioDifferenze);
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "differenze.xlsx", allDettaglioDifferenze);
         }
+        await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + "allDifferenze.xlsx", allDifferenze);
 
-/*        if (!fs.existsSync(workingPath + path.sep + "medici.json"))
-            await Utils.scriviOggettoSuFile(workingPath + path.sep + "medici.json", Object.values(codToCfDistrettoMap));*/
 
     }
 
