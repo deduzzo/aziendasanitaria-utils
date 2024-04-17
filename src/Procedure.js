@@ -52,9 +52,15 @@ class Procedure {
         let medici = new Medici(impostazioniServizi);
 
         if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
-            let allAssistiti = await medici.getAssistitiDaListaPDF(pathFilePdf, codToCfDistrettoMap, 'cf');
+            let allAssistiti = await medici.getAssistitiDaListaPDF(pathFilePdf, codToCfDistrettoMap);
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "assistitiNar.json", allAssistiti);
         }
+        // load all assistiti
+        let assistiti = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
+        let countAssistiti = 0;
+        for (let mmg of Object.keys(assistiti))
+            countAssistiti += assistiti[mmg].assistiti.length;
+        console.log("ASSISTITI NAR: " + countAssistiti);
     }
 
     static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath = null, parallels = 20, visibile = false, nomeFile = "assistitiTs.json",) {
@@ -353,6 +359,29 @@ class Procedure {
             impostazioniServizi,
             distretti,
             workingPath)
+    }
+
+    static async verificaDatiAssistitiDaFileNar(impostazioniServizi,fileAssistiti,pathExcelMedici, distretti, workingPath = null) {
+
+        let out = {};
+
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+        let medici = new Medici(impostazioniServizi);
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            Object.keys(distretti),
+            workingPath);
+        let allAssistiti = await medici.getAssistitiDaListaPDF(fileAssistiti, codToCfDistrettoMap);
+        for(let codNar in allAssistiti){
+            let allCodiciFiscali = allAssistiti[codNar].assistiti.map(assistito => assistito.codiceFiscale);
+            let assistiti = await Assistiti.verificaDatiAssistitiNarParallels(impostazioniServizi, allCodiciFiscali, true, 10, false);
+            // write data to excel
+            await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistiti_" + codNar + ".xlsx", assistiti.out.dati);
+            await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNonTrovati_" + codNar + ".xlsx", assistiti.out.nonTrovati);
+        }
+
     }
 
     static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = true, visible = false, numParallels = 10, salvaFile = true) {

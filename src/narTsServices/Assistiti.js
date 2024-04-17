@@ -25,9 +25,9 @@ export class Assistiti {
      *
      * @param {Config} configurazioneServiziTerzi
      */
-    constructor(configurazioneServiziTerzi,visible = false) {
+    constructor(configurazioneServiziTerzi, visible = false) {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
-        this._nar = new Nar(this._impostazioni,visible);
+        this._nar = new Nar(this._impostazioni, visible);
         this._ts = new Ts(this._impostazioni);
         this.retryTimeout = 5;
     }
@@ -82,7 +82,7 @@ export class Assistiti {
                     await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
                     await page.waitForSelector("#inside");
                     await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
-                    await page.waitForSelector("#id1");
+                    await page.waitForSelector("#mediciTable");
                     let datiAssistito = await page.evaluate(() => {
                         let dati = {error: false, data: {}};
                         try {
@@ -93,6 +93,11 @@ export class Assistiti {
                             dati.data.comune_nascita = document.querySelector("input[name='codiceComuneNascita_d']")?.value;
                             dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
                             dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
+                            if (document.querySelector("#mediciTable").rows.length > 1) {
+                                dati.data.codiceUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[2].innerText;
+                                dati.data.nominativoUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[3].innerText;
+                                dati.data.statoUltimoMMG = !document.querySelector("#mediciTable").rows[1].cells[7].innerText.toLowerCase().includes('revoca');
+                            }
                             if (!dati.data.hasOwnProperty('indirizzo'))
                                 dati.data.indirizzo = "";
                         } catch (ex) {
@@ -278,7 +283,7 @@ export class Assistiti {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi,visible);
+            let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
             promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
         }
         let results = await Promise.all(promises);
@@ -293,6 +298,32 @@ export class Assistiti {
         }
         return out;
     }
+
+    static async verificaDatiAssistitiNarParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
+        EventEmitter.defaultMaxListeners = 100;
+        let out = {error: false, out: {dati: [], nonTrovati: []}}
+        let jobs = [];
+        let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
+        for (let i = 0; i < numParallelsJobs; i++) {
+            let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
+            jobs.push(job);
+        }
+        let promises = [];
+        for (let i = 0; i < jobs.length; i++) {
+            let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
+            promises.push(assistitiTemp.verificaDatiAssititoDaNar(jobs[i],true , i + 1));
+        }
+        let results = await Promise.all(promises);
+        promises = null;
+        for (let result of results) {
+            out.out.dati.push(...Object.values(result.data));
+            out.out.nonTrovati.push(...result.nonTrovati);
+            result = null;
+        }
+        return out;
+    }
+
+
 
     async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiPrestazioni = true, visibile = false) {
         let datoFinale = {error: false, out: {}};
