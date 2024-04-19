@@ -73,7 +73,9 @@ export class Assistiti {
     async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
         let out = {data: {}, nonTrovati: []};
         let page = await this._nar.getWorkingPage(visibile);
+        console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (page) {
+            let i = 0;
             for (let cf of codiciFiscali) {
                 try {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
@@ -94,6 +96,7 @@ export class Assistiti {
                             dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
                             dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
                             if (document.querySelector("#mediciTable").rows.length > 1) {
+                                dati.data.tipoMedico = document.querySelector("#mediciTable").rows[1].cells[4].innerText;
                                 dati.data.codiceUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[2].innerText;
                                 dati.data.nominativoUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[3].innerText;
                                 dati.data.statoUltimoMMG = !document.querySelector("#mediciTable").rows[1].cells[7].innerText.toLowerCase().includes('revoca');
@@ -118,6 +121,8 @@ export class Assistiti {
                 } catch (ex) {
                     out.nonTrovati.push(cf + "_su_nar");
                 }
+                if (i++ % 10 === 0)
+                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [trovati: " + Object.keys(out.data).length + ", nonTrovati: " + out.nonTrovati.length + "]");
             }
         }
         await this._nar.doLogout();
@@ -311,7 +316,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            promises.push(assistitiTemp.verificaDatiAssititoDaNar(jobs[i],true , i + 1));
+            promises.push(assistitiTemp.verificaDatiAssititoDaNar(jobs[i], true, i + 1));
         }
         let results = await Promise.all(promises);
         promises = null;
@@ -322,7 +327,6 @@ export class Assistiti {
         }
         return out;
     }
-
 
 
     async controlliEsenzioneAssistito(protocolli, arrayEsenzione, anno, index = 1, includiPrestazioni = true, visibile = false) {

@@ -624,7 +624,6 @@ export class Medici {
                     if (!out.hasOwnProperty(lastCodice))
                         out[lastCodice] = {assistiti: [], medico: {}}
                     out[lastCodice].medico.codice = lastCodice;
-                    console.log(lastCodice);
                     out[lastCodice].medico.cf = codToCfDistrettoMap[lastCodice].cf;
                     out[lastCodice].medico.distretto = codToCfDistrettoMap[lastCodice].distretto;
                     out[lastCodice].medico.nominativo = codToCfDistrettoMap[lastCodice].nome_cognome;
