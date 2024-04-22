@@ -376,16 +376,18 @@ class Procedure {
         let allAssistiti = await medici.getAssistitiDaListaPDF(fileAssistiti, codToCfDistrettoMap);
         for(let codNar in allAssistiti){
             let allCodiciFiscali = allAssistiti[codNar].assistiti.map(assistito => assistito.codiceFiscale);
-            let assistiti = await Assistiti.verificaDatiAssistitiNarParallels(impostazioniServizi, allCodiciFiscali, true, 10, false);
+            // put in allCodiciFiscali the first 20 codici fiscali
+            allCodiciFiscali = allCodiciFiscali.slice(0,4);
+            let assistiti = await Assistiti.verificaDatiAssistitiNarParallels(impostazioniServizi, allCodiciFiscali, true, 1, false);
             // write data to excel
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistiti_" + codNar + ".xlsx", assistiti.out.dati);
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNonTrovati_" + codNar + ".xlsx", assistiti.out.nonTrovati);
             let storicoMMGOut = [];
-            for (let cf in assistiti.out.storicoMMG){
-                let row = {};
-                row.cf = cf;
-                row = {...row, ...assistiti.out.storicoMMG[cf]};
-                storicoMMGOut.push(row);
+            for (let cf in assistiti.storicoMMG){
+                for (let row of assistiti.storicoMMG[cf]) {
+                    row.cf = cf;
+                    storicoMMGOut.push(row);
+                }
             }
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "storicoMMGAssistiti_" + codNar + ".xlsx", storicoMMGOut);
         }

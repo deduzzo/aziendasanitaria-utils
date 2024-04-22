@@ -138,6 +138,7 @@ export class Assistiti {
                     console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [trovati: " + Object.keys(out.data).length + ", nonTrovati: " + out.nonTrovati.length + "]");
             }
         }
+        console.log("#" + index + " FINE");
         await this._nar.doLogout();
         if (this._nar._browser)
             await this._nar._browser.close();
@@ -319,7 +320,7 @@ export class Assistiti {
 
     static async verificaDatiAssistitiNarParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
         EventEmitter.defaultMaxListeners = 100;
-        let out = {error: false, out: {dati: [], nonTrovati: []}}
+        let out = {error: false, out: {dati: [], nonTrovati: [],storicoMMG: {}}}
         let jobs = [];
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {
@@ -336,6 +337,7 @@ export class Assistiti {
         for (let result of results) {
             out.out.dati.push(...Object.values(result.data));
             out.out.nonTrovati.push(...result.nonTrovati);
+            out.storicoMMG = {...out.storicoMMG, ...result.storicoMMG};
             result = null;
         }
         return out;
