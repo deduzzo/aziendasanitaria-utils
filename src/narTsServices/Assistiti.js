@@ -71,7 +71,7 @@ export class Assistiti {
     }
 
     async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
-        let out = {data: {}, nonTrovati: []};
+        let out = {data: {}, nonTrovati: [],storicoMMG: {}};
         let page = await this._nar.getWorkingPage(visibile);
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (page) {
@@ -96,10 +96,21 @@ export class Assistiti {
                             dati.data.provincia_nascita = document.querySelector("input[name='provinciaComuneNascita@']")?.value;
                             dati.data.indirizzo = document.querySelector("input[name='indirizzoResidenza@']")?.value;
                             if (document.querySelector("#mediciTable").rows.length > 1) {
-                                dati.data.tipoMedico = document.querySelector("#mediciTable").rows[1].cells[4].innerText;
-                                dati.data.codiceUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[2].innerText;
-                                dati.data.nominativoUltimoMMG = document.querySelector("#mediciTable").rows[1].cells[3].innerText;
-                                dati.data.statoUltimoMMG = !document.querySelector("#mediciTable").rows[1].cells[7].innerText.toLowerCase().includes('revoca');
+                                let mmg = [];
+                                for (let i = 1; i < document.querySelector("#mediciTable").rows.length; i++) {
+                                    let mmgRow = {}
+                                    mmgRow.tipoMMG = document.querySelector("#mediciTable").rows[i].cells[4].innerText;
+                                    mmgRow.codiceRegionaleMMG = document.querySelector("#mediciTable").rows[i].cells[2].innerText;
+                                    mmgRow.nominativoMMG = document.querySelector("#mediciTable").rows[i].cells[3].innerText;
+                                    mmgRow.statoMMG = !document.querySelector("#mediciTable").rows[i].cells[7].innerText.toLowerCase().includes('revoca');
+                                    mmgRow.tipoOpMMG = document.querySelector("#mediciTable").rows[i].cells[5].innerText;
+                                    mmgRow.dataSceltaMMG = document.querySelector("#mediciTable").rows[i].cells[6].innerText;
+                                    mmgRow.dataRevocaMMG = document.querySelector("#mediciTable").rows[i].cells[8].innerText;
+                                    if (i === 1)
+                                        dati.data = {...dati.data, ...mmgRow};
+                                    mmg.push(mmgRow);
+                                }
+                                dati.data.storicoMMG = mmg;
                             }
                             if (!dati.data.hasOwnProperty('indirizzo'))
                                 dati.data.indirizzo = "";
@@ -113,6 +124,8 @@ export class Assistiti {
                     if (!datiAssistito.error) {
                         console.log("#" + index + " " + cf + " dati su NAR ok");
                         datiAssistito.data.cf = cf;
+                        out.storicoMMG[cf] = datiAssistito.data.storicoMMG;
+                        delete datiAssistito.data.storicoMMG;
                         out.data[cf] = datiAssistito.data;
                     } else {
                         console.log("#" + index + " " + cf + " dati su NAR ERRORE");
