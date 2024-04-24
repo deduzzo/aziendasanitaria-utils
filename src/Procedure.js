@@ -394,7 +394,7 @@ class Procedure {
 
     }
 
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = true, visible = false, numParallels = 10, salvaFile = true) {
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = false, visible = false, numParallels = 10, salvaFile = true) {
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
@@ -402,6 +402,7 @@ class Procedure {
         }
         // get the first 50 cfs
         let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi, numParallels, visible);
+        console.log("FINE VERIFICA");
         if (salvaFile) {
             let parentFolder = path.dirname(fileExcel);
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "vivi.xlsx", Object.values(ris.out.vivi));
@@ -409,6 +410,7 @@ class Procedure {
             if (ris.out.nonTrovati.length > 0)
                 await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
         }
+        console.log("FILE SALVATI");
     }
 
 

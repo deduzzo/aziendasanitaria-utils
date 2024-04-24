@@ -162,7 +162,25 @@ export class Assistiti {
                         do {
                             obsoleto = false;
                             i++;
-                            await page.goto("https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do", {waitUntil: 'networkidle2'});
+                            const url = 'https://sistemats4.sanita.finanze.it/simossAssistitiWeb/assistitiInit.do';
+                            let attempts = 0;
+                            const maxAttempts = 10;
+                            const waitOptions = {waitUntil: 'networkidle2', timeout: 4000};
+
+                            while (attempts < maxAttempts) {
+                                try {
+                                    await page.goto(url, waitOptions);
+                                    break;
+                                } catch (error) {
+                                    attempts++;
+                                    if (attempts === maxAttempts) {
+                                        console.error('Massimo numero di tentativi raggiunto, impossibile caricare la pagina');
+                                        // stop script
+                                        throw error;
+                                    }
+                                }
+                            }
+
                             try {
                                 await page.type('body > div:nth-child(12) > form > fieldset > div:nth-child(2) > div.right_column.margin-right.width25 > input[type=text]', codiceFiscale);
                                 await page.click('#go');
@@ -216,13 +234,13 @@ export class Assistiti {
                                 datiAssistito.cf = codFiscaleNuovo;
                                 codiceFiscale = codFiscaleNuovo;
                                 obsoleto = true;
-                                console.log("OBSOLETO, RITENTO");
+                                console.log(codiceFiscale +" OBSOLETO, RITENTO");
                             }
                         }
                         while (obsoleto);
                         if (datiAssistito.trovato && datiAssistito.vivo) {
                             if (datiAssistito.inAsp !== "MESSINA")
-                                console.log("NON IN ASP!!");
+                                console.log(codiceFiscale + " NON IN ASP");
                             datiAssistito.cf = codiceFiscale;
                             if (inserisciIndirizzo) {
                                 try {
