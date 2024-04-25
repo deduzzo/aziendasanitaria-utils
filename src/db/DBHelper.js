@@ -1,4 +1,13 @@
 export default class DBHelper{
+
+    static connectionData(host,user,pass,db) {
+        return {
+            host: host,
+            user: user,
+            password: pass,
+            database: db
+        };
+    }
     constructor(pathDB) {
         this._pathDB = pathDB;
     }

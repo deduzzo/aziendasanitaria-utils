@@ -71,7 +71,7 @@ export class Assistiti {
     }
 
     async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
-        let out = {data: {}, nonTrovati: [],storicoMMG: {}};
+        let out = {data: {}, nonTrovati: [], storicoMMG: {}};
         let page = await this._nar.getWorkingPage(visibile);
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (page) {
@@ -205,11 +205,17 @@ export class Assistiti {
                                         dati.vivo = vivo;
                                         let ind = obsoleto ? 4 : 3
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
-                                            if (document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length - 3].children[1].textContent.includes("205"))
-                                                dati.inAsp = "MESSINA";
-                                            else
-                                                dati.inAsp = document.querySelector("body > div:nth-child(12)").children[document.querySelector("body > div:nth-child(12)").children.length - 3].children[1].textContent.trim();
-                                        } else dati.inAsp = "TRASFERITO";
+                                            dati.asp = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 19) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim()
+                                            dati.mmgDa = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
+                                            dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 21) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 23) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 25) + ") > div.cellaAss59 > div").innerText.trim()
+                                        } else {
+                                            dati.asp = "TRASFERITO";
+                                            dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim()
+                                            dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (3 + 17) + ") > div.cellaAss59 > div").innerText.trim();
+                                        }
                                         dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 4) + ") > div.cellaAss59 > div").innerText.trim();
@@ -234,12 +240,12 @@ export class Assistiti {
                                 datiAssistito.cf = codFiscaleNuovo;
                                 codiceFiscale = codFiscaleNuovo;
                                 obsoleto = true;
-                                console.log(codiceFiscale +" OBSOLETO, RITENTO");
+                                console.log(codiceFiscale + " OBSOLETO, RITENTO");
                             }
                         }
                         while (obsoleto);
                         if (datiAssistito.trovato && datiAssistito.vivo) {
-                            if (datiAssistito.inAsp !== "MESSINA")
+                            if (!datiAssistito.asp.toUpperCase().includes("MESSINA"))
                                 console.log(codiceFiscale + " NON IN ASP");
                             datiAssistito.cf = codiceFiscale;
                             if (inserisciIndirizzo) {
@@ -338,7 +344,7 @@ export class Assistiti {
 
     static async verificaDatiAssistitiNarParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
         EventEmitter.defaultMaxListeners = 100;
-        let out = {error: false, out: {dati: [], nonTrovati: [],storicoMMG: {}}}
+        let out = {error: false, out: {dati: [], nonTrovati: [], storicoMMG: {}}}
         let jobs = [];
         let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
         for (let i = 0; i < numParallelsJobs; i++) {

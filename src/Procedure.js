@@ -61,6 +61,7 @@ class Procedure {
         for (let mmg of Object.keys(assistiti))
             countAssistiti += assistiti[mmg].assistiti.length;
         console.log("ASSISTITI NAR: " + countAssistiti);
+        return assistiti;
     }
 
     static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath = null, parallels = 20, visibile = false, nomeFile = "assistitiTs.json",) {
@@ -411,6 +412,35 @@ class Procedure {
                 await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
         }
         console.log("FILE SALVATI");
+    }
+
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 15, visible = false) {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            Object.keys(distretti),
+            workingPath);
+
+        let assistitiNar = await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, Object.keys(distretti), workingPath);
+
+        if (!fs.existsSync(workingPath + path.sep + "TsJsonData")) {
+            fs.mkdirSync(workingPath + path.sep + "TsJsonData");
+        }
+        let quanti = Object.keys(assistitiNar).length;
+        let i = 0;
+        for (let codNar in assistitiNar) {
+            // show percentage of process
+            console.log("MMG:" + codNar + " " + ((i++ / quanti) * 100).toFixed(2) + "% completato");
+            if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json")) {
+                let allCodiciFiscali = assistitiNar[codNar].assistiti.map(assistito => assistito.codiceFiscale);
+                let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, allCodiciFiscali, true, numParallelsJobs, visible);
+                await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
+            }
+        }
+
     }
 
 
