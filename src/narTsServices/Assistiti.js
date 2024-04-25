@@ -186,6 +186,11 @@ export class Assistiti {
                                 await page.click('#go');
                                 await page.waitForSelector("body > div:nth-child(12) > h1")
                                 datiAssistito = await page.evaluate(() => {
+
+                                    let removeAllNbsp = (str) => {
+                                        return str.replaceAll(" ", "").trim();
+                                    }
+
                                     let dati = {}
                                     let vivo = null;
                                     let obsoleto = false;
@@ -203,15 +208,20 @@ export class Assistiti {
                                     dati.trovato = vivo !== null;
                                     if (dati.trovato && vivo) {
                                         dati.vivo = vivo;
-                                        let ind = obsoleto ? 4 : 3
+                                        let ind = obsoleto ? 4 : 3;
+                                        let fineAssistenza = false;
+                                        if (document.querySelector("body > div:nth-child(12) > div:nth-child(" + (3 + 35) + ") > div.cellaAss59 > div") !== null)
+                                            fineAssistenza = true;
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
-                                            dati.asp = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 19) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.asp = removeAllNbsp(document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 19) : (ind + 21)) + ") > div.cellaAss59 > div").innerText.trim());
                                             let mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim().split("-");
                                             dati.mmgCfTs = mmg[1].trim();
                                             dati.mmgDaTs = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
-                                            dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 21) + ") > div.cellaAss59 > div").innerText.trim();
-                                            dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 23) + ") > div.cellaAss59 > div").innerText.trim();
-                                            dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 25) + ") > div.cellaAss59 > div").innerText.trim()
+                                            dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 21) : (ind + 23)) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 23) : (ind + 25)) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 25) : (ind + 27)) + ") > div.cellaAss59 > div").innerText.trim();
+                                            if (fineAssistenza)
+                                                dati.motivazioneFineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 29) + ") > div.cellaAss59 > div").innerText.trim();
                                         } else {
                                             dati.asp = "TRASFERITO";
                                             dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim()
@@ -221,8 +231,8 @@ export class Assistiti {
                                         dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.nome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 4) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.sesso = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 6) + ") > div.cellaAss59 > div").innerText.trim();
-                                        dati.data_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 8) + ") > div.cellaAss59 > div").innerText.trim();
-                                        dati.comune_nascita = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 10) + ") > div.cellaAss59 > div").innerText.trim();
+                                        dati.data_nascita = removeAllNbsp(document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 8) + ") > div.cellaAss59 > div").innerText.trim());
+                                        dati.comune_nascita = removeAllNbsp(document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 10) + ") > div.cellaAss59 > div").innerText.trim());
                                         dati.obsoleto = obsoleto;
                                         dati.errore = false
                                         return dati;
@@ -267,10 +277,15 @@ export class Assistiti {
 
                                     if (resolvedSelector === selectorNormale) {
                                         let datiTessera = await page.evaluate(() => {
+
+                                            let removeAllNbsp = (str) => {
+                                                return str.replaceAll(" ", "").trim();
+                                            }
+
                                             try {
                                                 return {
                                                     error: false,
-                                                    indirizzo: document.querySelector("body > div:nth-child(13) > div:nth-child(14) > div.cellaAss65 > div").innerText.trim(),
+                                                    indirizzo: removeAllNbsp(document.querySelector("body > div:nth-child(13) > div:nth-child(14) > div.cellaAss65 > div").innerText.trim()),
                                                     numero_tessera: document.querySelector("body > div:nth-child(13) > div:nth-child(2) > div.cellaAss65 > div").innerHTML.trim().replaceAll("&nbsp;", "").trim(),
                                                 }
                                             } catch (e) {

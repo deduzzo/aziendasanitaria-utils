@@ -1,4 +1,4 @@
-import {utils as Utils} from "./Utils.js";
+import {utils, utils as Utils} from "./Utils.js";
 import path, {parse} from "path";
 import {Medici} from "./narTsServices/Medici.js";
 import {Assistiti} from "./narTsServices/Assistiti.js";
@@ -122,7 +122,7 @@ class Procedure {
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "assistitiTs.xlsx", allAssistitiDistrettuali[distretto].ts);
 
             // VERIFICA DIFFERENZE
-            let differenze = medici.getAllDifferenzeAnagrafiche(allAssistitiDistrettuali[distretto], codToCfDistrettoMap,distretti[distretto]);
+            let differenze = medici.getAllDifferenzeAnagrafiche(allAssistitiDistrettuali[distretto], codToCfDistrettoMap, distretti[distretto]);
             await Utils.scriviOggettoSuFile(workingPath + path.sep + "differenze" + path.sep + distretto + path.sep + "differenze.json", differenze);
             let allDettaglioDifferenze = [];
             for (let codReg in differenze) {
@@ -368,7 +368,7 @@ class Procedure {
             workingPath)
     }
 
-    static async verificaDatiAssistitiDaFileNar(impostazioniServizi,fileAssistiti,pathExcelMedici, distretti, workingPath = null) {
+    static async verificaDatiAssistitiDaFileNar(impostazioniServizi, fileAssistiti, pathExcelMedici, distretti, workingPath = null) {
 
         let out = {};
 
@@ -381,16 +381,16 @@ class Procedure {
             Object.keys(distretti),
             workingPath);
         let allAssistiti = await medici.getAssistitiDaListaPDF(fileAssistiti, codToCfDistrettoMap);
-        for(let codNar in allAssistiti){
+        for (let codNar in allAssistiti) {
             let allCodiciFiscali = allAssistiti[codNar].assistiti.map(assistito => assistito.codiceFiscale);
             // put in allCodiciFiscali the first 20 codici fiscali
-            allCodiciFiscali = allCodiciFiscali.slice(0,4);
+            allCodiciFiscali = allCodiciFiscali.slice(0, 4);
             let assistiti = await Assistiti.verificaDatiAssistitiNarParallels(impostazioniServizi, allCodiciFiscali, true, 1, false);
             // write data to excel
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistiti_" + codNar + ".xlsx", assistiti.out.dati);
             await Utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "assistitiNonTrovati_" + codNar + ".xlsx", assistiti.out.nonTrovati);
             let storicoMMGOut = [];
-            for (let cf in assistiti.storicoMMG){
+            for (let cf in assistiti.storicoMMG) {
                 for (let row of assistiti.storicoMMG[cf]) {
                     row.cf = cf;
                     storicoMMGOut.push(row);
@@ -420,7 +420,7 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 15, visible = false) {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 20, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -435,7 +435,7 @@ class Procedure {
             connection: connData
         });
 
-        for(let codMedico in codToCfDistrettoMap) {
+        for (let codMedico in codToCfDistrettoMap) {
             let datiMedico = codToCfDistrettoMap[codMedico];
             // check if medico is already in db
             let rows = await db("medici").where("codice_fiscale", datiMedico.cf);
@@ -454,9 +454,7 @@ class Procedure {
                     massimale: datiMedico.massimale,
                     ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
                 });
-            }
-            else
-            {
+            } else {
                 await db("medici").where("codice_fiscale", datiMedico.cf).update({
                     cod_regionale: datiMedico.cod_regionale,
                     nome_cognome: datiMedico.nome_cognome,
@@ -481,18 +479,98 @@ class Procedure {
         }
         let quanti = Object.keys(assistitiNar).length;
         let i = 0;
-        for (let codNar in assistitiNar) {
-            // show percentage of process
-            console.log("MMG:" + codNar + " " + ((i++ / quanti) * 100).toFixed(2) + "% completato");
-            if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json")) {
-                let allCodiciFiscali = {};
-                for (let assistito of assistitiNar[codNar].assistiti)
-                    allCodiciFiscali[assistito.codiceFiscale] = assistito.data_scelta;
-                let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visible,codToCfDistrettoMap[codNar],allCodiciFiscali);
-                await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
+        let controlla = true;
+        if (controlla)
+            for (let codNar in assistitiNar) {
+                // show percentage of process
+                console.log("MMG:" + codNar + " " + ((i++ / quanti) * 100).toFixed(2) + "% completato");
+                if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json")) {
+                    let allCodiciFiscali = {};
+                    for (let assistito of assistitiNar[codNar].assistiti)
+                        allCodiciFiscali[assistito.codiceFiscale] = assistito.data_scelta;
+                    let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visible, codToCfDistrettoMap[codNar], allCodiciFiscali);
+                    await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
+                }
+            }
+        // write data on db
+        let errori = [];
+        let allJsonFile = utils.getAllFilesRecursive(workingPath + path.sep + "TsJsonData", ".json");
+        let removeAllBad = (str) => {
+            return str.replaceAll(" ", "").replaceAll("(", "").replaceAll(")", "").trim();
+        }
+        for (let file of allJsonFile) {
+            let assistiti = await Utils.leggiOggettoDaFileJSON(file);
+            for (let type in assistiti.out) {
+                switch (type) {
+                    case "vivi":
+                        for (let cfAssistito in assistiti.out[type]) {
+                            let assistito = assistiti.out[type][cfAssistito];
+                            if (cfAssistito === assistito.cf) {
+                                let rows = await db("assistiti").where("codice_fiscale", assistito.cf);
+                                let nascita = assistito.comune_nascita.split(" (");
+                                let data = {
+                                    codice_fiscale: assistito.cf,
+                                    nome: assistito.nome,
+                                    cognome: assistito.cognome,
+                                    sesso: assistito.sesso,
+                                    data_nascita: moment(assistito.data_nascita, "DD/MM/YYYY").format("YYYY-MM-DD"),
+                                    deceduto: false,
+                                    data_decesso: null,
+                                    comune_nascita: removeAllBad(nascita[0]),
+                                    provincia_nascita: removeAllBad(nascita[1]),
+                                    indirizzo_residenza: assistito.indirizzo,
+                                    numero_tessera_sanitaria: assistito.numero_tessera,
+                                    tipo_assistito_SSN: assistito.tipoAssistitoSSN,
+                                    data_inizio_assistenza_ssn: moment(assistito.inizioAssistenzaSSN, "DD/MM/YYYY").format("YYYY-MM-DD"),
+                                    data_fine_assistenza_ssn: assistito.fineAssistenzaSSN.toLowerCase() !== "illimitata" ? moment(assistito.fineAssistenzaSSN, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
+                                    motivazione_fine_assistenza_ssn: assistito.motivazioneFineAssistenzaSSN ?? null,
+                                    asp: assistito.asp,
+                                    cf_medico_ts: assistito.mmgCfTs ?? null,
+                                    assistito_da_ts: assistito.mmgDaTs ? moment(assistito.mmgDaTs, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
+                                    cf_medico_nar: assistito.mmgNarCf,
+                                    assistito_da_nar: assistito.mmgDaNar ? moment(assistito.mmgDaNar, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
+                                    ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                                };
+                                if (rows.length === 0)
+                                    await db("assistiti").insert(data);
+                                else
+                                    await db("assistiti").where("codice_fiscale", assistito.cf).update(data);
+                            } else
+                                errori.push("file " + file + " chiave cf " + cfAssistito + " non corrispondente a " + assistiti.out[type][cfAssistito].cf);
+                        }
+                        break;
+                    case "morti":
+                        for (let cfAssistito in assistiti.out[type]) {
+                            let assistito = assistiti.out[type][cfAssistito];
+                            let rows = await db("assistiti").where("codice_fiscale", assistito.cf);
+                            let data = {
+                                codice_fiscale: assistito.cf,
+                                nome: assistito.nome,
+                                cognome: assistito.cognome,
+                                sesso: assistito.sesso,
+                                data_nascita: moment(assistito.data_nascita, "DD/MM/YYYY").format("YYYY-MM-DD"),
+                                deceduto: true,
+                                data_decesso: assistito.data_decesso ? moment(assistito.data_decesso, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
+                                comune_nascita: assistito.comune_nascita,
+                                provincia_nascita: assistito.provincia_nascita,
+                                indirizzo_residenza: assistito.indirizzo,
+                                cf_medico_ts: null,
+                                assistito_da_ts: null,
+                                cf_medico_nar: codToCfDistrettoMap[assistito.codiceRegionaleMMG].cf,
+                                assistito_da_nar: assistito.dataSceltaMMG ? moment(assistito.dataSceltaMMG, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
+                                ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                            };
+                            if (rows.length === 0)
+                                await db("assistiti").insert(data);
+                            else
+                                await db("assistiti").where("codice_fiscale", assistito.cf).update(data);
+                        }
+                        break;
+                }
+                if (errori.length > 0)
+                    await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "errori.json", errori);
             }
         }
-
     }
 
 
