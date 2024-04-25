@@ -147,7 +147,7 @@ export class Assistiti {
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true) {
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true,datiMedicoNar,dateSceltaCfMap = null) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
@@ -206,8 +206,9 @@ export class Assistiti {
                                         let ind = obsoleto ? 4 : 3
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
                                             dati.asp = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 19) + ") > div.cellaAss59 > div").innerText.trim();
-                                            dati.mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim()
-                                            dati.mmgDa = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
+                                            let mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim().split("-");
+                                            dati.mmgCfTs = mmg[1].trim();
+                                            dati.mmgDaTs = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
                                             dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 21) + ") > div.cellaAss59 > div").innerText.trim();
                                             dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 23) + ") > div.cellaAss59 > div").innerText.trim();
                                             dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 25) + ") > div.cellaAss59 > div").innerText.trim()
@@ -231,6 +232,10 @@ export class Assistiti {
                             } catch (e) {
                                 datiAssistito = {errore: true};
                             }
+                            if (datiMedicoNar)
+                                datiAssistito.mmgNarCf = datiMedicoNar.cf;
+                            if (dateSceltaCfMap)
+                                datiAssistito.mmgDaNar = dateSceltaCfMap[codiceFiscale];
                             if (datiAssistito.obsoleto) {
                                 if (!out.out.obsoleti.hasOwnProperty(codiceFiscale))
                                     out.out.obsoleti[codiceFiscale] = [];
@@ -315,7 +320,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false,datiMedicoNar = null,dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -327,7 +332,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible));
+            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible,datiMedicoNar,dateSceltaCfMap));
         }
         let results = await Promise.all(promises);
         promises = null;

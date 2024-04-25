@@ -11,7 +11,7 @@ import {Nar} from "./narTsServices/Nar.js";
 
 class Procedure {
 
-    static async getOggettiMediciDistretto(impostazioniServizi, pathFileExcelMediciPediatri, distretti, workingPath = null, soloAttivi = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito") {
+    static async getOggettiMediciDistretto(impostazioniServizi, pathFileExcelMediciPediatri, distretti, workingPath = null, soloAttivi = false, tipologia = [Medici.MEDICO_DI_BASE_FILE, Medici.PEDIATRA_FILE], colonnaInizioRapporto = "Data inizio rapporto", colonnaFineRapporto = "Data fine rapporto", colonnaNomeCognome = "Cognome e Nome", colonnaStato = "Stato", colonnaAsl = "ASL", colonnaCodRegionale = "Cod. regionale", colonnaCodFiscale = "Cod. fiscale", colonnaCategoria = "Categoria", colonnaDistretto = "Ambito", colonnaMassimale = "Mas.") {
         let datiMediciPediatriCompleto = await Utils.getObjectFromFileExcel(pathFileExcelMediciPediatri);
         let codToCfDistrettoMap = {};
         let mediciPerDistretto = {};
@@ -28,10 +28,16 @@ class Procedure {
             if (tipologia.includes(dato[colonnaCategoria]) && (!soloAttivi || !dato.hasOwnProperty(colonnaFineRapporto)))
                 codToCfDistrettoMap[codReg] = {
                     cod_regionale: codReg,
+                    asl: dato[colonnaAsl],
                     distretto: distretto[0],
                     ambito: dato[colonnaDistretto] ?? "ND",
                     nome_cognome: nomeCogn,
-                    cf: cfM
+                    cf: cfM,
+                    tipologia: dato[colonnaCategoria],
+                    stato: dato[colonnaStato],
+                    dataInizioRapporto: dato[colonnaInizioRapporto],
+                    dataFineRapporto: dato[colonnaFineRapporto],
+                    massimale: dato[colonnaMassimale]
                 };
             // medici per distretto
             if (!mediciPerDistretto.hasOwnProperty(distretto[0]))
@@ -424,6 +430,50 @@ class Procedure {
             Object.keys(distretti),
             workingPath);
 
+        const db = knex({
+            client: 'mysql',
+            connection: connData
+        });
+
+        for(let codMedico in codToCfDistrettoMap) {
+            let datiMedico = codToCfDistrettoMap[codMedico];
+            // check if medico is already in db
+            let rows = await db("medici").where("codice_fiscale", datiMedico.cf);
+            if (rows.length === 0) {
+                await db("medici").insert({
+                    codice_fiscale: datiMedico.cf,
+                    cod_regionale: datiMedico.cod_regionale,
+                    nome_cognome: datiMedico.nome_cognome,
+                    asl: datiMedico.asl,
+                    distretto: distretti[datiMedico.distretto],
+                    ambito: datiMedico.ambito,
+                    tipologia: datiMedico.tipologia,
+                    stato: datiMedico.stato,
+                    data_inizio_rapporto: datiMedico.dataInizioRapporto,
+                    data_fine_rapporto: datiMedico.dataFineRapporto,
+                    massimale: datiMedico.massimale,
+                    ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                });
+            }
+            else
+            {
+                await db("medici").where("codice_fiscale", datiMedico.cf).update({
+                    cod_regionale: datiMedico.cod_regionale,
+                    nome_cognome: datiMedico.nome_cognome,
+                    asl: datiMedico.asl,
+                    distretto: distretti[datiMedico.distretto],
+                    ambito: datiMedico.ambito,
+                    tipologia: datiMedico.tipologia,
+                    stato: datiMedico.stato,
+                    data_inizio_rapporto: datiMedico.dataInizioRapporto,
+                    data_fine_rapporto: datiMedico.dataFineRapporto,
+                    massimale: datiMedico.massimale,
+                    ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                });
+            }
+        }
+
+
         let assistitiNar = await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, Object.keys(distretti), workingPath);
 
         if (!fs.existsSync(workingPath + path.sep + "TsJsonData")) {
@@ -435,8 +485,10 @@ class Procedure {
             // show percentage of process
             console.log("MMG:" + codNar + " " + ((i++ / quanti) * 100).toFixed(2) + "% completato");
             if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json")) {
-                let allCodiciFiscali = assistitiNar[codNar].assistiti.map(assistito => assistito.codiceFiscale);
-                let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, allCodiciFiscali, true, numParallelsJobs, visible);
+                let allCodiciFiscali = {};
+                for (let assistito of assistitiNar[codNar].assistiti)
+                    allCodiciFiscali[assistito.codiceFiscale] = assistito.data_scelta;
+                let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visible,codToCfDistrettoMap[codNar],allCodiciFiscali);
                 await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
             }
         }
