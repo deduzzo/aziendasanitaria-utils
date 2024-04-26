@@ -420,7 +420,7 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 30, visible = false, reverse = false) {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null,reverse = false, numParallelsJobs = 30, visible = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
