@@ -483,7 +483,7 @@ class Procedure {
         }
         let quanti = Object.keys(assistitiNar).length;
         let i = 0;
-        let controlla = false;
+        let controlla = true;
         if (controlla)
             for (let codNar in assistitiNar) {
                 // show percentage of process
