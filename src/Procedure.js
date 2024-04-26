@@ -420,7 +420,7 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 20, visible = false) {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 30, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -483,7 +483,7 @@ class Procedure {
         }
         let quanti = Object.keys(assistitiNar).length;
         let i = 0;
-        let controlla = false;
+        let controlla = true;
         if (controlla)
             for (let codNar in assistitiNar) {
                 // show percentage of process
