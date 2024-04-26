@@ -420,7 +420,7 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 30, visible = false) {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB", numParallelsJobs = 30, visible = false, reverse = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -482,10 +482,13 @@ class Procedure {
             fs.mkdirSync(workingPath + path.sep + "TsJsonData");
         }
         let quanti = Object.keys(assistitiNar).length;
+        let keys = Object.keys(assistitiNar);
+        if (reverse)
+            keys = keys.reverse();
         let i = 0;
         let controlla = true;
         if (controlla)
-            for (let codNar in assistitiNar) {
+            for (let codNar of keys) {
                 // show percentage of process
                 console.log("MMG:" + codNar + " " + ((i++ / quanti) * 100).toFixed(2) + "% completato");
                 if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json")) {
@@ -493,7 +496,8 @@ class Procedure {
                     for (let assistito of assistitiNar[codNar].assistiti)
                         allCodiciFiscali[assistito.codiceFiscale] = assistito.data_scelta;
                     let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visible, codToCfDistrettoMap[codNar], allCodiciFiscali);
-                    await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
+                    if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json"))
+                        await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
                 }
             }
         // write data on db
