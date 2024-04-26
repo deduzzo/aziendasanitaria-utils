@@ -430,6 +430,10 @@ class Procedure {
             Object.keys(distretti),
             workingPath);
 
+        let allCfMediciNarMap = {}
+        for (let codMedico in codToCfDistrettoMap)
+            allCfMediciNarMap[codToCfDistrettoMap[codMedico].cf] = codToCfDistrettoMap[codMedico];
+
         const db = knex({
             client: 'mysql',
             connection: connData
@@ -479,7 +483,7 @@ class Procedure {
         }
         let quanti = Object.keys(assistitiNar).length;
         let i = 0;
-        let controlla = true;
+        let controlla = false;
         if (controlla)
             for (let codNar in assistitiNar) {
                 // show percentage of process
@@ -508,6 +512,8 @@ class Procedure {
                             if (cfAssistito === assistito.cf) {
                                 let rows = await db("assistiti").where("codice_fiscale", assistito.cf);
                                 let nascita = assistito.comune_nascita.split(" (");
+                                let cfMedicoNar = allCfMediciNarMap.hasOwnProperty(assistito.mmgNarCf) ? assistito.mmgNarCf : null;
+                                let cfMedicoTs = allCfMediciNarMap.hasOwnProperty(assistito.mmgCfTs) ? assistito.mmgCfTs : null;
                                 let data = {
                                     codice_fiscale: assistito.cf,
                                     nome: assistito.nome,
@@ -525,9 +531,9 @@ class Procedure {
                                     data_fine_assistenza_ssn: assistito.fineAssistenzaSSN.toLowerCase() !== "illimitata" ? moment(assistito.fineAssistenzaSSN, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
                                     motivazione_fine_assistenza_ssn: assistito.motivazioneFineAssistenzaSSN ?? null,
                                     asp: assistito.asp,
-                                    cf_medico_ts: assistito.mmgCfTs ?? null,
+                                    cf_medico_ts: cfMedicoTs,
                                     assistito_da_ts: assistito.mmgDaTs ? moment(assistito.mmgDaTs, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
-                                    cf_medico_nar: assistito.mmgNarCf,
+                                    cf_medico_nar: cfMedicoNar,
                                     assistito_da_nar: assistito.mmgDaNar ? moment(assistito.mmgDaNar, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
                                     ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
                                 };
