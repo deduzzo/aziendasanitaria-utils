@@ -157,6 +157,7 @@ export class Assistiti {
                 let i = 0;
                 if (!out.error && codiciFiscali.length > 0) {
                     for (let codiceFiscale of codiciFiscali) {
+                        codiceFiscale = codiceFiscale.trim();
                         let datiAssistito = {};
                         let obsoleto = false;
                         do {
