@@ -157,7 +157,8 @@ export class Assistiti {
                 let i = 0;
                 if (!out.error && codiciFiscali.length > 0) {
                     for (let codiceFiscale of codiciFiscali) {
-                        codiceFiscale = codiceFiscale.trim();
+                        codiceFiscale = codiceFiscale.trim().replaceAll(" ", "");
+                        // remove all spaces from codiceFiscale
                         let datiAssistito = {};
                         let obsoleto = false;
                         do {
