@@ -405,7 +405,8 @@ class Procedure {
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
-            cfs.push(assistito[colonnaCf]);
+            if (assistito[colonnaCf] !== undefined && assistito[colonnaCf] !== null && assistito[colonnaCf] !== "")
+                cfs.push(assistito[colonnaCf]);
         }
         // get the first 50 cfs
         let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi, numParallels, visible);
@@ -420,7 +421,7 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null,reverse = false, numParallelsJobs = 30, visible = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, reverse = false, numParallelsJobs = 30, visible = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 

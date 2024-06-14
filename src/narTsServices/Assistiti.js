@@ -224,10 +224,16 @@ export class Assistiti {
                                             dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 25) : (ind + 27)) + ") > div.cellaAss59 > div").innerText.trim();
                                             if (fineAssistenza)
                                                 dati.motivazioneFineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 29) + ") > div.cellaAss59 > div").innerText.trim();
+                                            else
+                                                dati.motivazioneFineAssistenzaSSN = "";
                                         } else {
                                             dati.asp = "TRASFERITO";
+                                            dati.mmgCfTs = "";
+                                            dati.mmgDaTs = "";
+                                            dati.tipoAssistitoSSN = "";
                                             dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim()
                                             dati.fineAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (3 + 17) + ") > div.cellaAss59 > div").innerText.trim();
+                                            dati.motivazioneFineAssistenzaSSN = "";
                                         }
                                         dati.cf = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind) + ") > div.cellaAss59 > div").innerText.trim();
                                         dati.cognome = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 2) + ") > div.cellaAss59 > div").innerText.trim();
