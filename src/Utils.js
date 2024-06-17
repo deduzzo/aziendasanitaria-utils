@@ -10,7 +10,7 @@ import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
 import {Parser} from "@marketto/codice-fiscale-utils";
 import os from "os";
-import {existsSync,mkdirSync} from "fs";
+import {existsSync, mkdirSync} from "fs";
 import libre from "libreoffice-convert";
 import {promisify} from "util";
 
@@ -412,7 +412,7 @@ const estraiDataDiNascita = (codiceFiscale) => {
     return {dataString: stringDate, eta: eta};
 }
 
-const getObjectFromFileExcel = async (filePath, numSheet = null) => {
+const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = true) => {
     let out = [];
     let header = {};
     let workbook = new ExcelJS.Workbook();
@@ -424,7 +424,16 @@ const getObjectFromFileExcel = async (filePath, numSheet = null) => {
             let riga = {};
             if (rowNumber === 1) {
                 row.eachCell((cell, colNumber) => {
-                    header[colNumber] = cell.value;
+                    if (usaHeader) {
+                        let headerTemp = "";
+                        if (cell.value.richText)
+                            for (let text of cell.value.richText)
+                                headerTemp += text.text;
+                        else
+                            headerTemp = cell.value;
+                        header[colNumber] = headerTemp;
+                    } else
+                        header[colNumber] = colNumber - 1;
                 });
             } else {
                 row.eachCell({includeEmpty: false}, (cell, colNumber) => {
@@ -580,7 +589,7 @@ const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
 const getWorkingPath = () => {
     let wp = path.join(os.homedir(), 'flussi_sanitari_wp', moment().format('YYYYMMDD'));
     if (existsSync(wp) === false)
-        mkdirSync(wp, { recursive: true });
+        mkdirSync(wp, {recursive: true});
     return wp;
 }
 

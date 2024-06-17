@@ -619,8 +619,17 @@ export class FlussoSIAD {
         return dati;
     }
 
-    async creaTracciatiDitta(pathFileAster, pathCartellaIn, nomeFileTracciato1 = "tracciato1.xls", nomeFileTracciato2 = "tracciato2.xls", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomecolonnaCfSostituto = "cfOk") {
+    async creaTracciatiDitta(pathFileAster, pathCartellaIn, pathChiaviValideAttive, pathDatiAnnoPrecedente, nomeFileTracciato1 = "tracciato1.xlsx", nomeFileTracciato2 = "tracciato2.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
         let datiAster = this.creaOggettoAssistitiTracciato1(pathFileAster);
+        let datiAnnoPrecedente = this.creaOggettoAssistitiTracciato1(pathDatiAnnoPrecedente);
+        let allChiaviValide = {};
+        if (fs.existsSync(pathChiaviValideAttive)) {
+            let chiaviValide = await utils.getObjectFromFileExcel(pathChiaviValideAttive);
+            for (let chiave of chiaviValide)
+                allChiaviValide[chiave[colonnaIdRecordChiaviValide]] = chiave;
+        }
+        let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1,0,false);
+        let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2);
         let allFileVivi = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileVivi);
         let allFileMorti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileMorti);
         let allFileSostituti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileSostituti);
@@ -656,11 +665,18 @@ export class FlussoSIAD {
             }
         }
         let outTracciato1  = [];
+        let rigaHeaderTracciato1 = {}
+        for (let i=0; i<Object.keys(tracciato1Maggioli).length; i++)
+            rigaHeaderTracciato1[i] = tracciato1Maggioli[i];
+        outTracciato1.push(rigaHeaderTracciato1);
         let outTracciato2 = [];
-        let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1);
-        let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2);
-        for (let )
-        console.log("casd");
+        for (let rigaTracciato1 of tracciato1Originale) {
+            let chiavi = Object.keys(datiAster).filter(key => key.includes(rigaTracciato1[1]));
+            let chiaviAnnoPrecedente = Object.keys(datiAnnoPrecedente).filter(key => key.includes(rigaTracciato1[1]));
+            let chiaviValide = Object.keys(allChiaviValide).filter(key => key.includes(rigaTracciato1[1]));
+            console.log("ciao");
+
+        }
     }
 
 
