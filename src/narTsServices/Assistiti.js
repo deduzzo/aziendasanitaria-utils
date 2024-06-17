@@ -217,7 +217,7 @@ export class Assistiti {
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
                                             dati.asp = removeAllNbsp(document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 19) : (ind + 21)) + ") > div.cellaAss59 > div").innerText.trim());
                                             let mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim().split("-");
-                                            dati.mmgCfTs = mmg[1].trim();
+                                            dati.mmgCfTs = mmg.length  === 2 ?  mmg[1].trim() : "";
                                             dati.mmgDaTs = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
                                             dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 21) : (ind + 23)) + ") > div.cellaAss59 > div").innerText.trim();
                                             dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 23) : (ind + 25)) + ") > div.cellaAss59 > div").innerText.trim();
