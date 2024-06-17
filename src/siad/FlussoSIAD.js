@@ -619,4 +619,49 @@ export class FlussoSIAD {
         return dati;
     }
 
+    async creaTracciatiDitta(pathFileAster, pathCartellaIn, nomeFileTracciato1 = "tracciato1.xls", nomeFileTracciato2 = "tracciato2.xls", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomecolonnaCfSostituto = "cfOk") {
+        let datiAster = this.creaOggettoAssistitiTracciato1(pathFileAster);
+        let allFileVivi = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileVivi);
+        let allFileMorti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileMorti);
+        let allFileSostituti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileSostituti);
+        let allVivi = {};
+        let allMorti = {};
+        let allSostituti = {};
+        for (let file of allFileVivi) {
+            let allViviTemp = await utils.getObjectFromFileExcel(file);
+            for (let vivo of allViviTemp) {
+                if (!vivo.hasOwnProperty(nomeColonnaCf))
+                    throw new Error("Errore in file " + file + " colonna " + nomeColonnaCf + " non presente");
+                else
+                    allVivi[vivo[nomeColonnaCf]] = vivo;
+            }
+        }
+        for (let file of allFileMorti) {
+            let allMortiTemp = await utils.getObjectFromFileExcel(file);
+            for (let morto of allMortiTemp) {
+                if (!morto.hasOwnProperty(nomeColonnaCf))
+                    throw new Error("Errore in file " + file + " colonna " + nomeColonnaCf + " non presente");
+                else
+                    allMorti[morto[nomeColonnaCf]] = morto;
+            }
+        }
+        for (let file of allFileSostituti) {
+            let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
+            for (let sostituto of allSostitutiTemp) {
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                    // error and break
+                    throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
+                else
+                    allSostituti[sostituto[nomeColonnaCf]] = sostituto[nomecolonnaCfSostituto];
+            }
+        }
+        let outTracciato1  = [];
+        let outTracciato2 = [];
+        let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1);
+        let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2);
+        for (let )
+        console.log("casd");
+    }
+
+
 }
