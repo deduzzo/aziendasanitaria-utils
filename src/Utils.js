@@ -423,7 +423,8 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
         worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
             let riga = {};
             if (rowNumber === 1) {
-                row.eachCell((cell, colNumber) => {
+                row.eachCell({includeEmpty: true},(cell, colNumber) => {
+                    colNumber = colNumber - 1;
                     if (usaHeader) {
                         let headerTemp = "";
                         if (cell.value.richText)
@@ -433,12 +434,15 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
                             headerTemp = cell.value;
                         header[colNumber] = headerTemp;
                     } else
-                        header[colNumber] = colNumber - 1;
+                        header[colNumber] = colNumber;
                 });
             } else {
-                row.eachCell({includeEmpty: false}, (cell, colNumber) => {
-                    riga[header[colNumber]] = cell.value;
-                });
+/*                row.eachCell({includeEmpty: true}, (cell, colNumber) => {
+                    riga[header[colNumber]] = cell.value ?? "";
+                });*/
+                for (let i = 0; i< Object.keys(header).length; i++) {
+                    riga[header[i]] = row._cells[i]?._value.model.value ?? "";
+                };
                 out.push(riga);
             }
         });

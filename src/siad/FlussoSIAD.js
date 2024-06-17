@@ -636,7 +636,7 @@ export class FlussoSIAD {
                     allChiaviValideAperte[chiave[colonnaIdRecordChiaviValide]] = chiave;
         }
         let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1, 0, false);
-        let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2);
+        let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2,0,false);
         let allFileVivi = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileVivi);
         let allFileMorti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileMorti);
         let allFileSostituti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileSostituti);
@@ -676,7 +676,7 @@ export class FlussoSIAD {
         for (let i = 0; i < Object.keys(tracciato1Maggioli).length; i++)
             rigaHeaderTracciato1[i] = tracciato1Maggioli[i];
         outTracciato1.push(rigaHeaderTracciato1);
-        let outTracciato2 = [];
+        let cfPreseInCarico = {};
         for (let rigaTracciato1 of tracciato1Originale) {
             let chiavi = Object.keys(datiTracciato1AnnoCorrente).filter(key => key.includes(rigaTracciato1[1]));
             let chiaviAnnoPrecedente = Object.keys(datiAnnoPrecedente).filter(key => key.includes(rigaTracciato1[1]));
@@ -686,8 +686,7 @@ export class FlussoSIAD {
                 let rigaT1 = {};
                 rigaT1[0] = ""; // tipo
                 let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1]) ? allSostituti[rigaTracciato1[1]] : rigaTracciato1[1];
-                if (codFiscale !== rigaTracciato1[1])
-                    console.log("cambio");
+
                 rigaT1[0] = ""; // tipo
                 rigaT1[1] = codFiscale;
                 rigaT1[2] = ""; // validita ci
@@ -703,7 +702,9 @@ export class FlussoSIAD {
                 rigaT1[12] = rigaDatiT1[tracciato1.assistenteNonFamiliare] ?? "2";
                 rigaT1[13] = rigaDatiT1[tracciato1.codiceRegione] ?? "190";
                 rigaT1[14] = rigaDatiT1[tracciato1.codiceASL] ?? "205";
-                rigaT1[15] = moment(rigaTracciato1[15]).format("DD/MM/YYYY");
+                let dataPresaInCaricoAster = moment(rigaTracciato1[15],"YYYY-MM-DD");
+                rigaT1[15] = dataPresaInCaricoAster.isValid() ? dataPresaInCaricoAster.format("DD/MM/YYYY") : moment(rigaTracciato1[15]).format("DD/MM/YYYY");
+                cfPreseInCarico[codFiscale] = rigaT1[15];
                 rigaT1[16] = ""; // id record
                 rigaT1[17] = rigaDatiT1[tracciato1.soggetoRichiedente] ?? "2";
                 rigaT1[18] = rigaDatiT1[tracciato1.tipologiaPic] ?? "1";
@@ -749,15 +750,39 @@ export class FlussoSIAD {
                     rigaT1[57] = moment(allChiaviValideAperte[chiaviValideAperte[0]][colonnaDataPresaInCaricoChiaviValide]).format("DD/MM/YYYY");
                 }
                 outTracciato1.push(rigaT1);
-/*            }
-            else
-            {
-                console.log("Chiave non trovata " + rigaTracciato1[1])
-            }*/
         }
-        // write tracciato1
+
         await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato1_out.xlsx", outTracciato1, null, false);
-        console.log("fine");
+
+        let outTracciato2 = [];
+        let rigaHeaderTracciato2 = {}
+        for (let i = 0; i < Object.keys(tracciato2Maggioli).length; i++)
+            rigaHeaderTracciato2[i] = tracciato2Maggioli[i];
+        outTracciato2.push(rigaHeaderTracciato2);
+
+        for (let rigaTracciato2 of tracciato2Originale) {
+            let rigaT2 = {}
+            let codFiscale = allSostituti.hasOwnProperty(rigaTracciato2[0]) ? allSostituti[rigaTracciato2[0]] : rigaTracciato2[0];
+            rigaT2[0] = codFiscale;
+            rigaT2[1] = ""; // tipo
+            rigaT2[2] = "190";
+            rigaT2[3] = "205";
+            rigaT2[4] = cfPreseInCarico.hasOwnProperty(codFiscale) ? cfPreseInCarico[codFiscale] : rigaTracciato2[4].toString();
+            rigaT2[5] = "";
+            rigaT2[6] = rigaTracciato2[6].toString();
+            rigaT2[7] = rigaT2[6] !== "" ? (rigaT2[6] !== "" ? rigaT2[6].toString() : "2") : "";
+            rigaT2[8] = rigaT2[6] !== "" ? ("1") : "";
+            rigaT2[9] = rigaTracciato2[9] !== "" ? rigaTracciato2[9].toString() : "1";
+            rigaT2[10] = rigaTracciato2[10].toString();
+            rigaT2[11] = rigaTracciato2[11].toString(); // tipo operatore
+            rigaT2[12] = rigaTracciato2[12] !== "" ? rigaTracciato2[12].toString() : "99";
+            rigaT2[13] = rigaTracciato2[13].toString();
+            rigaT2[14] = rigaTracciato2[14].toString();
+            rigaT2[15] = rigaTracciato2[15].toString();
+            outTracciato2.push(rigaT2);
+        }
+
+        await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato2_out.xlsx", outTracciato2, null, false);
     }
 
 
