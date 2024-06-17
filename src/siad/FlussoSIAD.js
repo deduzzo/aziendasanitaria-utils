@@ -5,6 +5,8 @@ import path from "path";
 import moment from 'moment';
 import {utils} from "../Utils.js";
 
+import {Parser} from '@marketto/codice-fiscale-utils';
+
 // this example reads the file synchronously
 // you can read it asynchronously also
 
@@ -125,7 +127,11 @@ const tracciato1Maggioli = {
     50: "Supervisione Continua di utenti con disabilità - I valori ammessi sono:\n1. Presenza\n2. Presenza parziale e/o temporanea\n3. Non presenza",
     51: "Assistenza IADL - I valori ammessi sono:\n1. Presenza\n2. Presenza parziale e/o temporanea\n3. Non presenza",
     52: "Assistenza ADL - I valori ammessi sono:\n1. Presenza\n2. Presenza parziale e/o temporanea\n3. Non presenza",
-    53: "Supporto Care Giver - I valori ammessi sono:\n1. Presenza\n2. Presenza parziale e/o temporanea\n3. Non presenza"
+    53: "Supporto Care Giver - I valori ammessi sono:\n1. Presenza\n2. Presenza parziale e/o temporanea\n3. Non presenza",
+    54: "Patologia Prevalente",
+    55: "Patologia Concomitante",
+    56: "idRecord PIC precedente attiva da chiudere",
+    57: "data presa in carico pic precedente da chiudere",
 };
 
 const tracciato2Maggioli = {
@@ -619,16 +625,17 @@ export class FlussoSIAD {
         return dati;
     }
 
-    async creaTracciatiDitta(pathFileAster, pathCartellaIn, pathChiaviValideAttive, pathDatiAnnoPrecedente, nomeFileTracciato1 = "tracciato1.xlsx", nomeFileTracciato2 = "tracciato2.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
-        let datiAster = this.creaOggettoAssistitiTracciato1(pathFileAster);
+    async creaTracciatiDitta(pathTracciato1corrente, pathCartellaIn, pathChiaviValideAttive, pathDatiAnnoPrecedente, nomeFileTracciato1 = "tracciato1.xlsx", nomeFileTracciato2 = "tracciato2.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
+        let datiTracciato1AnnoCorrente = this.creaOggettoAssistitiTracciato1(pathTracciato1corrente);
         let datiAnnoPrecedente = this.creaOggettoAssistitiTracciato1(pathDatiAnnoPrecedente);
-        let allChiaviValide = {};
+        let allChiaviValideAperte = {};
         if (fs.existsSync(pathChiaviValideAttive)) {
             let chiaviValide = await utils.getObjectFromFileExcel(pathChiaviValideAttive);
             for (let chiave of chiaviValide)
-                allChiaviValide[chiave[colonnaIdRecordChiaviValide]] = chiave;
+                if (typeof chiave[colonnaConclusioneChiaviValide] == "string" && chiave[colonnaConclusioneChiaviValide].includes("--"))
+                    allChiaviValideAperte[chiave[colonnaIdRecordChiaviValide]] = chiave;
         }
-        let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1,0,false);
+        let tracciato1Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato1, 0, false);
         let tracciato2Originale = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciato2);
         let allFileVivi = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileVivi);
         let allFileMorti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileMorti);
@@ -664,19 +671,93 @@ export class FlussoSIAD {
                     allSostituti[sostituto[nomeColonnaCf]] = sostituto[nomecolonnaCfSostituto];
             }
         }
-        let outTracciato1  = [];
+        let outTracciato1 = [];
         let rigaHeaderTracciato1 = {}
-        for (let i=0; i<Object.keys(tracciato1Maggioli).length; i++)
+        for (let i = 0; i < Object.keys(tracciato1Maggioli).length; i++)
             rigaHeaderTracciato1[i] = tracciato1Maggioli[i];
         outTracciato1.push(rigaHeaderTracciato1);
         let outTracciato2 = [];
         for (let rigaTracciato1 of tracciato1Originale) {
-            let chiavi = Object.keys(datiAster).filter(key => key.includes(rigaTracciato1[1]));
+            let chiavi = Object.keys(datiTracciato1AnnoCorrente).filter(key => key.includes(rigaTracciato1[1]));
             let chiaviAnnoPrecedente = Object.keys(datiAnnoPrecedente).filter(key => key.includes(rigaTracciato1[1]));
-            let chiaviValide = Object.keys(allChiaviValide).filter(key => key.includes(rigaTracciato1[1]));
-            console.log("ciao");
-
+            let chiaviValideAperte = Object.keys(allChiaviValideAperte).filter(key => key.includes(rigaTracciato1[1]));
+            //if (chiavi.length > 0 || chiaviAnnoPrecedente.length > 0) {
+                let rigaDatiT1 = (chiavi.length > 0 || chiaviAnnoPrecedente.length > 0) ? (chiavi.length > 0 ? datiTracciato1AnnoCorrente[chiavi[0]] : datiAnnoPrecedente[chiaviAnnoPrecedente[0]]) : {};
+                let rigaT1 = {};
+                rigaT1[0] = ""; // tipo
+                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1]) ? allSostituti[rigaTracciato1[1]] : rigaTracciato1[1];
+                if (codFiscale !== rigaTracciato1[1])
+                    console.log("cambio");
+                rigaT1[0] = ""; // tipo
+                rigaT1[1] = codFiscale;
+                rigaT1[2] = ""; // validita ci
+                rigaT1[3] = ""; // tipologia ci
+                rigaT1[4] = Parser.cfToBirthYear(codFiscale);
+                rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
+                rigaT1[6] = rigaDatiT1[tracciato1.cittadinanza] ?? "IT";
+                rigaT1[7] = rigaDatiT1[tracciato1.statoCivile] ?? "9";
+                rigaT1[8] = rigaDatiT1[tracciato1.residenzaRegione] ?? "190";
+                rigaT1[9] = rigaDatiT1[tracciato1.residenzaASL] ?? "205";
+                rigaT1[10] = rigaDatiT1[tracciato1.residenzaComune] ?? "083048";
+                rigaT1[11] = rigaDatiT1[tracciato1.nucleoFamiliare] ?? "1";
+                rigaT1[12] = rigaDatiT1[tracciato1.assistenteNonFamiliare] ?? "2";
+                rigaT1[13] = rigaDatiT1[tracciato1.codiceRegione] ?? "190";
+                rigaT1[14] = rigaDatiT1[tracciato1.codiceASL] ?? "205";
+                rigaT1[15] = moment(rigaTracciato1[15]).format("DD/MM/YYYY");
+                rigaT1[16] = ""; // id record
+                rigaT1[17] = rigaDatiT1[tracciato1.soggetoRichiedente] ?? "2";
+                rigaT1[18] = rigaDatiT1[tracciato1.tipologiaPic] ?? "1";
+                rigaT1[19] = rigaDatiT1[tracciato1.dataValutazione] ? moment(rigaDatiT1[tracciato1.dataValutazione] ,"YYYY-MM-DD").format("DD/MM/YYYY") : moment(rigaTracciato1[15]).format("DD/MM/YYYY");
+                rigaT1[20] = rigaDatiT1[tracciato1.disturbiCognitivi] ?? "1";
+                rigaT1[21] = rigaDatiT1[tracciato1.disturbiComportamentali] ?? "1";
+                rigaT1[22] = rigaDatiT1[tracciato1.supportoSociale] ?? "3";
+                rigaT1[23] = rigaDatiT1[tracciato1.fragilitaFamiliare] ?? "9";
+                rigaT1[24] = rigaDatiT1[tracciato1.rischioInfettivo] ?? "2";
+                rigaT1[25] = rigaDatiT1[tracciato1.rischioSanguinamento] ?? "9";
+                rigaT1[26] = rigaDatiT1[tracciato1.drenaggioPosturale] ?? "9";
+                rigaT1[27] = rigaDatiT1[tracciato1.ossigenoTerapia] ?? "2";
+                rigaT1[28] = rigaDatiT1[tracciato1.ventiloterapia] ?? "2";
+                rigaT1[29] = rigaDatiT1[tracciato1.tracheostomia] ?? "2";
+                rigaT1[30] = rigaDatiT1[tracciato1.alimentazioneAssistita] ?? "2";
+                rigaT1[31] = rigaDatiT1[tracciato1.alimentazioneEnterale] ?? "2";
+                rigaT1[32] = rigaDatiT1[tracciato1.alimentazioneParenterale] ?? "2";
+                rigaT1[33] = rigaDatiT1[tracciato1.gestioneStomia] ?? "2";
+                rigaT1[34] = rigaDatiT1[tracciato1.eliminazioneUrinariaIntestinale] ?? "2";
+                rigaT1[35] = rigaDatiT1[tracciato1.alterazioneRitmoSonnoVeglia] ?? "2";
+                rigaT1[36] = rigaDatiT1[tracciato1.interventiEducativiTerapeutici] ?? "2";
+                rigaT1[37] = rigaDatiT1[tracciato1.lesioniCutanee] ?? "9";
+                rigaT1[38] = rigaDatiT1[tracciato1.curaUlcereCutanee12Grado] ?? "2";
+                rigaT1[39] = rigaDatiT1[tracciato1.curaUlcereCutanee34Grado] ?? "2";
+                rigaT1[40] = rigaDatiT1[tracciato1.prelieviVenosiNonOccasionali] ?? "2";
+                rigaT1[41] = rigaDatiT1[tracciato1.ecg] ?? "2";
+                rigaT1[42] = rigaDatiT1[tracciato1.telemetria] ?? "2";
+                rigaT1[43] = rigaDatiT1[tracciato1.terSottocutIntraMuscInfus] ?? "2";
+                rigaT1[44] = rigaDatiT1[tracciato1.gestioneCatetere] ?? "2";
+                rigaT1[45] = rigaDatiT1[tracciato1.trasfusioni] ?? "2";
+                rigaT1[46] = rigaDatiT1[tracciato1.controlloDolore] ?? "2";
+                rigaT1[47] = rigaDatiT1[tracciato1.trattamentiRiabilitativiNeurologici] ?? "3";
+                rigaT1[48] = rigaDatiT1[tracciato1.trattamentiRiabilitativiOrtopedici] ?? "3";
+                rigaT1[49] = rigaDatiT1[tracciato1.trattamentiRiabilitativiDiMantenimento] ?? "3";
+                rigaT1[50] = rigaDatiT1[tracciato1.supervisioneContinua] ?? "3";
+                rigaT1[51] = rigaDatiT1[tracciato1.assistenzaIADL] ?? "3";
+                rigaT1[52] = rigaDatiT1[tracciato1.assistenzaADL] ?? "3";
+                rigaT1[53] = rigaDatiT1[tracciato1.supportoCareGiver] ?? "3";
+                rigaT1[54] = rigaDatiT1[tracciato1.patologiaPrevalente] ?? "";
+                rigaT1[55] = rigaDatiT1[tracciato1.patologiaConcomitante] ?? "";
+                if (chiaviValideAperte.length > 0) {
+                    rigaT1[56] = chiaviValideAperte[0];
+                    rigaT1[57] = moment(allChiaviValideAperte[chiaviValideAperte[0]][colonnaDataPresaInCaricoChiaviValide]).format("DD/MM/YYYY");
+                }
+                outTracciato1.push(rigaT1);
+/*            }
+            else
+            {
+                console.log("Chiave non trovata " + rigaTracciato1[1])
+            }*/
         }
+        // write tracciato1
+        await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato1_out.xlsx", outTracciato1, null, false);
+        console.log("fine");
     }
 
 
