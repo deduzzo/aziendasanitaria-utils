@@ -423,7 +423,7 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
         worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
             let riga = {};
             if (rowNumber === 1) {
-                row.eachCell({includeEmpty: true},(cell, colNumber) => {
+                row.eachCell({includeEmpty: false},(cell, colNumber) => {
                     colNumber = colNumber - 1;
                     if (usaHeader) {
                         let headerTemp = "";
