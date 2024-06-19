@@ -697,12 +697,14 @@ export class FlussoSIAD {
                 let rigaT1 = {};
 
                 let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1]) ? allSostituti[rigaTracciato1[1]] : rigaTracciato1[1];
+                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
+                let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
 
                 rigaT1[0] = ""; // tipo
                 rigaT1[1] = codFiscale;
                 rigaT1[2] = ""; // validita ci
                 rigaT1[3] = ""; // tipologia ci
-                rigaT1[4] = Parser.cfToBirthYear(codFiscale);
+                rigaT1[4] = annoNascita
                 rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
                 rigaT1[6] = rigaDatiT1[tracciato1.cittadinanza] ?? "IT";
                 rigaT1[7] = rigaDatiT1[tracciato1.statoCivile] ?? "9";
@@ -871,6 +873,9 @@ export class FlussoSIAD {
 
                 let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0]) ? allSostituti[rigaAdp[0]] : rigaAdp[0];
                 let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'],"DD/MM/YYYY") : null;
+                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
+                let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
+
                 if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
                     allCf[codFiscale] = rigaAdp[1];
                     let rigaT1 = {};
@@ -878,7 +883,7 @@ export class FlussoSIAD {
                     rigaT1[1] = codFiscale;
                     rigaT1[2] = ""; // validita ci
                     rigaT1[3] = ""; // tipologia ci
-                    rigaT1[4] = Parser.cfToBirthYear(codFiscale);
+                    rigaT1[4] = annoNascita;
                     rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
                     rigaT1[6] = codFiscale.substring(11, 12) !== "Z" ? "IT" : "XX";
                     rigaT1[7] = "9";
