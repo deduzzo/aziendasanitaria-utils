@@ -673,11 +673,11 @@ export class FlussoSIAD {
         for (let file of allFileSostituti) {
             let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
             for (let sostituto of allSostitutiTemp) {
-                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ","")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
                 else
-                    allSostituti[sostituto[nomeColonnaCf]] = sostituto[nomecolonnaCfSostituto];
+                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ","")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ","");
             }
         }
         let outTracciato1 = [];
@@ -696,7 +696,7 @@ export class FlussoSIAD {
                 let rigaDatiT1 = (chiavi.length > 0 || chiaviAnnoPrecedente.length > 0) ? (chiavi.length > 0 ? datiTracciato1AnnoCorrente[chiavi[0]] : datiAnnoPrecedente[chiaviAnnoPrecedente[0]]) : {};
                 let rigaT1 = {};
 
-                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1]) ? allSostituti[rigaTracciato1[1]] : rigaTracciato1[1];
+                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1].trim().replaceAll(" ","")) ? allSostituti[rigaTracciato1[1].trim().replaceAll(" ","")] : rigaTracciato1[1].trim().replaceAll(" ","");
                 let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
                 let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
 
@@ -853,11 +853,11 @@ export class FlussoSIAD {
         for (let file of allFileSostituti) {
             let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
             for (let sostituto of allSostitutiTemp) {
-                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ","")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
                 else
-                    allSostituti[sostituto[nomeColonnaCf]] = sostituto[nomecolonnaCfSostituto];
+                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ","")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ","");
             }
         }
         let outTracciato1 = [];
@@ -871,10 +871,12 @@ export class FlussoSIAD {
             if (rigaAdp[1] !== "") {
                 let chiaviValideAperte = Object.keys(allChiaviValideAperte).filter(key => key.includes(rigaAdp[0]));
 
-                let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0]) ? allSostituti[rigaAdp[0]] : rigaAdp[0];
+                let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ","")) ? allSostituti[rigaAdp[0].trim().replaceAll(" ","")] : rigaAdp[0].trim().replaceAll(" ","");
                 let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'],"DD/MM/YYYY") : null;
                 let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
-                let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
+                let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
+                if (annoNascita === "" || annoNascita === null)
+                    console.log("ciao")
 
                 if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
                     allCf[codFiscale] = rigaAdp[1];
