@@ -1020,4 +1020,20 @@ export class FlussoSIAD {
 
 
     }
+
+    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, pathDatiTracciatiExcel, pathFileChiaviValide,nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", numColonnaCFFileExcelT1 = 1,numColonnaCFFileExcelT2 = 0) {
+        let allChiaviValide = await utils.getObjectFromFileExcel(pathFileChiaviValide);
+        let allAssistiti = {};
+        let assistiti = {}
+        for(let riga of allChiaviValide) {
+            if (riga[nomeColonnaAnnoPICMinistero] >= annoInizioChiaviValide) {
+                let cfFromIdPic = riga[nomeClonnaIdRecordMinistero].substring(riga[nomeClonnaIdRecordMinistero].length - 16);
+                if (!allAssistiti.hasOwnProperty(cfFromIdPic)) {
+                    allAssistiti[cfFromIdPic] = 0;
+                    assistiti
+                }
+            }
+        }
+        let allFilesTracciato1 = utils.getAllFilesRecursive(pathDatiTracciatiExcel, ".xlsx", "tracciato1");
+    }
 }
