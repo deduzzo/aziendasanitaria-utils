@@ -5,7 +5,7 @@ import path from "path";
 import moment from 'moment';
 import {utils} from "../Utils.js";
 
-import {Parser} from '@marketto/codice-fiscale-utils';
+import {Parser, Validator} from '@marketto/codice-fiscale-utils';
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -673,11 +673,11 @@ export class FlussoSIAD {
         for (let file of allFileSostituti) {
             let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
             for (let sostituto of allSostitutiTemp) {
-                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ","")) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ", "")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
                 else
-                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ","")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ","");
+                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
             }
         }
         let outTracciato1 = [];
@@ -696,8 +696,8 @@ export class FlussoSIAD {
                 let rigaDatiT1 = (chiavi.length > 0 || chiaviAnnoPrecedente.length > 0) ? (chiavi.length > 0 ? datiTracciato1AnnoCorrente[chiavi[0]] : datiAnnoPrecedente[chiaviAnnoPrecedente[0]]) : {};
                 let rigaT1 = {};
 
-                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1].trim().replaceAll(" ","")) ? allSostituti[rigaTracciato1[1].trim().replaceAll(" ","")] : rigaTracciato1[1].trim().replaceAll(" ","");
-                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
+                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1].trim().replaceAll(" ", "")) ? allSostituti[rigaTracciato1[1].trim().replaceAll(" ", "")] : rigaTracciato1[1].trim().replaceAll(" ", "");
+                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'], "DD/MM/YYYY") : null);
                 let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
 
                 rigaT1[0] = ""; // tipo
@@ -815,7 +815,7 @@ export class FlussoSIAD {
 
     async sviluppaDatiADPDitta(pathCartellaIn, pathChiaviValideAttive, anno, numTrimestre, nomeFileTracciatoADP = "datiADP.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomeColonnaAccessiAdp = "numAccessi", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
         // put int dataInizio the first day of the anno
-        let dataInizio = moment("01/01/" + anno,"DD/MM/YYYY");
+        let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY");
         let dataFine = moment("31/12/" + anno, "DD/MM/YYYY");
         let allChiaviValideAperte = {};
         if (fs.existsSync(pathChiaviValideAttive)) {
@@ -853,11 +853,11 @@ export class FlussoSIAD {
         for (let file of allFileSostituti) {
             let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
             for (let sostituto of allSostitutiTemp) {
-                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ","")) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ", "")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
                 else
-                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ","")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ","");
+                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
             }
         }
         let outTracciato1 = [];
@@ -871,9 +871,9 @@ export class FlussoSIAD {
             if (rigaAdp[1] !== "") {
                 let chiaviValideAperte = Object.keys(allChiaviValideAperte).filter(key => key.includes(rigaAdp[0]));
 
-                let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ","")) ? allSostituti[rigaAdp[0].trim().replaceAll(" ","")] : rigaAdp[0].trim().replaceAll(" ","");
-                let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'],"DD/MM/YYYY") : null;
-                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'],"DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'],"DD/MM/YYYY") : null);
+                let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ", "")) ? allSostituti[rigaAdp[0].trim().replaceAll(" ", "")] : rigaAdp[0].trim().replaceAll(" ", "");
+                let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'], "DD/MM/YYYY") : null;
+                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'], "DD/MM/YYYY") : null);
                 let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
                 if (annoNascita === "" || annoNascita === null)
                     console.log("ciao")
@@ -992,7 +992,7 @@ export class FlussoSIAD {
                     let mese = (primiMesi[numTrimestre] + k);
                     mese = mese < 10 ? "0" + mese : mese;
                     let data = moment(giorno.toString() + "/" + mese + "/" + anno, "DD/MM/YYYY");
-                    let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'],"DD/MM/YYYY") : null;
+                    let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'], "DD/MM/YYYY") : null;
                     if (dataDecesso == null || dataDecesso.isAfter(data)) {
                         let rigaT2 = {}
                         rigaT2[0] = codFiscale;
@@ -1021,19 +1021,98 @@ export class FlussoSIAD {
 
     }
 
-    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, pathDatiTracciatiExcel, pathFileChiaviValide,nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", numColonnaCFFileExcelT1 = 1,numColonnaCFFileExcelT2 = 0) {
-        let allChiaviValide = await utils.getObjectFromFileExcel(pathFileChiaviValide);
+    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, annoFineChiavi, pathDatiTracciatiExcel, pathChiaviValide, annoFile, nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", nomeColonnaDataUltimaErogazione = "Ultima Data Erogazione\n", numColonnaCFFileExcelT1 = 1, numColonnaCFFileExcelT2 = 0) {
+        let allAssistitiOver65 = {};
+        let assistitiOver65PerAnnoTarget = {}
         let allAssistiti = {};
-        let assistiti = {}
-        for(let riga of allChiaviValide) {
-            if (riga[nomeColonnaAnnoPICMinistero] >= annoInizioChiaviValide) {
-                let cfFromIdPic = riga[nomeClonnaIdRecordMinistero].substring(riga[nomeClonnaIdRecordMinistero].length - 16);
-                if (!allAssistiti.hasOwnProperty(cfFromIdPic)) {
-                    allAssistiti[cfFromIdPic] = 0;
-                    assistiti
+        let assistitiPerAnno = {};
+        for (let anno = annoInizioChiaviValide; anno <= annoFineChiavi; anno++) {
+            let allFileChiavi = utils.getAllFilesRecursive(pathChiaviValide, ".xlsx", anno.toString());
+            for (let file of allFileChiavi) {
+                let allChiaviValide = await utils.getObjectFromFileExcel(file);
+                for (let riga of allChiaviValide) {
+                    if (riga[nomeColonnaAnnoPICMinistero] >= annoInizioChiaviValide) {
+                        let cfFromIdPic = riga[nomeClonnaIdRecordMinistero].substring(riga[nomeClonnaIdRecordMinistero].length - 16);
+                        let annoNascita = Parser.cfToBirthYear(cfFromIdPic);
+                        if (annoNascita > 2020) annoNascita -= 100;
+
+                        if (Validator.codiceFiscale(cfFromIdPic).valid) {
+                            if (!allAssistiti.hasOwnProperty(cfFromIdPic)) {
+                                allAssistiti[cfFromIdPic] = 0;
+                                if (!assistitiPerAnno.hasOwnProperty(riga[nomeColonnaAnnoPICMinistero]))
+                                    assistitiPerAnno[riga[nomeColonnaAnnoPICMinistero]] = 1;
+                                else
+                                    assistitiPerAnno[riga[nomeColonnaAnnoPICMinistero]]++;
+                            }
+                            if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || anno === 2023)
+                                allAssistiti[cfFromIdPic]++;
+
+                            if ((anno - annoNascita) >= 65) {
+                                if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || anno === 2023) {
+                                    if (!allAssistitiOver65.hasOwnProperty(cfFromIdPic))
+                                        allAssistitiOver65[cfFromIdPic] = 1;
+                                    else
+                                        allAssistitiOver65[cfFromIdPic]++;
+                                    if (allAssistitiOver65[cfFromIdPic] === 1) {
+                                        if (!assistitiOver65PerAnnoTarget.hasOwnProperty(riga[nomeColonnaAnnoPICMinistero]))
+                                            assistitiOver65PerAnnoTarget[riga[nomeColonnaAnnoPICMinistero]] = 1;
+                                        else
+                                            assistitiOver65PerAnnoTarget[riga[nomeColonnaAnnoPICMinistero]]++;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
+        if (!assistitiOver65PerAnnoTarget.hasOwnProperty(annoFile.toString()))
+            assistitiOver65PerAnnoTarget[annoFile.toString()] = 0;
+        if (!assistitiPerAnno.hasOwnProperty(annoFile.toString()))
+            assistitiPerAnno[annoFile.toString()] = 0;
         let allFilesTracciato1 = utils.getAllFilesRecursive(pathDatiTracciatiExcel, ".xlsx", "tracciato1");
+        let nonTrovati = {};
+        for (let filet1 of allFilesTracciato1) {
+            let t2 = await utils.getObjectFromFileExcel(filet1.substring(0, filet1.length - 10) + "2" + filet1.substring(filet1.length - 9), null, false);
+            let t1 = await utils.getObjectFromFileExcel(filet1, null, false);
+            for (let riga of t1) {
+                let cf = riga[1];
+                let annoNascita = Parser.cfToBirthYear(cf);
+                if (annoNascita > 2020) annoNascita -= 100;
+                if (Validator.codiceFiscale(cf).valid) {
+                    if (!allAssistiti.hasOwnProperty(cf)) {
+                        allAssistiti[cf] = 0;
+                        assistitiPerAnno[annoFile]++;
+                    }
+                    if ((annoFile - annoNascita) >= 65) {
+                        if (!allAssistitiOver65.hasOwnProperty(cf)) {
+                            allAssistitiOver65[cf] = 0;
+                        }
+                    }
+                }
+            }
+            for (let riga of t2) {
+                let cf = riga[0];
+                let annoNascita = Parser.cfToBirthYear(cf);
+                if (annoNascita > 2020) annoNascita -= 100;
+                if (allAssistiti.hasOwnProperty(cf) && riga[10] !== "") {
+                    allAssistiti[cf]++;
+                    if (allAssistiti[cf] === 1)
+                        assistitiPerAnno[annoFile]++;
+                    if ((annoFile - annoNascita) >= 65) {
+                        allAssistitiOver65[cf]++;
+                        if (allAssistitiOver65[cf] === 1)
+                            assistitiOver65PerAnnoTarget[annoFile]++;
+                    }
+                } else
+                {
+                    if (!nonTrovati.hasOwnProperty(cf))
+                        nonTrovati[cf] = [{file: filet1, riga: riga}];
+                    else
+                        nonTrovati[cf].push({file: filet1, riga: riga});
+                }
+            }
+        }
+        console.log("ciao");
     }
 }

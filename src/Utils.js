@@ -451,6 +451,7 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
     return out;
 }
 
+
 const contaAssistitiPerCriterio = (codiciFiscali, comparator, value) => {
     //comparator is a string that can be "<", ">", "<=", ">=", "="
     //value is the value to compare
