@@ -720,7 +720,7 @@ export class FlussoSIAD {
                 cfPreseInCarico[codFiscale] = rigaT1[15];
                 rigaT1[16] = ""; // id record
                 rigaT1[17] = rigaDatiT1[tracciato1.soggetoRichiedente] ?? "2";
-                rigaT1[18] = rigaDatiT1[tracciato1.tipologiaPic] ?? "1";
+                rigaT1[18] = rigaTracciato1[18].toString() ?? "1";
                 rigaT1[19] = rigaDatiT1[tracciato1.dataValutazione] ? moment(rigaDatiT1[tracciato1.dataValutazione], "YYYY-MM-DD").format("DD/MM/YYYY") : moment(rigaTracciato1[15]).format("DD/MM/YYYY");
                 rigaT1[20] = rigaDatiT1[tracciato1.disturbiCognitivi] ?? "1";
                 rigaT1[21] = rigaDatiT1[tracciato1.disturbiComportamentali] ?? "1";
