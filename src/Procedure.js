@@ -421,6 +421,21 @@ class Procedure {
         console.log("FILE SALVATI");
     }
 
+    static async raggruppaDecedutiFile(folterPath) {
+        let allMorti = [];
+        let folderDepth = folterPath.split(path.sep).length;
+        let allMortiFiles = utils.getAllFilesRecursive(folterPath, ".xlsx", "morti");
+        for(let file of allMortiFiles) {
+            let morti = await Utils.getObjectFromFileExcel(file);
+            // for each morto add the first folder name after path (not the least) only the first,
+            for (let morto of morti) {
+                morto.distretto = file.split(path.sep)[folderDepth];
+                allMorti.push(morto);
+            }
+        }
+        await Utils.scriviOggettoSuNuovoFileExcel(folterPath + path.sep + "allMorti.xlsx", allMorti);
+    }
+
     static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, reverse = false, numParallelsJobs = 30, visible = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
