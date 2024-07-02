@@ -6,6 +6,7 @@ import moment from 'moment';
 import {utils} from "../Utils.js";
 
 import {Parser, Validator} from '@marketto/codice-fiscale-utils';
+import {Assistiti} from "../narTsServices/Assistiti.js";
 
 // this example reads the file synchronously
 // you can read it asynchronously also
@@ -159,9 +160,11 @@ export class FlussoSIAD {
 
     /**
      * @param {ImpostazioniFlussoSIAD} settings - Settings
+     * @param impostazioniServizi
      */
-    constructor(settings) {
+    constructor(settings,impostazioniServizi) {
         this._settings = settings;
+        this._impostazioniServizi = impostazioniServizi
     }
 
     contaPrestazioni() {
@@ -541,10 +544,10 @@ export class FlussoSIAD {
 
     }
 
-    creaOggettoAssistitiTracciato1(pathFile) {
+    creaOggettoAssistitiTracciato1(pathFile, filter = "AAD") {
         const parser = new xml2js.Parser({attrkey: "ATTR"});
         let dati = {};
-        let files = utils.getAllFilesRecursive(pathFile, ".xml", "AAD");
+        let files = utils.getAllFilesRecursive(pathFile, ".xml", filter);
         files.forEach(file => {
             console.log(file);
 
@@ -565,7 +568,7 @@ export class FlussoSIAD {
                         newObj[tracciato1.genere] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['Genere'][0];
                         newObj[tracciato1.cittadinanza] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['Cittadinanza'][0];
                         newObj[tracciato1.statoCivile] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['StatoCivile'][0];
-                        newObj[tracciato1.responsabilitaGenitoriale] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['ResponsabilitaGenitoriale'][0];
+                        newObj[tracciato1.responsabilitaGenitoriale] = assistenza.hasOwnProperty(assistenza['Assistito'][0]['DatiAnagrafici'][0]['ResponsabilitaGenitoriale']) ? assistenza['Assistito'][0]['DatiAnagrafici'][0]['ResponsabilitaGenitoriale'][0] : null;
                         newObj[tracciato1.residenzaRegione] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['Residenza'][0]['Regione'][0];
                         newObj[tracciato1.residenzaASL] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['Residenza'][0]['ASL'][0];
                         newObj[tracciato1.residenzaComune] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['Residenza'][0]['Comune'][0];
@@ -581,8 +584,8 @@ export class FlussoSIAD {
                         newObj[tracciato1.dataValutazione] = assistenza['Eventi'][0]['Valutazione'][0]['ATTR']['data'];
                         newObj[tracciato1.patologiaPrevalente] = assistenza['Eventi'][0]['Valutazione'][0]['Patologia'][0]['Prevalente'][0];
                         newObj[tracciato1.patologiaConcomitante] = assistenza['Eventi'][0]['Valutazione'][0]['Patologia'][0]['Concomitante'][0];
-                        newObj[tracciato1.autonomia] = assistenza['Eventi'][0]['Valutazione'][0]['Autonomia'][0];
-                        newObj[tracciato1.gradoMobilita] = assistenza['Eventi'][0]['Valutazione'][0]['GradoMobilita'][0];
+                        newObj[tracciato1.autonomia] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['Autonomia']) ? assistenza['Eventi'][0]['Valutazione'][0]['Autonomia'][0] : null;
+                        newObj[tracciato1.gradoMobilita] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['GradoMobilita']) ? assistenza['Eventi'][0]['Valutazione'][0]['GradoMobilita'][0] : null;
                         newObj[tracciato1.disturbiCognitivi] = assistenza['Eventi'][0]['Valutazione'][0]['Disturbi'][0]['Cognitivi'][0];
                         newObj[tracciato1.disturbiComportamentali] = assistenza['Eventi'][0]['Valutazione'][0]['Disturbi'][0]['Comportamentali'][0];
                         newObj[tracciato1.supportoSociale] = assistenza['Eventi'][0]['Valutazione'][0]['SupportoSociale'][0];
@@ -610,7 +613,7 @@ export class FlussoSIAD {
                         newObj[tracciato1.gestioneCatetere] = assistenza['Eventi'][0]['Valutazione'][0]['GestioneCatetere'][0];
                         newObj[tracciato1.trasfusioni] = assistenza['Eventi'][0]['Valutazione'][0]['Trasfusioni'][0];
                         newObj[tracciato1.controlloDolore] = assistenza['Eventi'][0]['Valutazione'][0]['ControlloDolore'][0];
-                        newObj[tracciato1.curePalliative] = assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative'][0];
+                        newObj[tracciato1.curePalliative] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative']) ? assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative'][0] : null;
                         newObj[tracciato1.trattamentiRiabilitativiNeurologici] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['Neurologico'][0];
                         newObj[tracciato1.trattamentiRiabilitativiOrtopedici] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['Motorio'][0];
                         newObj[tracciato1.trattamentiRiabilitativiDiMantenimento] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['DiMantenimento'][0];
@@ -1104,8 +1107,7 @@ export class FlussoSIAD {
                         if (allAssistitiOver65[cf] === 1)
                             assistitiOver65PerAnnoTarget[annoFile]++;
                     }
-                } else
-                {
+                } else {
                     if (!nonTrovati.hasOwnProperty(cf))
                         nonTrovati[cf] = [{file: filet1, riga: riga}];
                     else
@@ -1114,5 +1116,34 @@ export class FlussoSIAD {
             }
         }
         console.log("ciao");
+    }
+
+    async validaFlussoSiad(pathFlusso, tracciato1Filter = "AA2", tracciato2Filter = "AP2") {
+        let allCfTracciato1 = {};
+        let erroriTracciato1 = [];
+        let allObjectT1 = this.creaOggettoAssistitiTracciato1(pathFlusso, tracciato1Filter);
+        for (let key of Object.keys(allObjectT1)) {
+            // if cf includes something that is different from letter and number add to erroriTracciato1
+            let error = false;
+            let cfAssistitoFromKey = key.substr(key.length - 16, key.length - 1)
+            if (allObjectT1[key].CUNI !== cfAssistitoFromKey) {
+                erroriTracciato1.push({errore: "Codice fiscale diverso da key", row: allObjectT1[key]})
+                error = true;
+            }
+            // cfAssistitoFromKey must be 16 digit only letters and numbers, verify by using regex
+            let valid = /^[a-zA-Z0-9]*$/.test(cfAssistitoFromKey);
+            if (!valid || !Validator.codiceFiscale(cfAssistitoFromKey).valid) {
+                erroriTracciato1.push({errore: "Codice fiscale non valido", row: allObjectT1[key]})
+                error = true;
+            }
+            if (!error)
+                allCfTracciato1[cfAssistitoFromKey] = null;
+        }
+        // write json of errors
+        await utils.scriviOggettoSuFile(pathFlusso + path.sep + "erroriCfTracciato1.json", erroriTracciato1);
+        let ris = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, Object.keys(allCfTracciato1));
+        await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "morti.xlsx", ris.out.morti);
+        await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "vivi.xlsx", ris.out.vivi);
+        await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
     }
 }
