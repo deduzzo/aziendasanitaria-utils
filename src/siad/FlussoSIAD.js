@@ -162,7 +162,7 @@ export class FlussoSIAD {
      * @param {ImpostazioniFlussoSIAD} settings - Settings
      * @param impostazioniServizi
      */
-    constructor(settings,impostazioniServizi) {
+    constructor(settings,impostazioniServizi = null) {
         this._settings = settings;
         this._impostazioniServizi = impostazioniServizi
     }
