@@ -162,7 +162,7 @@ export class FlussoSIAD {
      * @param {ImpostazioniFlussoSIAD} settings - Settings
      * @param impostazioniServizi
      */
-    constructor(settings,impostazioniServizi = null) {
+    constructor(settings, impostazioniServizi = null) {
         this._settings = settings;
         this._impostazioniServizi = impostazioniServizi
     }
@@ -1024,7 +1024,7 @@ export class FlussoSIAD {
 
     }
 
-    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, annoFineChiavi, pathDatiTracciatiExcel, pathChiaviValide, annoFile, nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", nomeColonnaDataUltimaErogazione = "Ultima Data Erogazione\n", numColonnaCFFileExcelT1 = 1, numColonnaCFFileExcelT2 = 0) {
+    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, annoFineChiavi, pathChiaviValide, pathDatiTracciatiExcel = null, annoFile = null, verificaSoloDatiEffettivamenteErogati = false,   nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", nomeColonnaDataUltimaErogazione = "Ultima Data Erogazione\n", numColonnaCFFileExcelT1 = 1, numColonnaCFFileExcelT2 = 0) {
         let allAssistitiOver65 = {};
         let assistitiOver65PerAnnoTarget = {}
         let allAssistiti = {};
@@ -1047,11 +1047,11 @@ export class FlussoSIAD {
                                 else
                                     assistitiPerAnno[riga[nomeColonnaAnnoPICMinistero]]++;
                             }
-                            if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || anno === 2023)
+                            if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || !verificaSoloDatiEffettivamenteErogati)
                                 allAssistiti[cfFromIdPic]++;
 
                             if ((anno - annoNascita) >= 65) {
-                                if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || anno === 2023) {
+                                if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || !verificaSoloDatiEffettivamenteErogati ) {
                                     if (!allAssistitiOver65.hasOwnProperty(cfFromIdPic))
                                         allAssistitiOver65[cfFromIdPic] = 1;
                                     else
@@ -1069,77 +1069,137 @@ export class FlussoSIAD {
                 }
             }
         }
-        if (!assistitiOver65PerAnnoTarget.hasOwnProperty(annoFile.toString()))
-            assistitiOver65PerAnnoTarget[annoFile.toString()] = 0;
-        if (!assistitiPerAnno.hasOwnProperty(annoFile.toString()))
-            assistitiPerAnno[annoFile.toString()] = 0;
-        let allFilesTracciato1 = utils.getAllFilesRecursive(pathDatiTracciatiExcel, ".xlsx", "tracciato1");
-        let nonTrovati = {};
-        for (let filet1 of allFilesTracciato1) {
-            let t2 = await utils.getObjectFromFileExcel(filet1.substring(0, filet1.length - 10) + "2" + filet1.substring(filet1.length - 9), null, false);
-            let t1 = await utils.getObjectFromFileExcel(filet1, null, false);
-            for (let riga of t1) {
-                let cf = riga[1];
-                let annoNascita = Parser.cfToBirthYear(cf);
-                if (annoNascita > 2020) annoNascita -= 100;
-                if (Validator.codiceFiscale(cf).valid) {
-                    if (!allAssistiti.hasOwnProperty(cf)) {
-                        allAssistiti[cf] = 0;
-                        assistitiPerAnno[annoFile]++;
-                    }
-                    if ((annoFile - annoNascita) >= 65) {
-                        if (!allAssistitiOver65.hasOwnProperty(cf)) {
-                            allAssistitiOver65[cf] = 0;
+        if (pathDatiTracciatiExcel) {
+            if (!assistitiOver65PerAnnoTarget.hasOwnProperty(annoFile.toString()))
+                assistitiOver65PerAnnoTarget[annoFile.toString()] = 0;
+            if (!assistitiPerAnno.hasOwnProperty(annoFile.toString()))
+                assistitiPerAnno[annoFile.toString()] = 0;
+            let allFilesTracciato1 = utils.getAllFilesRecursive(pathDatiTracciatiExcel, ".xlsx", "tracciato1");
+            let nonTrovati = {};
+            for (let filet1 of allFilesTracciato1) {
+                let t2 = await utils.getObjectFromFileExcel(filet1.substring(0, filet1.length - 10) + "2" + filet1.substring(filet1.length - 9), null, false);
+                let t1 = await utils.getObjectFromFileExcel(filet1, null, false);
+                for (let riga of t1) {
+                    let cf = riga[1];
+                    let annoNascita = Parser.cfToBirthYear(cf);
+                    if (annoNascita > 2020) annoNascita -= 100;
+                    if (Validator.codiceFiscale(cf).valid) {
+                        if (!allAssistiti.hasOwnProperty(cf)) {
+                            allAssistiti[cf] = 0;
+                            assistitiPerAnno[annoFile]++;
+                        }
+                        if ((annoFile - annoNascita) >= 65) {
+                            if (!allAssistitiOver65.hasOwnProperty(cf)) {
+                                allAssistitiOver65[cf] = 0;
+                            }
                         }
                     }
                 }
-            }
-            for (let riga of t2) {
-                let cf = riga[0];
-                let annoNascita = Parser.cfToBirthYear(cf);
-                if (annoNascita > 2020) annoNascita -= 100;
-                if (allAssistiti.hasOwnProperty(cf) && riga[10] !== "") {
-                    allAssistiti[cf]++;
-                    if (allAssistiti[cf] === 1)
-                        assistitiPerAnno[annoFile]++;
-                    if ((annoFile - annoNascita) >= 65) {
-                        allAssistitiOver65[cf]++;
-                        if (allAssistitiOver65[cf] === 1)
-                            assistitiOver65PerAnnoTarget[annoFile]++;
+                for (let riga of t2) {
+                    let cf = riga[0];
+                    let annoNascita = Parser.cfToBirthYear(cf);
+                    if (annoNascita > 2020) annoNascita -= 100;
+                    if (allAssistiti.hasOwnProperty(cf) && riga[10] !== "") {
+                        allAssistiti[cf]++;
+                        if (allAssistiti[cf] === 1)
+                            assistitiPerAnno[annoFile]++;
+                        if ((annoFile - annoNascita) >= 65) {
+                            allAssistitiOver65[cf]++;
+                            if (allAssistitiOver65[cf] === 1)
+                                assistitiOver65PerAnnoTarget[annoFile]++;
+                        }
+                    } else {
+                        if (!nonTrovati.hasOwnProperty(cf))
+                            nonTrovati[cf] = [{file: filet1, riga: riga}];
+                        else
+                            nonTrovati[cf].push({file: filet1, riga: riga});
                     }
-                } else {
-                    if (!nonTrovati.hasOwnProperty(cf))
-                        nonTrovati[cf] = [{file: filet1, riga: riga}];
-                    else
-                        nonTrovati[cf].push({file: filet1, riga: riga});
                 }
             }
         }
-        console.log("ciao");
+        console.log("FINE");
     }
 
-    async validaFlussoSiad(pathFlusso, tracciato1Filter = "AA2", tracciato2Filter = "AP2") {
+    async validaFlussoSiad(pathFlusso, pathChiaviValide, colonnaIdRecord = "Id Record", tracciato1Filter = "AA2", tracciato2Filter = "AP2") {
         let allCfTracciato1 = {};
+        let allCfTracciato1Over65 = {};
         let erroriTracciato1 = [];
         let allObjectT1 = this.creaOggettoAssistitiTracciato1(pathFlusso, tracciato1Filter);
+        let allSostituti = {}
+        let allSostitutiFile = utils.getAllFilesRecursive(pathFlusso, ".xlsx", "sostituti");
+        for (let sostitutoFile of allSostitutiFile) {
+            let sostituti = await utils.getObjectFromFileExcel(sostitutoFile);
+            for (let sostituto of sostituti) {
+                allSostituti[sostituto['cf']] = sostituto['cfOk'];
+            }
+        }
+        let allAssistitiChiaviValide = {};
+        let allAssistitiChiaviValideOver65 = {};
+        let allChiaviValide = utils.getAllFilesRecursive(pathChiaviValide, ".xlsx");
+        for (let fileChiaviValide of allChiaviValide) {
+            let allChiaviValideTemp = await utils.getObjectFromFileExcel(fileChiaviValide);
+            for (let chiave of allChiaviValideTemp) {
+                let cfFromIdPic = chiave['Id Record'].substring(chiave[colonnaIdRecord].length - 16);
+                let annoNascita = Parser.cfToBirthYear(cfFromIdPic);
+                if (annoNascita > 2020) annoNascita -= 100;
+                if (!allChiaviValide.hasOwnProperty(cfFromIdPic))
+                    allAssistitiChiaviValide[cfFromIdPic] = 1;
+                else
+                    allAssistitiChiaviValide[cfFromIdPic]++;
+                if ((moment().year() - annoNascita) >= 65) {
+                    if (!allAssistitiChiaviValideOver65.hasOwnProperty(cfFromIdPic))
+                        allAssistitiChiaviValideOver65[cfFromIdPic] = 1;
+                    else
+                        allAssistitiChiaviValideOver65[cfFromIdPic]++;
+                }
+            }
+        }
+        let nuoviAssistiti = {};
+        let nuoviAssistitiOver65 = {};
         for (let key of Object.keys(allObjectT1)) {
             // if cf includes something that is different from letter and number add to erroriTracciato1
             let error = false;
             let cfAssistitoFromKey = key.substr(key.length - 16, key.length - 1)
-            if (allObjectT1[key].CUNI !== cfAssistitoFromKey) {
+            let cfAssistitoFromT1 = allObjectT1[key].CUNI;
+            let sostituto = false;
+            if (allSostituti.hasOwnProperty(cfAssistitoFromT1)) {
+                cfAssistitoFromT1 = allSostituti[cfAssistitoFromT1];
+                sostituto = true;
+            }
+            if (cfAssistitoFromT1 !== cfAssistitoFromKey && !sostituto) {
                 erroriTracciato1.push({errore: "Codice fiscale diverso da key", row: allObjectT1[key]})
                 error = true;
             }
-            // cfAssistitoFromKey must be 16 digit only letters and numbers, verify by using regex
-            let valid = /^[a-zA-Z0-9]*$/.test(cfAssistitoFromKey);
-            if (!valid || !Validator.codiceFiscale(cfAssistitoFromKey).valid) {
-                erroriTracciato1.push({errore: "Codice fiscale non valido", row: allObjectT1[key]})
-                error = true;
+            if (!sostituto) {
+                let valid = /^[a-zA-Z0-9]*$/.test(cfAssistitoFromKey);
+                if (!valid || !Validator.codiceFiscale(cfAssistitoFromKey).valid) {
+                    erroriTracciato1.push({errore: "Codice fiscale non valido", row: allObjectT1[key]})
+                    error = true;
+                }
+            } else {
+                let valid = /^[a-zA-Z0-9]*$/.test(cfAssistitoFromT1);
+                if (!valid || !Validator.codiceFiscale(cfAssistitoFromT1).valid) {
+                    erroriTracciato1.push({errore: "Codice fiscale sostituto non valido", row: allObjectT1[key]})
+                    error = true;
+                }
             }
-            if (!error)
-                allCfTracciato1[cfAssistitoFromKey] = null;
+            if (!error) {
+                allCfTracciato1[cfAssistitoFromT1] = null;
+                if (!allAssistitiChiaviValide.hasOwnProperty(cfAssistitoFromT1))
+                    nuoviAssistiti[cfAssistitoFromT1] = cfAssistitoFromT1;
+                let annoNascita = allObjectT1[key].annoNascita;
+                let eta = moment().year() - annoNascita;
+                if (eta >= 65 && !allAssistitiChiaviValideOver65.hasOwnProperty(cfAssistitoFromT1))
+                    nuoviAssistitiOver65[cfAssistitoFromT1] = cfAssistitoFromT1;
+                if (eta >= 65)
+                    allCfTracciato1Over65[cfAssistitoFromT1] = null;
+            }
         }
         // write json of errors
+        console.log("nuovi assistiti: " + Object.keys(nuoviAssistiti).length);
+        console.log("nuovi assistiti over 65: " + Object.keys(nuoviAssistitiOver65).length);
+        console.log("pic Tracciato 1: " + Object.keys(allCfTracciato1).length);
+        console.log("pic over 65 Tracciato 1: " + Object.keys(allCfTracciato1Over65).length);
         await utils.scriviOggettoSuFile(pathFlusso + path.sep + "erroriCfTracciato1.json", erroriTracciato1);
         let ris = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, Object.keys(allCfTracciato1));
         await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "morti.xlsx", ris.out.morti);

@@ -70,6 +70,71 @@ export class Assistiti {
         return datiUtenti;
     }
 
+    async chiudiAssistitiDeceduti(datiAssistitiMorti,visibile, index = 1) {
+        let out = {data: {}, nonTrovati: [], errori: []};
+
+        await this._nar.doLogout();
+        let page = await this._nar.getWorkingPage(true);
+        console.log("$#" + index + " " + " TOTALI: " + datiAssistitiMorti.length)
+        if (page) {
+            let i = 0;
+            for (let assistito of datiAssistitiMorti) {
+                if (assistito.data_decesso) {
+                    let cf = assistito.cf;
+                    try {
+                        await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
+                        await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
+                        await page.waitForTimeout(1000);
+                        await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
+                        await page.waitForSelector("#inside");
+                        await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
+                        await page.waitForSelector("#mediciTable");
+                        let datiAssistito = await page.evaluate(() => {
+                            let data = {deceduto: null, dataDecesso: null};
+                            const selectElement = document.querySelector("select[name='categoriaCittadino@']");
+                            const selectedOption = selectElement.options[selectElement.selectedIndex];
+                            if (selectedOption.text.toLowerCase().includes("deceduto") && document.querySelector("input[name='dataDecesso@']").value !== "") {
+                                data.deceduto = true;
+                                data.dataDecesso = document.querySelector("input[name='dataDecesso@']").value;
+                            }
+                            return data;
+                        });
+                        if (datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.data_decesso) {
+                            console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
+                        }
+                        else
+                        {
+                            // da chiudere
+                            await page.click("button[name='Btn1']");
+                            await page.waitForSelector("input[name='pazienteMedico.dataRevoca@']");
+                            await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.data_decesso);
+                            // type tab
+                            await page.keyboard.press('Tab');
+                            // wait for 500 ms
+                            await page.waitForTimeout(500);
+                            await page.type("input[name='idTipoOpeRevoca_c']", "3");
+                            await page.keyboard.press('Tab');
+                            await page.waitForTimeout(500);
+                            await page.type("input[name='idMotivoRevoca_c']", "A08");
+                            await page.keyboard.press('Tab');
+                            await page.waitForTimeout(500);
+                            // click BTN_CONFIRM
+                            await page.click("button[name='BTN_CONFIRM']");
+                            // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
+                            await page.waitForFunction(() => {
+                                const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
+                                return element && element.textContent.toLowerCase().includes("deceduto");
+                            });
+                            console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
+                        }
+                    } catch (ex) {
+                        out.errori.push(cf + "_su_nar");
+                    }
+                }
+            }
+        }
+    }
+
     async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
         let out = {data: {}, nonTrovati: [], storicoMMG: {}};
         let page = await this._nar.getWorkingPage(visibile);
