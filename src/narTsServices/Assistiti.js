@@ -10,6 +10,7 @@ import {EventEmitter} from 'events';
 import _ from 'lodash';
 import {ImpostazioniServiziTerzi} from "../config/ImpostazioniServiziTerzi.js";
 import {Document, Packer, Table, TableRow, TableCell, Paragraph, TextRun} from "docx";
+import moment from "moment";
 
 /**
  * @typedef {Object} Config
@@ -70,16 +71,26 @@ export class Assistiti {
         return datiUtenti;
     }
 
-    async chiudiAssistitiDeceduti(datiAssistitiMorti,visibile, index = 1) {
-        let out = {data: {}, nonTrovati: [], errori: []};
+    async chiudiAssistitiDeceduti(pathAllMortiJson,visibile, index = 1,fileName = "decedutiChiusuraJobStatus.json") {
+        let out = {datiAssistitiMorti: [],chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
+
+        let basePath = path.dirname(pathAllMortiJson);
+        if (!fs.existsSync(basePath + path.sep + fileName)) {
+            let allDatiMorti = await utils.riunisciJsonDaTag(pathAllMortiJson
+                ,"deceduti");
+            out.datiAssistitiMorti = allDatiMorti["deceduti"];
+            await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        }
+        else
+            out = await utils.leggiOggettoDaFileJSON(basePath + path.sep + fileName);
 
         await this._nar.doLogout();
         let page = await this._nar.getWorkingPage(true);
-        console.log("$#" + index + " " + " TOTALI: " + datiAssistitiMorti.length)
+        console.log("$#" + index + " " + " TOTALI: " + out.datiAssistitiMorti.length)
         if (page) {
-            let i = 0;
-            for (let assistito of datiAssistitiMorti) {
-                if (assistito.data_decesso) {
+            while (out.currentIndex < out.datiAssistitiMorti.length) {
+                let assistito = out.datiAssistitiMorti[out.currentIndex];
+                if (assistito.data_decesso !== "" && assistito.data_decesso !== null) {
                     let cf = assistito.cf;
                     try {
                         await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
@@ -101,6 +112,13 @@ export class Assistiti {
                         });
                         if (datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.data_decesso) {
                             console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
+                            out.chiusi.push({
+                                cf: cf,
+                                data_decesso: assistito.data_decesso,
+                                data_chiusura: datiAssistito.dataDecesso,
+                                data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                chiuso_precedentemente: true
+                            })
                         }
                         else
                         {
@@ -126,10 +144,19 @@ export class Assistiti {
                                 return element && element.textContent.toLowerCase().includes("deceduto");
                             });
                             console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
+                            out.chiusi.push({
+                                cf: cf,
+                                data_decesso: assistito.data_decesso,
+                                data_chiusura: assistito.data_decesso,
+                                data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                chiuso_precedentemente: false
+                            })
                         }
                     } catch (ex) {
                         out.errori.push(cf + "_su_nar");
                     }
+                    out.currentIndex++;
+                    await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
                 }
             }
         }

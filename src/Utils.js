@@ -423,7 +423,7 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
         worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
             let riga = {};
             if (rowNumber === 1) {
-                row.eachCell({includeEmpty: false},(cell, colNumber) => {
+                row.eachCell({includeEmpty: false}, (cell, colNumber) => {
                     colNumber = colNumber - 1;
                     if (usaHeader) {
                         let headerTemp = "";
@@ -437,12 +437,13 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
                         header[colNumber] = colNumber;
                 });
             } else {
-/*                row.eachCell({includeEmpty: true}, (cell, colNumber) => {
-                    riga[header[colNumber]] = cell.value ?? "";
-                });*/
-                for (let i = 0; i< Object.keys(header).length; i++) {
+                /*                row.eachCell({includeEmpty: true}, (cell, colNumber) => {
+                                    riga[header[colNumber]] = cell.value ?? "";
+                                });*/
+                for (let i = 0; i < Object.keys(header).length; i++) {
                     riga[header[i]] = row._cells[i]?._value.model.value ?? "";
-                };
+                }
+                ;
                 out.push(riga);
             }
         });
@@ -609,6 +610,20 @@ const convertDocxToPdf = async (docxPath, pdfPath) => {
     }
 }
 
+const riunisciJsonDaTag = async (path, tag, filter = null) => {
+    let files = getAllFilesRecursive(path, ".json", filter);
+    let out = {};
+    out[tag] = [];
+    for (let file of files) {
+        let data = await leggiOggettoDaFileJSON(file);
+        if (typeof data[tag] === "object")
+            out[tag].push(...Object.values(data[tag]));
+        else
+            out[tag].push(...data[tag]);
+    }
+    return out;
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -639,5 +654,6 @@ export const utils = {
     leggiOggettoDaFileJSON,
     calcolaMesiDifferenza,
     getWorkingPath,
-    convertDocxToPdf
+    convertDocxToPdf,
+    riunisciJsonDaTag,
 }
