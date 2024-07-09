@@ -90,8 +90,8 @@ export class Assistiti {
         if (page) {
             while (out.currentIndex < out.datiAssistitiMorti.length) {
                 let assistito = out.datiAssistitiMorti[out.currentIndex];
+                let cf = assistito.cf;
                 if (assistito.data_decesso !== "" && assistito.data_decesso !== null) {
-                    let cf = assistito.cf;
                     try {
                         await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
                         await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
@@ -155,9 +155,13 @@ export class Assistiti {
                     } catch (ex) {
                         out.errori.push(cf + "_su_nar");
                     }
-                    out.currentIndex++;
                     await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
                 }
+                else {
+                    console.log("#" + index + " " + cf + " data decesso non valida");
+                    out.errori.push(cf + " data decesso non valida");
+                }
+                out.currentIndex++;
             }
         }
     }
