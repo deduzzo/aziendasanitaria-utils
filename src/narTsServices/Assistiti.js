@@ -25,6 +25,7 @@ export class Assistiti {
     /**
      *
      * @param {Config} configurazioneServiziTerzi
+     * @param visible
      */
     constructor(configurazioneServiziTerzi, visible = false) {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
@@ -71,99 +72,116 @@ export class Assistiti {
         return datiUtenti;
     }
 
-    async chiudiAssistitiDeceduti(pathAllMortiJson,visibile, index = 1,fileName = "decedutiChiusuraJobStatus.json") {
-        let out = {datiAssistitiMorti: [],chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
+    async chiudiAssistitiDeceduti(datiAssistitiMorti, index = 1) {
+        // set _maxListeners 20
+        EventEmitter.defaultMaxListeners = 20;
+        // Funzione per eseguire un task con timeout
+        const performTaskWithTimeout = async (task, timeout) => {
+            let timer;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                    reject(new Error('Task timed out'));
+                }, timeout);
+            });
 
-        let basePath = path.dirname(pathAllMortiJson);
-        if (!fs.existsSync(basePath + path.sep + fileName)) {
-            let allDatiMorti = await utils.riunisciJsonDaTag(pathAllMortiJson
-                ,"deceduti");
-            out.datiAssistitiMorti = allDatiMorti["deceduti"];
-            await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+            try {
+                await Promise.race([task(), timeoutPromise]);
+            } finally {
+                clearTimeout(timer);
+            }
         }
-        else
-            out = await utils.leggiOggettoDaFileJSON(basePath + path.sep + fileName);
+
+
+        let out = {chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
 
         await this._nar.doLogout();
-        let page = await this._nar.getWorkingPage(true);
-        console.log("$#" + index + " " + " TOTALI: " + out.datiAssistitiMorti.length)
+        let page = await this._nar.getWorkingPage();
+        console.log("$#" + index + " " + " TOTALI: " + datiAssistitiMorti.length)
         if (page) {
-            while (out.currentIndex < out.datiAssistitiMorti.length) {
-                let assistito = out.datiAssistitiMorti[out.currentIndex];
+            while (out.currentIndex < datiAssistitiMorti.length) {
+                let assistito = datiAssistitiMorti[out.currentIndex];
                 let cf = assistito.cf;
                 if (assistito.data_decesso !== "" && assistito.data_decesso !== null) {
                     try {
-                        await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
-                        await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
-                        await page.waitForTimeout(1000);
-                        await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
-                        await page.waitForSelector("#inside");
-                        await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
-                        await page.waitForSelector("#mediciTable");
-                        let datiAssistito = await page.evaluate(() => {
-                            let data = {deceduto: null, dataDecesso: null};
-                            const selectElement = document.querySelector("select[name='categoriaCittadino@']");
-                            const selectedOption = selectElement.options[selectElement.selectedIndex];
-                            if (selectedOption.text.toLowerCase().includes("deceduto") && document.querySelector("input[name='dataDecesso@']").value !== "") {
-                                data.deceduto = true;
-                                data.dataDecesso = document.querySelector("input[name='dataDecesso@']").value;
-                            }
-                            return data;
-                        });
-                        if (datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.data_decesso) {
-                            console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
-                            out.chiusi.push({
-                                cf: cf,
-                                data_decesso: assistito.data_decesso,
-                                data_chiusura: datiAssistito.dataDecesso,
-                                data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
-                                chiuso_precedentemente: true
-                            })
-                        }
-                        else
-                        {
-                            // da chiudere
-                            await page.click("button[name='Btn1']");
-                            await page.waitForSelector("input[name='pazienteMedico.dataRevoca@']");
-                            await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.data_decesso);
-                            // type tab
-                            await page.keyboard.press('Tab');
-                            // wait for 500 ms
-                            await page.waitForTimeout(500);
-                            await page.type("input[name='idTipoOpeRevoca_c']", "3");
-                            await page.keyboard.press('Tab');
-                            await page.waitForTimeout(500);
-                            await page.type("input[name='idMotivoRevoca_c']", "A08");
-                            await page.keyboard.press('Tab');
-                            await page.waitForTimeout(500);
-                            // click BTN_CONFIRM
-                            await page.click("button[name='BTN_CONFIRM']");
-                            // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
-                            await page.waitForFunction(() => {
-                                const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
-                                return element && element.textContent.toLowerCase().includes("deceduto");
+                        await performTaskWithTimeout(async () => {
+                            await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
+                            await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
+                            await page.waitForTimeout(1000);
+                            await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
+                            await page.waitForSelector("#inside");
+                            await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
+                            await page.waitForSelector("#mediciTable");
+                            let datiAssistito = await page.evaluate(() => {
+                                let data = {deceduto: null, dataDecesso: null};
+                                const selectElement = document.querySelector("select[name='categoriaCittadino@']");
+                                const selectedOption = selectElement.options[selectElement.selectedIndex];
+                                if (selectedOption.text.toLowerCase().includes("deceduto") && document.querySelector("input[name='dataDecesso@']").value !== "") {
+                                    data.deceduto = true;
+                                    data.dataDecesso = document.querySelector("input[name='dataDecesso@']").value;
+                                }
+                                return data;
                             });
-                            console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
-                            out.chiusi.push({
-                                cf: cf,
-                                data_decesso: assistito.data_decesso,
-                                data_chiusura: assistito.data_decesso,
-                                data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
-                                chiuso_precedentemente: false
-                            })
-                        }
+                            if (datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.data_decesso) {
+                                console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
+                                out.chiusi.push({
+                                    cf: cf,
+                                    data_decesso: assistito.data_decesso,
+                                    data_chiusura: datiAssistito.dataDecesso,
+                                    data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                    chiuso_precedentemente: true
+                                })
+                            } else {
+                                // da chiudere
+                                await page.click("button[name='Btn1']");
+                                await page.waitForSelector("input[name='pazienteMedico.dataRevoca@']");
+                                await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.data_decesso);
+                                // type tab
+                                await page.keyboard.press('Tab');
+                                // wait for 500 ms
+                                await page.waitForTimeout(500);
+                                await page.type("input[name='idTipoOpeRevoca_c']", "3");
+                                await page.keyboard.press('Tab');
+                                await page.waitForTimeout(500);
+                                await page.type("input[name='idMotivoRevoca_c']", "A08");
+                                await page.keyboard.press('Tab');
+                                await page.waitForTimeout(500);
+                                // click BTN_CONFIRM
+                                await page.click("button[name='BTN_CONFIRM']");
+                                // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
+                                await page.waitForFunction(() => {
+                                    const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
+                                    return element && element.textContent.toLowerCase().includes("deceduto");
+                                });
+                                console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
+                                out.chiusi.push({
+                                    cf: cf,
+                                    data_decesso: assistito.data_decesso,
+                                    data_chiusura: assistito.data_decesso,
+                                    data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                    chiuso_precedentemente: false
+                                })
+                            }
+
+                        }, 30000); // Timeout di 30 secondi
                     } catch (ex) {
+                        console.log("#" + index + " " + cf + " errore: " + ex.message + " " + ex.stack);
                         out.errori.push(cf + "_su_nar");
+                        await this._nar.doLogout();
+                        page = await this._nar.getWorkingPage();
                     }
-                    await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
-                }
-                else {
+
+                } else {
                     console.log("#" + index + " " + cf + " data decesso non valida");
                     out.errori.push(cf + " data decesso non valida");
+
                 }
+                if (out.currentIndex % 10 === 0)
+                    console.log("#" + index + "[" + out.currentIndex + " di " + datiAssistitiMorti.length + "] % " + (out.currentIndex / datiAssistitiMorti.length * 100).toFixed(2));
                 out.currentIndex++;
             }
         }
+        console.log("#" + index + " FINE");
+        return out;
     }
 
     async verificaDatiAssititoDaNar(codiciFiscali, visibile, index = 1) {
@@ -243,7 +261,7 @@ export class Assistiti {
     }
 
 
-    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true,datiMedicoNar,dateSceltaCfMap = null) {
+    async verificaAssititiInVita(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: [], obsoleti: {}}}
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
@@ -313,7 +331,7 @@ export class Assistiti {
                                         if (document.querySelector("#menu_voci > ol").children.length > 2) {
                                             dati.asp = removeAllNbsp(document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 19) : (ind + 21)) + ") > div.cellaAss59 > div").innerText.trim());
                                             let mmg = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 15) + ") > div.cellaAss59 > div").innerText.trim().split("-");
-                                            dati.mmgCfTs = mmg.length  === 2 ?  mmg[1].trim() : "";
+                                            dati.mmgCfTs = mmg.length === 2 ? mmg[1].trim() : "";
                                             dati.mmgDaTs = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (ind + 17) + ") > div.cellaAss59 > div").innerText.trim()
                                             dati.tipoAssistitoSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 21) : (ind + 23)) + ") > div.cellaAss59 > div").innerText.trim();
                                             dati.inizioAssistenzaSSN = document.querySelector("body > div:nth-child(12) > div:nth-child(" + (!fineAssistenza ? (ind + 23) : (ind + 25)) + ") > div.cellaAss59 > div").innerText.trim();
@@ -439,7 +457,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false,datiMedicoNar = null,dateSceltaCfMap = null) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -451,7 +469,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible,datiMedicoNar,dateSceltaCfMap));
+            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
         }
         let results = await Promise.all(promises);
         promises = null;

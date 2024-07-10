@@ -600,6 +600,36 @@ class Procedure {
     }
 
 
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10,fileName = "decedutiChiusuraJobStatus.json") {
+        let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
+        let basePath = path.dirname(pathDeceduti);
+        if (!fs.existsSync(basePath + path.sep + fileName)) {
+            let allDatiMorti = await utils.riunisciJsonDaTag(pathDeceduti, "deceduti");
+            out.datiAssistitiMorti = allDatiMorti["deceduti"];
+            await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        } else
+            out = await utils.leggiOggettoDaFileJSON(basePath + path.sep + fileName);
+        let allCfs = out.datiAssistitiMorti;
+        let allJobs = [];
+        let i = 0;
+        let count = allCfs.length;
+        let numPerJob = Math.ceil(count / numParallelsJobs);
+        while (i<numParallelsJobs) {
+            let assistiti = new Assistiti(impostazioniServizi, visible);
+            let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
+            allJobs.push(assistiti.chiudiAssistitiDeceduti(slice,i+1));
+            i++;
+        }
+        let results = await Promise.all(allJobs);
+        allJobs = null;
+        for (let outJob of results) {
+            out.chiusi.push(...outJob.chiusi);
+            out.nonTrovati.push(...outJob.nonTrovati);
+            out.errori.push(...outJob.errori);
+        }
+        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        return out;
+    }
 }
 
 export {

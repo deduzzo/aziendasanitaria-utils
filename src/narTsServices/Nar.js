@@ -60,8 +60,9 @@ export class Nar {
         this._batchProcess = value;
     }
 
-    async getWorkingPage(visible) {
-        this._visible = visible;
+    async getWorkingPage(visible = null) {
+        if (visible !== null)
+            this._visible = visible;
         if (!this.logged)
             await this.doLogin();
         if (!this.logged)
