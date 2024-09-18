@@ -699,6 +699,7 @@ export class FlussoSIAD {
                 let rigaDatiT1 = (chiavi.length > 0 || chiaviAnnoPrecedente.length > 0) ? (chiavi.length > 0 ? datiTracciato1AnnoCorrente[chiavi[0]] : datiAnnoPrecedente[chiaviAnnoPrecedente[0]]) : {};
                 let rigaT1 = {};
 
+                console.log(rigaTracciato1[1])
                 let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1].trim().replaceAll(" ", "")) ? allSostituti[rigaTracciato1[1].trim().replaceAll(" ", "")] : rigaTracciato1[1].trim().replaceAll(" ", "");
                 let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'], "DD/MM/YYYY") : null);
                 let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);

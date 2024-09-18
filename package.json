@@ -21,6 +21,7 @@
   "dependencies": {
     "@freiraum/msgreader": "^1.1.1",
     "@marketto/codice-fiscale-utils": "^2.1.1",
+    "activedirectory2": "^2.2.0",
     "archiver": "^6.0.1",
     "async-lock": "^1.4.0",
     "axios": "^1.4.0",
