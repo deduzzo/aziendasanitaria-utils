@@ -15,3 +15,4 @@ yarn-error.log*
 *.njsproj
 *.sln
 private_example.js
+/data/
