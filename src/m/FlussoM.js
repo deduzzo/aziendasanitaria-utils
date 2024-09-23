@@ -328,6 +328,11 @@ export class FlussoM {
             }
         }
         if (error === null) {
+            for (let keys in totale.perStrutture) {
+                totale.perStrutture[keys].totale = parseFloat(totale.perStrutture[keys].totale.toFixed(2));
+                totale.perStrutture[keys].ticket = parseFloat(totale.perStrutture[keys].ticket.toFixed(2));
+                totale.perStrutture[keys].totalePrestazioniCalcolate = parseFloat(totale.perStrutture[keys].totalePrestazioniCalcolate.toFixed(2));
+            }
             totale.prestazioniMap = prestMap;
             totale.totalePrestazioniCalcolate = parseFloat(totale.totalePrestazioniCalcolate.toFixed(2));
             totale.totale = parseFloat(totale.totale.toFixed(2));
