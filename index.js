@@ -13,6 +13,7 @@ import {Assistiti} from "./src/narTsServices/Assistiti.js";
 import * as Messina from "./src/config/sicilia/messina.js"
 import {Medici} from "./src/narTsServices/Medici.js";
 import {ImpostazioniServiziTerzi} from "./src/config/ImpostazioniServiziTerzi.js";
+import {Indicatori} from "./src/Indicatori.js";
 
 export const flussiRegioneSicilia = {
     FlussoM,
@@ -29,5 +30,6 @@ export const flussiRegioneSicilia = {
     Messina,
     ImpostazioniServiziTerzi,
     Assistiti,
-    Medici
+    Medici,
+    Indicatori
 }
