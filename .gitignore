@@ -16,3 +16,4 @@ yarn-error.log*
 *.sln
 private_example.js
 /data/
+package-lock.json

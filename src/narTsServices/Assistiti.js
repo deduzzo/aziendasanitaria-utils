@@ -151,7 +151,7 @@ export class Assistiti {
                                 await page.waitForFunction(() => {
                                     const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
                                     return element && element.textContent.toLowerCase().includes("deceduto");
-                                });
+                                }, { timeout: 60000 });
                                 console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
                                 out.chiusi.push({
                                     cf: cf,
@@ -162,7 +162,7 @@ export class Assistiti {
                                 })
                             }
 
-                        }, 30000); // Timeout di 30 secondi
+                        }, 60000); // Timeout di 60 secondi
                     } catch (ex) {
                         console.log("#" + index + " " + cf + " errore: " + ex.message + " " + ex.stack);
                         out.errori.push(cf + "_su_nar");
