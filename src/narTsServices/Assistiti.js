@@ -72,6 +72,93 @@ export class Assistiti {
         return datiUtenti;
     }
 
+    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1) {
+        // set _maxListeners 20
+        EventEmitter.defaultMaxListeners = 20;
+        // Funzione per eseguire un task con timeout
+        const performTaskWithTimeout = async (task, timeout) => {
+            let timer;
+            const timeoutPromise = new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                    reject(new Error('Task timed out'));
+                }, timeout);
+            });
+
+            try {
+                await Promise.race([task(), timeoutPromise]);
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+
+        let out = {chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
+
+        await this._nar.doLogout();
+        let page = await this._nar.getWorkingPage();
+        console.log("$#" + index + " " + " TOTALI: " + allCfAssistiti.length)
+        if (page) {
+            while (out.currentIndex < allCfAssistiti.length) {
+                let cf = allCfAssistiti[out.currentIndex].codiceFiscale;
+                try {
+                    await performTaskWithTimeout(async () => {
+                        await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
+                        await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
+                        await page.waitForTimeout(1000);
+                        await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
+                        await page.waitForSelector("#inside");
+                        // if page has selector "#inside > table > tbody > tr > td:nth-child(2) > a" then
+                        if (await page.$("#inside > table > tbody > tr > td:nth-child(2) > a") !== null) {
+                            await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
+                            await page.waitForSelector("#mediciTable");
+                            // click button with selector #mediciTable > tbody > tr.row0\,.row_highlight > td:nth-child(10) > button
+                            await page.click("#mediciTable > tbody > tr.row0 > td:nth-child(10) > button");
+                            await page.waitForSelector("#tipoOperazioneScelta");
+                            let chiuso = await page.evaluate((codNarMMG) => {
+                                return document.querySelector("input[name='idMedicoCodRegionale']").value === codNarMMG &&
+                                    (document.querySelector("#dataRevoca > table > tbody > tr > td:nth-child(1) > input") !== null && document.querySelector("#dataRevoca > table > tbody > tr > td:nth-child(1) > input").value !== "")
+                            }, codNarMMG);
+                            if (chiuso) {
+                                // select all content of input with selector "pazienteMedico.dataRevoca@"
+                                await page.evaluate(() => {
+                                    document.querySelector("input[name='pazienteMedico.dataRevoca@']").select();
+                                    // send key "Backspace"
+                                    document.execCommand('insertText', false, '');
+                                    // focus on pazienteMedico.dataRevoca@
+                                    document.querySelector("input[name='pazienteMedico.dataRevoca@']").focus();
+                                });
+                                // type tab key
+                                await page.keyboard.press('Tab');
+                                // wait for 200 ms
+                                await page.waitForTimeout(1000);
+                                // click button name="BTN_CONFIRM"
+                                await page.click("button[name='BTN_CONFIRM']");
+                                // aspetta finchè la pagina non finisce il caricamento
+                                await page.waitForTimeout(3000);
+                                console.log("#" + index + " Assistito " + cf + " riaperto");
+                                out.chiusi.push(cf);
+                            }
+                        }
+                        else
+                            console.log("#" + index + " - Assistito " + cf + " già aperto");
+                        out.currentIndex++;
+                    }, 60000); // Timeout di 60 secondi
+                } catch (ex) {
+                    if (ex.message.includes("No node found for selector: #mediciTable > tbody > tr.row0 > td:nth-child(10)")) {
+                        console.log("#" + index + " Assistito " + cf + " già aperto");
+                        out.currentIndex++;
+                    }
+                    else {
+                        console.log("#" + index + " " + cf + " errore: " + ex.message + " " + ex.stack);
+                        out.errori.push(cf + "_su_nar");
+                        await this._nar.doLogout();
+                        page = await this._nar.getWorkingPage();
+                    }
+                }
+            }
+        }
+    }
+
     async chiudiAssistitiDeceduti(datiAssistitiMorti, index = 1) {
         // set _maxListeners 20
         EventEmitter.defaultMaxListeners = 20;
@@ -151,7 +238,7 @@ export class Assistiti {
                                 await page.waitForFunction(() => {
                                     const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
                                     return element && element.textContent.toLowerCase().includes("deceduto");
-                                }, { timeout: 60000 });
+                                }, {timeout: 60000});
                                 console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
                                 out.chiusi.push({
                                     cf: cf,
