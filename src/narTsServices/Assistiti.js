@@ -130,7 +130,7 @@ export class Assistiti {
                                 // type tab key
                                 await page.keyboard.press('Tab');
                                 // wait for 200 ms
-                                await page.waitForTimeout(1000);
+                                await page.waitForTimeout(2000);
                                 // click button name="BTN_CONFIRM"
                                 await page.click("button[name='BTN_CONFIRM']");
                                 // aspetta finchè la pagina non finisce il caricamento
@@ -142,7 +142,7 @@ export class Assistiti {
                         else
                             console.log("#" + index + " - Assistito " + cf + " già aperto");
                         out.currentIndex++;
-                    }, 60000); // Timeout di 60 secondi
+                    }, 30000); // Timeout di 60 secondi
                 } catch (ex) {
                     if (ex.message.includes("No node found for selector: #mediciTable > tbody > tr.row0 > td:nth-child(10)")) {
                         console.log("#" + index + " Assistito " + cf + " già aperto");

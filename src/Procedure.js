@@ -350,6 +350,8 @@ class Procedure {
             let count = allAssistiti[codNar].assistiti.length;
             let numPerJob = Math.ceil(count / numParallelsJob);
             let allAssititi = allAssistiti[codNar].assistiti;
+            //filp array
+            allAssititi = allAssititi.reverse();
             while (i < numParallelsJob) {
                 let assistiti = new Assistiti(impostazioniServizi, visible);
                 let slice = allAssititi.slice(i * numPerJob, (i + 1) * numPerJob);
