@@ -109,7 +109,7 @@ export class Nar2 {
                     await this.getToken();
                 else {
                     ok = true;
-                    out = { ok: true, fullData: out.data, deceduto: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto"), dataDecesso: out.data.data.p801dataDecesso };
+                    out = { ok: true, fullData: out.data, deceduto: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto"), dataDecesso: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto") ? out.data.data.p801dataDecesso : null };
                 }
             } catch (e) {
                 console.log(e);

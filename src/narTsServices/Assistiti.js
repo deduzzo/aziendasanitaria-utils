@@ -14,7 +14,6 @@ import moment from "moment";
 import {Nar2} from "./Nar2.js";
 
 
-
 export class Assistiti {
 
     /**
@@ -134,8 +133,7 @@ export class Assistiti {
                                 console.log("#" + index + " Assistito " + cf + " riaperto");
                                 out.chiusi.push(cf);
                             }
-                        }
-                        else
+                        } else
                             console.log("#" + index + " - Assistito " + cf + " già aperto");
                         out.currentIndex++;
                     }, 30000); // Timeout di 60 secondi
@@ -143,8 +141,7 @@ export class Assistiti {
                     if (ex.message.includes("No node found for selector: #mediciTable > tbody > tr.row0 > td:nth-child(10)")) {
                         console.log("#" + index + " Assistito " + cf + " già aperto");
                         out.currentIndex++;
-                    }
-                    else {
+                    } else {
                         console.log("#" + index + " " + cf + " errore: " + ex.message + " " + ex.stack);
                         out.errori.push(cf + "_su_nar");
                         await this._nar.doLogout();
@@ -185,7 +182,7 @@ export class Assistiti {
                 let assistito = datiAssistitiMorti[out.currentIndex];
                 let cf = assistito.cf;
                 console.log("#" + index + " " + cf + " in lavorazione");
-                if ((assistito.data_decesso === "" || assistito.data_decesso === null || assistito.data_decesso === undefined) && provaNar2 === true ) {
+                if ((assistito.data_decesso === "" || assistito.data_decesso === null || assistito.data_decesso === undefined) && provaNar2 === true) {
                     console.log("#" + index + " " + cf + " data decesso non presente, provo a recuperarla da NAR2");
                     let dataNar2 = await this._nar2.getDatiAssistitoFromCfSuSogei(cf);
                     if (dataNar2.ok && dataNar2.deceduto === true) {
@@ -549,8 +546,30 @@ export class Assistiti {
         return out;
     }
 
+    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null) {
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
+        console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
+        if (codiciFiscali.length > 0) {
+            let i = 0;
+            for (let codiceFiscale of codiciFiscali) {
+                let datiAssistito = await this._nar2.getDatiAssistitoFromCfSuSogei(codiceFiscale)
+                console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
+                if (!datiAssistito.ok)
+                    out.nonTrovati.push(codiceFiscale);
+                else if (datiAssistito.deceduto)
+                    out.out.morti.push(datiAssistito);
+                else
+                    out.out.vivi[codiceFiscale] = datiAssistito;
+                if (i % 10 === 0)
+                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                i++;
+            }
+        }
+        return out;
+    }
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, datiMedicoNar = null, dateSceltaCfMap = null) {
+
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, usaNar2 = true, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -562,7 +581,10 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
+            if (!usaNar2)
+                promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
+            else
+                promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
         }
         let results = await Promise.all(promises);
         promises = null;
@@ -571,7 +593,6 @@ export class Assistiti {
             out.out.vivi = Object.assign(out.out.vivi, result.out.vivi);
             out.out.nonTrovati = [...out.out.nonTrovati, ...result.out.nonTrovati];
             out.out.morti = Object.assign(out.out.morti, result.out.morti);
-            out.out.obsoleti = {...out.out.obsoleti, ...result.out.obsoleti};
             result = null;
         }
         return out;
