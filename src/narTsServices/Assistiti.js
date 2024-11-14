@@ -11,14 +11,9 @@ import _ from 'lodash';
 import {ImpostazioniServiziTerzi} from "../config/ImpostazioniServiziTerzi.js";
 import {Document, Packer, Table, TableRow, TableCell, Paragraph, TextRun} from "docx";
 import moment from "moment";
+import {Nar2} from "./Nar2.js";
 
-/**
- * @typedef {Object} Config
- * @property {string} ts_username - Username for TS.
- * @property {string} ts_password - Password for TS.
- * @property {string} nar_username - Username for NAR.
- * @property {string} nar_password - Password for NAR.
- */
+
 
 export class Assistiti {
 
@@ -31,6 +26,7 @@ export class Assistiti {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
         this._nar = new Nar(this._impostazioni, visible);
         this._ts = new Ts(this._impostazioni);
+        this._nar2 = new Nar2(this._impostazioni, visible);
         this.retryTimeout = 5;
     }
 
@@ -159,7 +155,7 @@ export class Assistiti {
         }
     }
 
-    async chiudiAssistitiDeceduti(datiAssistitiMorti, index = 1) {
+    async chiudiAssistitiDeceduti(datiAssistitiMorti, index = 1, provaNar2 = true) {
         // set _maxListeners 20
         EventEmitter.defaultMaxListeners = 20;
         // Funzione per eseguire un task con timeout
@@ -188,7 +184,17 @@ export class Assistiti {
             while (out.currentIndex < datiAssistitiMorti.length) {
                 let assistito = datiAssistitiMorti[out.currentIndex];
                 let cf = assistito.cf;
-                if (assistito.data_decesso !== "" && assistito.data_decesso !== null) {
+                console.log("#" + index + " " + cf + " in lavorazione");
+                if ((assistito.data_decesso === "" || assistito.data_decesso === null || assistito.data_decesso === undefined) && provaNar2 === true ) {
+                    console.log("#" + index + " " + cf + " data decesso non presente, provo a recuperarla da NAR2");
+                    let dataNar2 = await this._nar2.getDatiAssistitoFromCfSuSogei(cf);
+                    if (dataNar2.ok && dataNar2.deceduto === true) {
+                        // parse from format "2024-08-06 00:00:00" to "06/08/2024"
+                        assistito.data_decesso = dataNar2.dataDecesso;
+                        console.log("#" + index + " " + cf + " data decesso recuperata da NAR2: " + assistito.data_decesso);
+                    }
+                }
+                if (assistito.data_decesso !== "" && assistito.data_decesso !== null && assistito.data_decesso !== undefined) {
                     try {
                         await performTaskWithTimeout(async () => {
                             await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
@@ -225,13 +231,13 @@ export class Assistiti {
                                 // type tab
                                 await page.keyboard.press('Tab');
                                 // wait for 500 ms
-                                await page.waitForTimeout(500);
+                                await page.waitForTimeout(1000);
                                 await page.type("input[name='idTipoOpeRevoca_c']", "3");
                                 await page.keyboard.press('Tab');
-                                await page.waitForTimeout(500);
+                                await page.waitForTimeout(1000);
                                 await page.type("input[name='idMotivoRevoca_c']", "A08");
                                 await page.keyboard.press('Tab');
-                                await page.waitForTimeout(500);
+                                await page.waitForTimeout(1000);
                                 // click BTN_CONFIRM
                                 await page.click("button[name='BTN_CONFIRM']");
                                 // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
