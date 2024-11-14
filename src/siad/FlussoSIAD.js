@@ -1029,6 +1029,7 @@ export class FlussoSIAD {
         let allAssistitiOver65 = {};
         let assistitiOver65PerAnnoTarget = {}
         let allAssistiti = {};
+        let allAssistitiPerAnnoOver65 = {};
         let assistitiPerAnno = {};
         for (let anno = annoInizioChiaviValide; anno <= annoFineChiavi; anno++) {
             let allFileChiavi = utils.getAllFilesRecursive(pathChiaviValide, ".xlsx", anno.toString());
@@ -1063,6 +1064,14 @@ export class FlussoSIAD {
                                         else
                                             assistitiOver65PerAnnoTarget[riga[nomeColonnaAnnoPICMinistero]]++;
                                     }
+                                    // allAssistitiOver65
+                                    if (!allAssistitiPerAnnoOver65.hasOwnProperty(riga[nomeColonnaAnnoPICMinistero]))
+                                        allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]] = {};
+                                    if (allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]].hasOwnProperty(cfFromIdPic)) {
+                                        allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]][cfFromIdPic]++;
+                                    }
+                                    else
+                                        allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]][cfFromIdPic] = 1;
                                 }
                             }
                         }
@@ -1115,9 +1124,19 @@ export class FlussoSIAD {
                         else
                             nonTrovati[cf].push({file: filet1, riga: riga});
                     }
+                    if (!allAssistitiPerAnnoOver65.hasOwnProperty(annoFile))
+                        allAssistitiPerAnnoOver65[annoFile] = {};
+                    if ((annoFile - annoNascita) >= 65) {
+                        if (allAssistitiPerAnnoOver65[annoFile].hasOwnProperty(cf))
+                            allAssistitiPerAnnoOver65[annoFile][cf]++;
+                        else
+                            allAssistitiPerAnnoOver65[annoFile][cf] = 1;
+                    }
                 }
             }
         }
+        console.log("ASSISTITI OVER 65 ANNI:")
+        console.log("2024: "  + Object.keys(allAssistitiPerAnnoOver65[2024]).length)
         console.log("FINE");
     }
 

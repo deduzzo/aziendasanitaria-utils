@@ -334,6 +334,68 @@ class Procedure {
         return 0;
     }
 
+    static async riapriAssistitiMMG(impostazioniServizi, pathExcelMedici, distretti, workingPath = null, visible = false, numParallelsJob = 4, nomeFilePdfAssistiti = "assistiti.pdf") {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+        let medici = new Medici(impostazioniServizi);
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            Object.keys(distretti),
+            workingPath);
+        let allAssistiti = await medici.getAssistitiDaListaPDF(workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap);
+        for (let codNar in allAssistiti) {
+            let allJobs = [];
+            let i = 0;
+            let count = allAssistiti[codNar].assistiti.length;
+            let numPerJob = Math.ceil(count / numParallelsJob);
+            let allAssititi = allAssistiti[codNar].assistiti;
+            //filp array
+            allAssititi = allAssititi.reverse();
+            while (i < numParallelsJob) {
+                let assistiti = new Assistiti(impostazioniServizi, visible);
+                let slice = allAssititi.slice(i * numPerJob, (i + 1) * numPerJob);
+                //await assistiti.apriMMGAssistiti(codNar, allAssistiti[codNar].assistiti);
+                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1));
+                i++;
+            }
+            let results = await Promise.all(allJobs);
+            allJobs = null;
+        }
+    }
+
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
+        let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
+        let basePath = path.dirname(pathDeceduti);
+        if (!fs.existsSync(basePath + path.sep + fileName)) {
+            let allDatiMorti = await utils.riunisciJsonDaTag(pathDeceduti, "deceduti");
+            out.datiAssistitiMorti = allDatiMorti["deceduti"];
+            await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        } else
+            out = await utils.leggiOggettoDaFileJSON(basePath + path.sep + fileName);
+        let allCfs = out.datiAssistitiMorti;
+        let allJobs = [];
+        let i = 0;
+        let count = allCfs.length;
+        let numPerJob = Math.ceil(count / numParallelsJobs);
+        while (i < numParallelsJobs) {
+            let assistiti = new Assistiti(impostazioniServizi, visible);
+            let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
+            allJobs.push(assistiti.chiudiAssistitiDeceduti(slice, i + 1));
+            i++;
+        }
+        let results = await Promise.all(allJobs);
+        allJobs = null;
+        for (let outJob of results) {
+            out.chiusi.push(...outJob.chiusi);
+            out.nonTrovati.push(...outJob.nonTrovati);
+            out.errori.push(...outJob.errori);
+        }
+        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        return out;
+    }
+
+
     static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 6, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
@@ -425,7 +487,7 @@ class Procedure {
         let allMorti = [];
         let folderDepth = folterPath.split(path.sep).length;
         let allMortiFiles = utils.getAllFilesRecursive(folterPath, ".xlsx", "morti");
-        for(let file of allMortiFiles) {
+        for (let file of allMortiFiles) {
             let morti = await Utils.getObjectFromFileExcel(file);
             // for each morto add the first folder name after path (not the least) only the first,
             for (let morto of morti) {
@@ -444,78 +506,65 @@ class Procedure {
             impostazioniServizi,
             pathExcelMedici,
             Object.keys(distretti),
-            workingPath
-        );
+            workingPath);
 
         let allCfMediciNarMap = {}
         for (let codMedico in codToCfDistrettoMap)
             allCfMediciNarMap[codToCfDistrettoMap[codMedico].cf] = codToCfDistrettoMap[codMedico];
 
-        // Se toFile è true, apri un file .sql e scrivi le query
-        let sqlFile = null;
-        if (connData.toFile) {
-            const fileName = workingPath + path.sep + connData.fileName || 'database_export.sql';
-            sqlFile = fs.createWriteStream(fileName, { flags: 'a' });
-        }
-
-        let db = null;
-        // Effettua la connessione al database solo se toFile non è true
-        if (!connData.toFile) {
-            db = knex({
-                client: 'mysql',
-                connection: connData
-            });
-        }
+        const db = knex({
+            client: 'mysql',
+            connection: connData
+        });
 
         for (let codMedico in codToCfDistrettoMap) {
             let datiMedico = codToCfDistrettoMap[codMedico];
-
-            let query;
-            if (!connData.toFile) {
-                // Verifica se il medico esiste già nel database
-                let rows = await db("medici").where("codice_fiscale", datiMedico.cf);
-                if (rows.length === 0) {
-                    query = `
-                    INSERT INTO medici (codice_fiscale, cod_regionale, nome_cognome, asl, distretto, ambito, tipologia, stato, data_inizio_rapporto, data_fine_rapporto, massimale, ultimo_aggiornamento)
-                    VALUES ('${datiMedico.cf}', '${datiMedico.cod_regionale}', '${datiMedico.nome_cognome}', '${datiMedico.asl}', '${distretti[datiMedico.distretto]}', '${datiMedico.ambito}', '${datiMedico.tipologia}', '${datiMedico.stato}', '${datiMedico.dataInizioRapporto}', '${datiMedico.dataFineRapporto}', '${datiMedico.massimale}', '${moment().format("YYYY-MM-DD HH:mm:ss")}');
-                `;
-                } else {
-                    query = `
-                    UPDATE medici
-                    SET cod_regionale = '${datiMedico.cod_regionale}', nome_cognome = '${datiMedico.nome_cognome}', asl = '${datiMedico.asl}', distretto = '${distretti[datiMedico.distretto]}', ambito = '${datiMedico.ambito}', tipologia = '${datiMedico.tipologia}', stato = '${datiMedico.stato}', data_inizio_rapporto = '${datiMedico.dataInizioRapporto}', data_fine_rapporto = '${datiMedico.dataFineRapporto}', massimale = '${datiMedico.massimale}', ultimo_aggiornamento = '${moment().format("YYYY-MM-DD HH:mm:ss")}'
-                    WHERE codice_fiscale = '${datiMedico.cf}';
-                `;
-                }
+            // check if medico is already in db
+            let rows = await db("medici").where("codice_fiscale", datiMedico.cf);
+            if (rows.length === 0) {
+                await db("medici").insert({
+                    codice_fiscale: datiMedico.cf,
+                    cod_regionale: datiMedico.cod_regionale,
+                    nome_cognome: datiMedico.nome_cognome,
+                    asl: datiMedico.asl,
+                    distretto: distretti[datiMedico.distretto],
+                    ambito: datiMedico.ambito,
+                    tipologia: datiMedico.tipologia,
+                    stato: datiMedico.stato,
+                    data_inizio_rapporto: datiMedico.dataInizioRapporto,
+                    data_fine_rapporto: datiMedico.dataFineRapporto,
+                    massimale: datiMedico.massimale,
+                    ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                });
             } else {
-                // In modalità toFile, si scrive solo la query senza connessione al database
-                query = `
-                INSERT INTO medici (codice_fiscale, cod_regionale, nome_cognome, asl, distretto, ambito, tipologia, stato, data_inizio_rapporto, data_fine_rapporto, massimale, ultimo_aggiornamento)
-                VALUES ('${datiMedico.cf}', '${datiMedico.cod_regionale}', '${datiMedico.nome_cognome}', '${datiMedico.asl}', '${distretti[datiMedico.distretto]}', '${datiMedico.ambito}', '${datiMedico.tipologia}', '${datiMedico.stato}', '${datiMedico.dataInizioRapporto}', '${datiMedico.dataFineRapporto}', '${datiMedico.massimale}', '${moment().format("YYYY-MM-DD HH:mm:ss")}')
-                ON DUPLICATE KEY UPDATE
-                    cod_regionale = '${datiMedico.cod_regionale}', nome_cognome = '${datiMedico.nome_cognome}', asl = '${datiMedico.asl}', distretto = '${distretti[datiMedico.distretto]}', ambito = '${datiMedico.ambito}', tipologia = '${datiMedico.tipologia}', stato = '${datiMedico.stato}', data_inizio_rapporto = '${datiMedico.dataInizioRapporto}', data_fine_rapporto = '${datiMedico.dataFineRapporto}', massimale = '${datiMedico.massimale}', ultimo_aggiornamento = '${moment().format("YYYY-MM-DD HH:mm:ss")}'
-            `;
-            }
-
-            if (connData.toFile) {
-                sqlFile.write(query + '\n');
-            } else {
-                await db.raw(query);
+                await db("medici").where("codice_fiscale", datiMedico.cf).update({
+                    cod_regionale: datiMedico.cod_regionale,
+                    nome_cognome: datiMedico.nome_cognome,
+                    asl: datiMedico.asl,
+                    distretto: distretti[datiMedico.distretto],
+                    ambito: datiMedico.ambito,
+                    tipologia: datiMedico.tipologia,
+                    stato: datiMedico.stato,
+                    data_inizio_rapporto: datiMedico.dataInizioRapporto,
+                    data_fine_rapporto: datiMedico.dataFineRapporto,
+                    massimale: datiMedico.massimale,
+                    ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
+                });
             }
         }
+
 
         let assistitiNar = await Procedure.getAssistitiFileFromNar(impostazioniServizi, workingPath + path.sep + nomeFilePdfAssistiti, codToCfDistrettoMap, Object.keys(distretti), workingPath);
 
         if (!fs.existsSync(workingPath + path.sep + "TsJsonData")) {
             fs.mkdirSync(workingPath + path.sep + "TsJsonData");
         }
-
         let quanti = Object.keys(assistitiNar).length;
         let keys = Object.keys(assistitiNar);
         if (reverse)
             keys = keys.reverse();
         let i = 0;
         let controlla = true;
-
         if (controlla)
             for (let codNar of keys) {
                 // show percentage of process
@@ -529,13 +578,12 @@ class Procedure {
                         await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
                 }
             }
-
+        // write data on db
         let errori = [];
         let allJsonFile = utils.getAllFilesRecursive(workingPath + path.sep + "TsJsonData", ".json");
         let removeAllBad = (str) => {
             return str.replaceAll(" ", "").replaceAll("(", "").replaceAll(")", "").trim();
         }
-
         for (let file of allJsonFile) {
             let assistiti = await Utils.leggiOggettoDaFileJSON(file);
             for (let type in assistiti.out) {
@@ -544,6 +592,7 @@ class Procedure {
                         for (let cfAssistito in assistiti.out[type]) {
                             let assistito = assistiti.out[type][cfAssistito];
                             if (cfAssistito === assistito.cf) {
+                                let rows = await db("assistiti").where("codice_fiscale", assistito.cf);
                                 let nascita = assistito.comune_nascita.split(" (");
                                 let cfMedicoNar = allCfMediciNarMap.hasOwnProperty(assistito.mmgNarCf) ? assistito.mmgNarCf : null;
                                 let cfMedicoTs = allCfMediciNarMap.hasOwnProperty(assistito.mmgCfTs) ? assistito.mmgCfTs : null;
@@ -570,27 +619,18 @@ class Procedure {
                                     assistito_da_nar: assistito.mmgDaNar ? moment(assistito.mmgDaNar, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
                                     ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
                                 };
-
-                                let query = `
-                                INSERT INTO assistiti (codice_fiscale, nome, cognome, sesso, data_nascita, deceduto, comune_nascita, provincia_nascita, indirizzo_residenza, numero_tessera_sanitaria, tipo_assistito_SSN, data_inizio_assistenza_ssn, data_fine_assistenza_ssn, asp, cf_medico_ts, assistito_da_ts, cf_medico_nar, assistito_da_nar, ultimo_aggiornamento)
-                                VALUES ('${data.codice_fiscale}', '${data.nome}', '${data.cognome}', '${data.sesso}', '${data.data_nascita}', false, '${data.comune_nascita}', '${data.provincia_nascita}', '${data.indirizzo_residenza}', '${data.numero_tessera_sanitaria}', '${data.tipo_assistito_SSN}', '${data.data_inizio_assistenza_ssn}', ${data.data_fine_assistenza_ssn ? `'${data.data_fine_assistenza_ssn}'` : 'NULL'}, '${data.asp}', '${data.cf_medico_ts}', '${data.assistito_da_ts}', '${data.cf_medico_nar}', '${data.assistito_da_nar}', '${data.ultimo_aggiornamento}')
-                                ON DUPLICATE KEY UPDATE
-                                nome = '${data.nome}', cognome = '${data.cognome}', sesso = '${data.sesso}', data_nascita = '${data.data_nascita}', deceduto = false, comune_nascita = '${data.comune_nascita}', provincia_nascita = '${data.provincia_nascita}', indirizzo_residenza = '${data.indirizzo_residenza}', numero_tessera_sanitaria = '${data.numero_tessera_sanitaria}', tipo_assistito_SSN = '${data.tipo_assistito_SSN}', data_inizio_assistenza_ssn = '${data.data_inizio_assistenza_ssn}', data_fine_assistenza_ssn = ${data.data_fine_assistenza_ssn ? `'${data.data_fine_assistenza_ssn}'` : 'NULL'}, asp = '${data.asp}', cf_medico_ts = '${data.cf_medico_ts}', assistito_da_ts = '${data.assistito_da_ts}', cf_medico_nar = '${data.cf_medico_nar}', assistito_da_nar = '${data.assistito_da_nar}', ultimo_aggiornamento = '${data.ultimo_aggiornamento}'
-                            `;
-
-                                if (connData.toFile) {
-                                    sqlFile.write(query + '\n');
-                                } else {
-                                    await db.raw(query);
-                                }
-                            } else {
+                                if (rows.length === 0)
+                                    await db("assistiti").insert(data);
+                                else
+                                    await db("assistiti").where("codice_fiscale", assistito.cf).update(data);
+                            } else
                                 errori.push("file " + file + " chiave cf " + cfAssistito + " non corrispondente a " + assistiti.out[type][cfAssistito].cf);
-                            }
                         }
                         break;
                     case "morti":
                         for (let cfAssistito in assistiti.out[type]) {
                             let assistito = assistiti.out[type][cfAssistito];
+                            let rows = await db("assistiti").where("codice_fiscale", assistito.cf);
                             let data = {
                                 codice_fiscale: assistito.cf,
                                 nome: assistito.nome,
@@ -608,36 +648,20 @@ class Procedure {
                                 assistito_da_nar: assistito.dataSceltaMMG ? moment(assistito.dataSceltaMMG, "DD/MM/YYYY").format("YYYY-MM-DD") : null,
                                 ultimo_aggiornamento: moment().format("YYYY-MM-DD HH:mm:ss")
                             };
-
-                            let query = `
-                            INSERT INTO assistiti (codice_fiscale, nome, cognome, sesso, data_nascita, deceduto, data_decesso, comune_nascita, provincia_nascita, indirizzo_residenza, cf_medico_ts, assistito_da_ts, cf_medico_nar, assistito_da_nar, ultimo_aggiornamento)
-                            VALUES ('${data.codice_fiscale}', '${data.nome}', '${data.cognome}', '${data.sesso}', '${data.data_nascita}', true, '${data.data_decesso}', '${data.comune_nascita}', '${data.provincia_nascita}', '${data.indirizzo_residenza}', null, null, '${data.cf_medico_nar}', '${data.assistito_da_nar}', '${data.ultimo_aggiornamento}')
-                            ON DUPLICATE KEY UPDATE
-                            nome = '${data.nome}', cognome = '${data.cognome}', sesso = '${data.sesso}', data_nascita = '${data.data_nascita}', deceduto = true, data_decesso = '${data.data_decesso}', comune_nascita = '${data.comune_nascita}', provincia_nascita = '${data.provincia_nascita}', indirizzo_residenza = '${data.indirizzo_residenza}', cf_medico_ts = null, assistito_da_ts = null, cf_medico_nar = '${data.cf_medico_nar}', assistito_da_nar = '${data.assistito_da_nar}', ultimo_aggiornamento = '${data.ultimo_aggiornamento}'
-                        `;
-
-                            if (connData.toFile) {
-                                sqlFile.write(query + '\n');
-                            } else {
-                                await db.raw(query);
-                            }
+                            if (rows.length === 0)
+                                await db("assistiti").insert(data);
+                            else
+                                await db("assistiti").where("codice_fiscale", assistito.cf).update(data);
                         }
                         break;
                 }
+                if (errori.length > 0)
+                    await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "errori.json", errori);
             }
-            if (errori.length > 0)
-                await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "errori.json", errori);
-        }
-
-        // Chiudi il file SQL se aperto
-        if (connData.toFile) {
-            sqlFile.end();
         }
     }
 
-
-
-    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10,fileName = "decedutiChiusuraJobStatus.json") {
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
         let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
         let basePath = path.dirname(pathDeceduti);
         if (!fs.existsSync(basePath + path.sep + fileName)) {
@@ -651,10 +675,41 @@ class Procedure {
         let i = 0;
         let count = allCfs.length;
         let numPerJob = Math.ceil(count / numParallelsJobs);
-        while (i<numParallelsJobs) {
+        while (i < numParallelsJobs) {
             let assistiti = new Assistiti(impostazioniServizi, visible);
             let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
-            allJobs.push(assistiti.chiudiAssistitiDeceduti(slice,i+1));
+            allJobs.push(assistiti.chiudiAssistitiDeceduti(slice, i + 1));
+            i++;
+        }
+        let results = await Promise.all(allJobs);
+        allJobs = null;
+        for (let outJob of results) {
+            out.chiusi.push(...outJob.chiusi);
+            out.nonTrovati.push(...outJob.nonTrovati);
+            out.errori.push(...outJob.errori);
+        }
+        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        return out;
+    }
+
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
+        let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
+        let basePath = path.dirname(pathDeceduti);
+        if (!fs.existsSync(basePath + path.sep + fileName)) {
+            let allDatiMorti = await utils.riunisciJsonDaTag(pathDeceduti, "deceduti");
+            out.datiAssistitiMorti = allDatiMorti["deceduti"];
+            await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        } else
+            out = await utils.leggiOggettoDaFileJSON(basePath + path.sep + fileName);
+        let allCfs = out.datiAssistitiMorti;
+        let allJobs = [];
+        let i = 0;
+        let count = allCfs.length;
+        let numPerJob = Math.ceil(count / numParallelsJobs);
+        while (i < numParallelsJobs) {
+            let assistiti = new Assistiti(impostazioniServizi, visible);
+            let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
+            allJobs.push(assistiti.chiudiAssistitiDeceduti(slice, i + 1));
             i++;
         }
         let results = await Promise.all(allJobs);

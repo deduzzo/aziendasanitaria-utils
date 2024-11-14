@@ -63,9 +63,9 @@ export class Nar {
     async getWorkingPage(visible = null) {
         if (visible !== null)
             this._visible = visible;
-        if (!this.logged)
+        if (!this._logged)
             await this.doLogin();
-        if (!this.logged)
+        if (!this._logged)
             return null;
         else
             return this._workingPage;
