@@ -556,12 +556,12 @@ export class Assistiti {
                 console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
                 if (!datiAssistito.ok)
                     out.nonTrovati.push(codiceFiscale);
-                else if (datiAssistito.deceduto)
-                    out.out.morti.push(datiAssistito);
+                else if (!datiAssistito.data.vivo)
+                    out.out.morti[codiceFiscale] = datiAssistito.data;
                 else
-                    out.out.vivi[codiceFiscale] = datiAssistito;
+                    out.out.vivi[codiceFiscale] = datiAssistito.data;
                 if (i % 10 === 0)
-                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + Object.keys(out.out.morti).length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
                 i++;
             }
         }
@@ -569,7 +569,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, usaNar2 = true, datiMedicoNar = null, dateSceltaCfMap = null) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -581,7 +581,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            if (!usaNar2)
+            if (legacy)
                 promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
             else
                 promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));

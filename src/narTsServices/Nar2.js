@@ -11,17 +11,19 @@ export class Nar2 {
         this._token = null;
         this._username = impostazioniServiziTerzi.nar2_username;
         this._password = impostazioniServiziTerzi.nar2_password;
-        this._maxRetry = 5;
+        this._maxRetry = 10;
     }
 
     async getToken() {
         let out = null;
-        try {
-            out = await axios.post(Nar2.LOGIN_URL, {username: this._username, password: this._password});
-            this._token = out.data.accessToken;
-        }
-        catch (e) {
-            console.log(e);
+        let ok = false;
+        for (let i = 0; i < this._maxRetry && !ok; i++) {
+            try {
+                out = await axios.post(Nar2.LOGIN_URL, {username: this._username, password: this._password});
+                this._token = out.data.accessToken;
+                ok = true;
+            } catch (e) {
+            }
         }
     }
 
@@ -92,6 +94,10 @@ export class Nar2 {
         // params in uri: codiceFiscale, nome, cognome, dataNascita
         let out = null;
         let ok = false;
+        const nullArray = (data) => {
+            // if data is an array, and is array, return null, else return data
+            return Array.isArray(data) && data.length === 0 ? "" : data;
+        };
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             if (this._token === null)
                 await this.getToken();
@@ -109,14 +115,37 @@ export class Nar2 {
                     await this.getToken();
                 else {
                     ok = true;
-                    out = { ok: true, fullData: out.data, deceduto: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto"), dataDecesso: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto") ? out.data.data.p801dataDecesso : null };
+                    const deceduto = out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto");
+                    const asp = nullArray(out.data.data.p801codiceRegioneResidenzaAsl) + " - " + nullArray(out.data.data.p801descrizioneRegioneResidenzaAsl) + " " + nullArray(out.data.data.p801codiceAslResidenzaAsl) + " - " + nullArray(out.data.data.p801descrizioneAslResidenzaAsl).trim();
+                    let data = {
+                        vivo: !deceduto,
+                        cf: nullArray(out.data.data.p801codiceFiscale),
+                        cognome: nullArray(out.data.data.p801cognome),
+                        nome: nullArray(out.data.data.p801nome),
+                        sesso: nullArray(out.data.data.p801sesso),
+                        data_nascita: nullArray(out.data.data.p801dataNascita),
+                        comune_nascita: nullArray(out.data.data.p801comuneNascita),
+                        indirizzo: nullArray(out.data.data.p801recapitoTessera),
+                        asp: asp !== " -   - " ? asp : "",
+                        mmgCfTs: nullArray(out.data.data.p801codiceFiscaleMedico),
+                        mmgCognomeTs: nullArray(out.data.data.p801cognomeMedico),
+                        mmgNomeTs: nullArray(out.data.data.p801nomeMedico),
+                        mmgDaTs: nullArray(out.data.data.p801dataAssociazioneMedico),
+                        tipoAssistitoSSN: nullArray(out.data.data.p801descrizioneCodiceTipoAssistito),
+                        inizioAssistenzaSSN: nullArray(out.data.data.p801dataInizioValidita),
+                        fineAssistenzaSSN: out.data.data.p801dataFineValidita === "31/12/9999" ? "illimitata" : nullArray(out.data.data.p801dataFineValidita),
+                        motivazioneFineAssistenzaSSN: out.data.data.p801dataFineValidita !== "31/12/9999" ? nullArray(out.data.data.p801motivazioneFineValidita) : null,
+                        numero_tessera: nullArray(out.data.data.p801numeroTessera),
+                        dataDecesso: deceduto ? nullArray(out.data.data.p801dataDecesso) : null
+                    }
+                    out = { ok: true, fullData: out.data, data };
                 }
             } catch (e) {
-                console.log(e);
                 await this.getToken();
-                out = { ok: false, data: null };
             }
         }
+        if (!ok)
+            out = { ok: false, fullData: null, data: null };
         return out;
     }
 
