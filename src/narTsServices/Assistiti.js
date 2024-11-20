@@ -546,22 +546,23 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null) {
-        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: []}}
+    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null, allVerbose= false) {
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}}}
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
             let i = 0;
             for (let codiceFiscale of codiciFiscali) {
                 let datiAssistito = await this._nar2.getDatiAssistitoFromCfSuSogei(codiceFiscale)
-                console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
+                if (allVerbose)
+                    console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
                 if (!datiAssistito.ok)
-                    out.nonTrovati.push(codiceFiscale);
-                else if (datiAssistito.deceduto)
-                    out.out.morti.push(datiAssistito);
+                    out.out.nonTrovati.push(codiceFiscale);
+                else if (!datiAssistito.data.vivo)
+                    out.out.morti[codiceFiscale] = datiAssistito.data;
                 else
-                    out.out.vivi[codiceFiscale] = datiAssistito;
-                if (i % 10 === 0)
-                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + out.out.morti.length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                    out.out.vivi[codiceFiscale] = datiAssistito.data;
+                if (i % 20 === 0 && i >0)
+                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + Object.keys(out.out.morti).length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
                 i++;
             }
         }
@@ -569,7 +570,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, usaNar2 = true, datiMedicoNar = null, dateSceltaCfMap = null) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -581,7 +582,7 @@ export class Assistiti {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            if (!usaNar2)
+            if (legacy)
                 promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
             else
                 promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
@@ -911,7 +912,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 5, visibile = false, nomeFile = "assistitiNar.json") {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 10, visibile = false, nomeFile = "assistitiNar.json") {
         EventEmitter.defaultMaxListeners = 100;
         const processJob = async (codMedico, index) => {
             index = (index % numOfParallelJobs) + 1;

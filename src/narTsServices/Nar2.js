@@ -6,22 +6,58 @@ export class Nar2 {
     static GET_ASSISTITO_NAR_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/{id}";
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
+    static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable"
+    static get_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
 
     constructor(impostazioniServiziTerzi) {
         this._token = null;
         this._username = impostazioniServiziTerzi.nar2_username;
         this._password = impostazioniServiziTerzi.nar2_password;
-        this._maxRetry = 5;
+        this._maxRetry = 10;
     }
 
     async getToken() {
         let out = null;
-        try {
-            out = await axios.post(Nar2.LOGIN_URL, {username: this._username, password: this._password});
-            this._token = out.data.accessToken;
+        let ok = false;
+        for (let i = 0; i < this._maxRetry && !ok; i++) {
+            try {
+                out = await axios.post(Nar2.LOGIN_URL, {username: this._username, password: this._password});
+                this._token = out.data.accessToken;
+                ok = true;
+            } catch (e) {
+            }
         }
-        catch (e) {
-            console.log(e);
+    }
+
+    async getMedici() {
+        let out = null;
+        let ok = false;
+        for (let i = 0; i < this._maxRetry && !ok; i++) {
+            try {
+                out = await axios.get(Nar2.GET_MEDICI, {
+                    headers: {
+                        Authorization: `Bearer ${this._token}`
+                    },
+                    // azienda=ME&tipo_rapporto=Medico_base&nome=&cognome=&dataNascitaA=null&dataNascitaDa=null&codiceFiscale=&aspOaltro=ASP&codiceRegionale=&categoriaMedico=null&asl=281&ambito=null&matricola=null&inizioConvenzione=null&fineConvenzione=null&esitoFineConvenzione=rapporto_disattivato&inizioRapporto=null&fineRapporto=null&inizioMassimale=null&fineMassimale=null&ambulatorio=null&formaAssociativa=null&sesso=null&comuneNascita=null&pIVA=null&pIVAComunitaria=null&comuneResidenza=null&stato=null&inizioInserimento=null&fineInserimento=null&intervalloVariazione=modificato&inizioVariazione=null&fineVariazione=null&rapportoAttivo=true&start=0
+                    params: {
+                        azienda: "ME",
+                        tipo_rapporto: "Medico_base",
+                        asl: 281,
+                        esitoFineConvenzione: "rapporto_attivo",
+                        rapportoAttivo: true,
+                        start: 0
+                    }
+                });
+                if (out.data.status.toString() !== "true" && out.data.status.toLowerCase().includes("token is invalid"))
+                    await this.getToken();
+                else {
+                    ok = true;
+                    out = { ok: true, data: out.data.result };
+                }
+            } catch (e) {
+                console.log(e);
+                out = { ok: false, data: null };
+            }
         }
     }
 
@@ -37,13 +73,13 @@ export class Nar2 {
         return {ok: false, data: null};
     }
 
-    async getAssistitoFromId(id) {
+    async #getDataFromId(id,url) {
         // get, use Bearer token
         let out = null;
         let ok = false;
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
-                out = await axios.get(Nar2.GET_ASSISTITO_NAR_FROM_ID.replace("{id}", id.toString()), {
+                out = await axios.get(url.replace("{id}", id.toString()), {
                     headers: {
                         Authorization: `Bearer ${this._token}`
                     }
@@ -62,13 +98,20 @@ export class Nar2 {
         return out;
     }
 
-    async getAssistitiFromParams(params) {
-        // params in uri: codiceFiscale, nome, cognome, dataNascita
+    async getAssistitoFromId(id) {
+        return await this.#getDataFromId(id,Nar2.GET_ASSISTITO_NAR_FROM_ID);
+    }
+
+    async getMedicoFromId(id) {
+        return await this.#getDataFromId(id,Nar2.get_DATI_MEDICO_FROM_ID);
+    }
+
+    async #getDataFromParams(url,params) {
         let out = null;
         let ok = false;
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
-                out = await axios.get(Nar2.GET_ASSISTITI_NAR, {
+                out = await axios.get(url, {
                     headers: {
                         Authorization: `Bearer ${this._token}`
                     },
@@ -88,10 +131,19 @@ export class Nar2 {
         return out;
     }
 
+    async getAssistitiFromParams(params) {
+        // params in uri: codiceFiscale, nome, cognome, dataNascita
+        return await this.#getDataFromParams(Nar2.GET_ASSISTITI_NAR,params);
+    }
+
     async getDatiAssistitoFromCfSuSogei(cf) {
         // params in uri: codiceFiscale, nome, cognome, dataNascita
         let out = null;
         let ok = false;
+        const nullArray = (data) => {
+            // if data is an array, and is array, return null, else return data
+            return Array.isArray(data) && data.length === 0 ? "" : data;
+        };
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             if (this._token === null)
                 await this.getToken();
@@ -109,14 +161,37 @@ export class Nar2 {
                     await this.getToken();
                 else {
                     ok = true;
-                    out = { ok: true, fullData: out.data, deceduto: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto"), dataDecesso: out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto") ? out.data.data.p801dataDecesso : null };
+                    const deceduto = out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto");
+                    const asp = nullArray(out.data.data.p801codiceRegioneResidenzaAsl) + " - " + nullArray(out.data.data.p801descrizioneRegioneResidenzaAsl) + " " + nullArray(out.data.data.p801codiceAslResidenzaAsl) + " - " + nullArray(out.data.data.p801descrizioneAslResidenzaAsl).trim();
+                    let data = {
+                        vivo: !deceduto,
+                        cf: nullArray(out.data.data.p801codiceFiscale),
+                        cognome: nullArray(out.data.data.p801cognome),
+                        nome: nullArray(out.data.data.p801nome),
+                        sesso: nullArray(out.data.data.p801sesso),
+                        data_nascita: nullArray(out.data.data.p801dataNascita),
+                        comune_nascita: nullArray(out.data.data.p801comuneNascita),
+                        indirizzo: nullArray(out.data.data.p801recapitoTessera),
+                        asp: asp !== " -   - " ? asp : "",
+                        mmgCfTs: nullArray(out.data.data.p801codiceFiscaleMedico),
+                        mmgCognomeTs: nullArray(out.data.data.p801cognomeMedico),
+                        mmgNomeTs: nullArray(out.data.data.p801nomeMedico),
+                        mmgDaTs: nullArray(out.data.data.p801dataAssociazioneMedico),
+                        tipoAssistitoSSN: nullArray(out.data.data.p801descrizioneCodiceTipoAssistito),
+                        inizioAssistenzaSSN: nullArray(out.data.data.p801dataInizioValidita),
+                        fineAssistenzaSSN: out.data.data.p801dataFineValidita === "31/12/9999" ? "illimitata" : nullArray(out.data.data.p801dataFineValidita),
+                        motivazioneFineAssistenzaSSN: out.data.data.p801dataFineValidita !== "31/12/9999" ? nullArray(out.data.data.p801motivazioneFineValidita) : null,
+                        numero_tessera: nullArray(out.data.data.p801numeroTessera),
+                        dataDecesso: deceduto ? nullArray(out.data.data.p801dataDecesso) : null
+                    }
+                    out = { ok: true, fullData: out.data, data };
                 }
             } catch (e) {
-                console.log(e);
                 await this.getToken();
-                out = { ok: false, data: null };
             }
         }
+        if (!ok)
+            out = { ok: false, fullData: null, data: null };
         return out;
     }
 
