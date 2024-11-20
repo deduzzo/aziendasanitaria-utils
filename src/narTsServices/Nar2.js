@@ -6,6 +6,8 @@ export class Nar2 {
     static GET_ASSISTITO_NAR_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/{id}";
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
+    static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable"
+    static get_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
 
     constructor(impostazioniServiziTerzi) {
         this._token = null;
@@ -27,6 +29,38 @@ export class Nar2 {
         }
     }
 
+    async getMedici() {
+        let out = null;
+        let ok = false;
+        for (let i = 0; i < this._maxRetry && !ok; i++) {
+            try {
+                out = await axios.get(Nar2.GET_MEDICI, {
+                    headers: {
+                        Authorization: `Bearer ${this._token}`
+                    },
+                    // azienda=ME&tipo_rapporto=Medico_base&nome=&cognome=&dataNascitaA=null&dataNascitaDa=null&codiceFiscale=&aspOaltro=ASP&codiceRegionale=&categoriaMedico=null&asl=281&ambito=null&matricola=null&inizioConvenzione=null&fineConvenzione=null&esitoFineConvenzione=rapporto_disattivato&inizioRapporto=null&fineRapporto=null&inizioMassimale=null&fineMassimale=null&ambulatorio=null&formaAssociativa=null&sesso=null&comuneNascita=null&pIVA=null&pIVAComunitaria=null&comuneResidenza=null&stato=null&inizioInserimento=null&fineInserimento=null&intervalloVariazione=modificato&inizioVariazione=null&fineVariazione=null&rapportoAttivo=true&start=0
+                    params: {
+                        azienda: "ME",
+                        tipo_rapporto: "Medico_base",
+                        asl: 281,
+                        esitoFineConvenzione: "rapporto_attivo",
+                        rapportoAttivo: true,
+                        start: 0
+                    }
+                });
+                if (out.data.status.toString() !== "true" && out.data.status.toLowerCase().includes("token is invalid"))
+                    await this.getToken();
+                else {
+                    ok = true;
+                    out = { ok: true, data: out.data.result };
+                }
+            } catch (e) {
+                console.log(e);
+                out = { ok: false, data: null };
+            }
+        }
+    }
+
     async getDatiAssistitoFromCf(codiceFiscale) {
         // step1, get id assistito from codice fiscale
         let assistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
@@ -39,13 +73,13 @@ export class Nar2 {
         return {ok: false, data: null};
     }
 
-    async getAssistitoFromId(id) {
+    async #getDataFromId(id,url) {
         // get, use Bearer token
         let out = null;
         let ok = false;
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
-                out = await axios.get(Nar2.GET_ASSISTITO_NAR_FROM_ID.replace("{id}", id.toString()), {
+                out = await axios.get(url.replace("{id}", id.toString()), {
                     headers: {
                         Authorization: `Bearer ${this._token}`
                     }
@@ -64,13 +98,20 @@ export class Nar2 {
         return out;
     }
 
-    async getAssistitiFromParams(params) {
-        // params in uri: codiceFiscale, nome, cognome, dataNascita
+    async getAssistitoFromId(id) {
+        return await this.#getDataFromId(id,Nar2.GET_ASSISTITO_NAR_FROM_ID);
+    }
+
+    async getMedicoFromId(id) {
+        return await this.#getDataFromId(id,Nar2.get_DATI_MEDICO_FROM_ID);
+    }
+
+    async #getDataFromParams(url,params) {
         let out = null;
         let ok = false;
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
-                out = await axios.get(Nar2.GET_ASSISTITI_NAR, {
+                out = await axios.get(url, {
                     headers: {
                         Authorization: `Bearer ${this._token}`
                     },
@@ -88,6 +129,11 @@ export class Nar2 {
             }
         }
         return out;
+    }
+
+    async getAssistitiFromParams(params) {
+        // params in uri: codiceFiscale, nome, cognome, dataNascita
+        return await this.#getDataFromParams(Nar2.GET_ASSISTITI_NAR,params);
     }
 
     async getDatiAssistitoFromCfSuSogei(cf) {
