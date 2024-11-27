@@ -26,6 +26,7 @@ export class Nar2 {
                 this._token = out.data.accessToken;
                 ok = true;
             } catch (e) {
+                //console.log(e);
             }
         }
     }
@@ -187,7 +188,7 @@ export class Nar2 {
                         fineAssistenzaSSN: out.data.data.p801dataFineValidita === "31/12/9999" ? "illimitata" : nullArray(out.data.data.p801dataFineValidita),
                         motivazioneFineAssistenzaSSN: out.data.data.p801dataFineValidita !== "31/12/9999" ? nullArray(out.data.data.p801motivazioneFineValidita) : null,
                         numero_tessera: nullArray(out.data.data.p801numeroTessera),
-                        dataDecesso: deceduto ? nullArray(out.data.data.p801dataDecesso) : null
+                        data_decesso: deceduto ? nullArray(out.data.data.p801dataDecesso) : null
                     }
                     out = { ok: true, fullData: out.data, data };
                 }

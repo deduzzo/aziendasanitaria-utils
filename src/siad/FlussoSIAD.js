@@ -818,8 +818,8 @@ export class FlussoSIAD {
 
 
     async sviluppaDatiADPDitta(pathCartellaIn, pathChiaviValideAttive, anno, numTrimestre, nomeFileTracciatoADP = "datiADP.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomeColonnaAccessiAdp = "numAccessi", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
-        // put int dataInizio the first day of the anno
-        let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY");
+        // put int dataInizio the first day of the correct trimester
+        let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY").add(numTrimestre * 3 - 3, 'months');
         let dataFine = moment("31/12/" + anno, "DD/MM/YYYY");
         let allChiaviValideAperte = {};
         if (fs.existsSync(pathChiaviValideAttive)) {
@@ -879,8 +879,8 @@ export class FlussoSIAD {
                 let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_decesso'], "DD/MM/YYYY") : null;
                 let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'], "DD/MM/YYYY") : null);
                 let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
-                if (annoNascita === "" || annoNascita === null)
-                    console.log("ciao")
+                if (dataDecesso !== null)
+                    console.log(dataDecesso.format("DD/MM/YYYY"))
 
                 if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
                     allCf[codFiscale] = rigaAdp[1];
