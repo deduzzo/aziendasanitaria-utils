@@ -266,10 +266,9 @@ export class FlussoSIAD {
                 mappa.nessunaErogazione[id] = mappa.allAperte[id];
         });
 
-        Object.keys(mappa.nessunaErogazione).forEach((id) => {
-            const datiFromId = this.ottieniDatiFromIdPic(id);
-            if (!mappa.allCfTrattati.hasOwnProperty(datiFromId.cf))
-                mappa.allCfNonTrattati[datiFromId.cf] = datiFromId.cf;
+        Object.keys(mappa.allCfT1).forEach((cf) => {
+            if (!mappa.allCfTrattati.hasOwnProperty(cf))
+                mappa.allCfNonTrattati[cf] = cf;
 
         });
         return mappa;
