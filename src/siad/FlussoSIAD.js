@@ -8,9 +8,6 @@ import {utils} from "../Utils.js";
 import {Parser, Validator} from '@marketto/codice-fiscale-utils';
 import {Assistiti} from "../narTsServices/Assistiti.js";
 
-// this example reads the file synchronously
-// you can read it asynchronously also
-
 const tracciato1 = {
     CUNI: "CUNI",
     validitaCI: "validitaCI",
@@ -165,6 +162,119 @@ export class FlussoSIAD {
     constructor(settings, impostazioniServizi = null) {
         this._settings = settings;
         this._impostazioniServizi = impostazioniServizi
+    }
+
+    async importaTracciato1ChiaviValideAssessorato(pathFile) {
+        return await utils.getObjectFromFileExcel(pathFile, null, true, 13);
+    }
+
+    async importaTracciato2ChiaviValideAssessorato(pathFile) {
+        return await utils.getObjectFromFileExcel(pathFile, null, true, 15);
+    }
+
+    ottieniDatiFromIdPic(idPic) {
+        return {
+            cf: idPic.substring(16, 32),
+            dataInizio: moment(idPic.substring(6, 16), "YYYY-MM-DD"),
+            dataFine: idPic.substring(33, 43) !== "" ? moment(idPic.substring(33, 43), "YYYY-MM-DD") : null,
+        }
+    }
+
+    async creaMappaChiaviValideAssessorato(fileT1, fileT2, anno) {
+        let chiaviValideT1 = await this.importaTracciato1ChiaviValideAssessorato(fileT1);
+        let chiaviValideT2 = await this.importaTracciato2ChiaviValideAssessorato(fileT2);
+
+        let mappa = {
+            allIds: {},
+            allCfT1: {},
+            allCfNonTrattati: {},
+            allCfTrattati: {},
+            perCf: {},
+            allAperte: {},
+            almenoUnaErogazione: {},
+            nessunaErogazione: {},
+            sovrapposte: {},
+            sospese: {},
+            errors: [],
+            warnings: []
+        }
+
+        for (let rigat1 of chiaviValideT1) {
+            const annoPicFromMinistero = rigat1["Anno Presa In Carico"];
+            if (annoPicFromMinistero === anno) {
+                const id = rigat1["Id Record"];
+                if (!mappa.allIds.hasOwnProperty(id))
+                    mappa.allIds[id] = id;
+                let dataFromId = this.ottieniDatiFromIdPic(id);
+                const cf = dataFromId.cf;
+                if (!mappa.allCfT1.hasOwnProperty(cf))
+                    mappa.allCfT1[cf] = cf;
+                const dataInizioPicMinistero = moment(rigat1["Data  Presa In Carico"]);
+                const dataFinePicMinistero = rigat1["Data Conclusione"] !== "" ? moment(rigat1["Data Conclusione"]) : null;
+                if (dataFromId.dataInizio.format("DD/MM/YYYY") !== dataInizioPicMinistero.format("DD/MM/YYYY")) {
+                    mappa.warnings.push({
+                        id: id,
+                        cf,
+                        msg: "Data inizio PIC Ministero diversa da data inizio PIC Id Record"
+                    })
+                }
+                if (annoPicFromMinistero !== anno) {
+                    mappa.errors.push({
+                        id: id,
+                        cf,
+                        msg: "Anno PIC Ministero diverso da anno"
+                    })
+                }
+                if (!mappa.perCf.hasOwnProperty(cf))
+                    mappa.perCf[cf] = {chiuse: {}, aperte: {}}
+                if (dataFinePicMinistero === null) { // pic aperta
+                    mappa.perCf[cf].aperte[id] = rigat1;
+                    mappa.allAperte[id] = rigat1;
+                    if (Object.keys(mappa.perCf[cf].aperte).length > 1)
+                        mappa.sovrapposte[cf] = mappa.perCf[cf].aperte;
+                }
+            }
+        }
+        for (let rigat2 of chiaviValideT2) {
+            const id = rigat2["Id Record"];
+            const datiId = this.ottieniDatiFromIdPic(id);
+            if (!mappa.allIds.hasOwnProperty(id)) {
+                mappa.errors.push({
+                    id: id,
+                    cf: id.substring(16, 32),
+                    msg: "Chiave non presente in tracciato 1"
+                })
+            }
+            const ultimaErogazione = rigat2["Ultima Data Erogazione\n"];
+            if (typeof rigat2['Data Conclusione'] === "string" && rigat2['Data Conclusione'].includes("--")) { // aperta
+                if (typeof ultimaErogazione === "string" && ultimaErogazione.includes("--")) // nessuna erogazione, dovrebbe essere sospesa
+                    mappa.nessunaErogazione[id] = rigat2;
+                else {
+                    mappa.almenoUnaErogazione[id] = rigat2;
+                    if (!mappa.allCfTrattati.hasOwnProperty(datiId.cf))
+                        mappa.allCfTrattati[datiId.cf] = datiId.cf;
+                }
+                if (!(typeof rigat2['Data Inizio Sospensione'] === "string" && rigat2['Data Inizio Sospensione'].includes("--"))
+                    && !(typeof rigat2['Data Fine Sospensione'] === "string" && rigat2['Data Fine Sospensione'].includes("--"))) { // sospesa
+                    mappa.sospese[id] = rigat2;
+                }
+            }
+        }
+
+        Object.keys(mappa.allAperte).forEach((id) => {
+            if (!mappa.almenoUnaErogazione.hasOwnProperty(id) && !mappa.nessunaErogazione.hasOwnProperty(id))
+                mappa.nessunaErogazione[id] = mappa.allAperte[id];
+        });
+
+        Object.keys(mappa.nessunaErogazione).forEach((id) => {
+            const datiFromId = this.ottieniDatiFromIdPic(id);
+            if (!mappa.allCfTrattati.hasOwnProperty(datiFromId.cf))
+                mappa.allCfNonTrattati[datiFromId.cf] = datiFromId.cf;
+
+        });
+        return mappa;
+
+
     }
 
     contaPrestazioni() {
@@ -797,7 +907,7 @@ export class FlussoSIAD {
                 rigaT2[1] = ""; // tipo
                 rigaT2[2] = "190";
                 rigaT2[3] = "205";
-                rigaT2[4] = cfPreseInCarico.hasOwnProperty(codFiscale) ? cfPreseInCarico[codFiscale] :  moment(rigaTracciato2[4], "DD/MM/YYYY").format("DD/MM/YYYY");
+                rigaT2[4] = cfPreseInCarico.hasOwnProperty(codFiscale) ? cfPreseInCarico[codFiscale] : moment(rigaTracciato2[4], "DD/MM/YYYY").format("DD/MM/YYYY");
                 rigaT2[5] = "";
                 rigaT2[6] = rigaTracciato2[6].toString();
                 rigaT2[7] = rigaT2[6] !== "" ? (rigaT2[6] !== "" ? rigaT2[6].toString() : "2") : "";
@@ -1025,7 +1135,7 @@ export class FlussoSIAD {
 
     }
 
-    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, annoFineChiavi, pathChiaviValide, pathDatiTracciatiExcel = null, annoFile = null, pathAltriCodiciFiscaliDaConsiderare = null, verificaSoloDatiEffettivamenteErogati = false,   nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", nomeColonnaDataUltimaErogazione = "Ultima Data Erogazione\n", numColonnaCFFileExcelT1 = 1, numColonnaCFFileExcelT2 = 0) {
+    async verificaNuoviAssistitiDaChiaviValideFileExcel(annoInizioChiaviValide, annoFineChiavi, pathChiaviValide, pathDatiTracciatiExcel = null, annoFile = null, pathAltriCodiciFiscaliDaConsiderare = null, verificaSoloDatiEffettivamenteErogati = false, nomeColonnaAnnoPICMinistero = "Anno Presa In Carico", nomeClonnaIdRecordMinistero = "Id Record", nomeColonnaDataUltimaErogazione = "Ultima Data Erogazione\n", numColonnaCFFileExcelT1 = 1, numColonnaCFFileExcelT2 = 0) {
         let allAssistitiOver65 = {};
         let assistitiOver65PerAnnoTarget = {}
         let allAssistiti = {};
@@ -1053,7 +1163,7 @@ export class FlussoSIAD {
                                 allAssistiti[cfFromIdPic]++;
 
                             if ((anno - annoNascita) >= 65) {
-                                if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || !verificaSoloDatiEffettivamenteErogati ) {
+                                if (!(typeof riga[nomeColonnaDataUltimaErogazione] == "string" && riga[nomeColonnaDataUltimaErogazione].includes("--")) || !verificaSoloDatiEffettivamenteErogati) {
                                     if (!allAssistitiOver65.hasOwnProperty(cfFromIdPic))
                                         allAssistitiOver65[cfFromIdPic] = 1;
                                     else
@@ -1069,8 +1179,7 @@ export class FlussoSIAD {
                                         allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]] = {};
                                     if (allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]].hasOwnProperty(cfFromIdPic)) {
                                         allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]][cfFromIdPic]++;
-                                    }
-                                    else
+                                    } else
                                         allAssistitiPerAnnoOver65[riga[nomeColonnaAnnoPICMinistero]][cfFromIdPic] = 1;
                                 }
                             }
@@ -1136,7 +1245,7 @@ export class FlussoSIAD {
             }
         }
         console.log("ASSISTITI OVER 65 ANNI:")
-        console.log("2024: "  + Object.keys(allAssistitiPerAnnoOver65[2024]).length)
+        console.log("2024: " + Object.keys(allAssistitiPerAnnoOver65[2024]).length)
         console.log("FINE");
     }
 

@@ -412,7 +412,7 @@ const estraiDataDiNascita = (codiceFiscale) => {
     return {dataString: stringDate, eta: eta};
 }
 
-const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = true) => {
+const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = true, startFromRows = null) => {
     let out = [];
     let header = {};
     let workbook = new ExcelJS.Workbook();
@@ -421,30 +421,31 @@ const getObjectFromFileExcel = async (filePath, numSheet = null, usaHeader = tru
 
     for (let worksheet of selectedWs) {
         worksheet.eachRow({includeEmpty: false}, (row, rowNumber) => {
-            let riga = {};
-            if (rowNumber === 1) {
-                row.eachCell({includeEmpty: false}, (cell, colNumber) => {
-                    colNumber = colNumber - 1;
-                    if (usaHeader) {
-                        let headerTemp = "";
-                        if (cell.value.richText)
-                            for (let text of cell.value.richText)
-                                headerTemp += text.text;
-                        else
-                            headerTemp = cell.value;
-                        header[colNumber] = headerTemp;
-                    } else
-                        header[colNumber] = colNumber;
-                });
-            } else {
-                /*                row.eachCell({includeEmpty: true}, (cell, colNumber) => {
-                                    riga[header[colNumber]] = cell.value ?? "";
-                                });*/
-                for (let i = 0; i < Object.keys(header).length; i++) {
-                    riga[header[i]] = row._cells[i]?._value.model.value ?? "";
+            if (!startFromRows || rowNumber >= startFromRows) {
+                let riga = {};
+                if ((startFromRows == null && rowNumber === 1) || (startFromRows && rowNumber === startFromRows)) {
+                    row.eachCell({includeEmpty: false}, (cell, colNumber) => {
+                        colNumber = colNumber - 1;
+                        if (usaHeader) {
+                            let headerTemp = "";
+                            if (cell.value.richText)
+                                for (let text of cell.value.richText)
+                                    headerTemp += text.text;
+                            else
+                                headerTemp = cell.value;
+                            header[colNumber] = headerTemp;
+                        } else
+                            header[colNumber] = colNumber;
+                    });
+                } else {
+                    /*                row.eachCell({includeEmpty: true}, (cell, colNumber) => {
+                                        riga[header[colNumber]] = cell.value ?? "";
+                                    });*/
+                    Object.keys(header).forEach((key) => {
+                        riga[header[key]] = row._cells[key]?._value.model.value ?? "";
+                    });
+                    out.push(riga);
                 }
-                ;
-                out.push(riga);
             }
         });
     }
