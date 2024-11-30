@@ -122,6 +122,8 @@ export class Nar {
                     //get the new page object:
                     const newPage = await newTarget.page();
                     await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
+                    await newPage.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=RELOG");
+
                     await newPage.waitForSelector("select[name='ufficio@Controller']");
                     //await newPage.waitForSelector("#oCMenu_fill");
                     await newPage.type("select[name='ufficio@Controller']", (this._type === Nar.NAR ? "UffOpSce" : "UffPag"));
