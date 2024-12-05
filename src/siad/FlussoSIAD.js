@@ -7,6 +7,7 @@ import {utils} from "../Utils.js";
 
 import {Parser, Validator} from '@marketto/codice-fiscale-utils';
 import {Assistiti} from "../narTsServices/Assistiti.js";
+import _ from "lodash";
 
 const tracciato1 = {
     CUNI: "CUNI",
@@ -61,7 +62,12 @@ const tracciato1 = {
     gestioneCatetere: "gestioneCatetere",
     trasfusioni: "trasfusioni",
     controlloDolore: "controlloDolore",
+    appartenenzaRete: "appartenenzaRete",
+    tipoRete: "tipoRete",
     curePalliative: "curePalliative",
+    segnoSintomoClinico: "segnoSintomoClinico",
+    utilStrumentoIdentBisognoCp: "utilStrumentoIdentBisognoCp",
+    utilStrumentoValMultidid: "utilStrumentoValMultidid",
     trattamentiRiabilitativiNeurologici: "trattamentiRiabilitativiNeurologici",
     trattamentiRiabilitativiOrtopedici: "trattamentiRiabilitativiOrtopedici",
     trattamentiRiabilitativiDiMantenimento: "trattamentiRiabilitativiDiMantenimento",
@@ -205,6 +211,12 @@ export class FlussoSIAD {
                 const id = rigat1["Id Record"];
                 if (!mappa.allIds.hasOwnProperty(id))
                     mappa.allIds[id] = id;
+                else
+                    mappa.errors.push({
+                        id: id,
+                        cf: id.substring(16, 32),
+                        msg: "Chiave duplicata"
+                    });
                 let dataFromId = this.ottieniDatiFromIdPic(id);
                 const cf = dataFromId.cf;
                 if (!mappa.allCfT1.hasOwnProperty(cf))
@@ -532,6 +544,196 @@ export class FlussoSIAD {
 
     }
 
+    async generaMappaPICT1(path) {
+        let mappaChiavi = this.creaOggettoAssistitiTracciato1(path);
+        let perCf = {};
+        for (let chiave in mappaChiavi) {
+            let cf = chiave.substring(16, 32);
+            if (!perCf.hasOwnProperty(cf))
+                perCf[cf] = [];
+            perCf[cf].push(chiave);
+        }
+        return {mappa: mappaChiavi, perCf: perCf};
+    }
+
+    generaRigheTracciato1ConDefault(folder, datiRaw, nomeFile, anno, trimestre, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
+        const defaultRiga = {
+            Trasmissione: {$: {"tipo": tipo}},
+            Assistito: {
+                DatiAnagrafici: {
+                    CUNI: datoObbligatorio,
+                    validitaCI: 0,
+                    tipologiaCI: 0,
+                    AnnoNascita: datoObbligatorio,
+                    Genere: datoObbligatorio,
+                    Cittadinanza: "IT",
+                    StatoCivile: 9,
+                    ResponsabilitaGenitoriale: 3,
+                    Residenza: {
+                        Regione: codRegione,
+                        ASL: codASL,
+                        Comune: "083048"
+                    },
+                }
+            },
+            Conviventi: {
+                NucleoFamiliare: 0,
+                AssistenteNonFamiliare: 2,
+            },
+            Erogatore: {
+                CodiceRegione: codRegione,
+                CodiceASL: codASL
+            },
+            Eventi: {
+                PresaInCarico: {
+                    $: {
+                        data: datoObbligatorio,
+                        soggettoRichiedente: 9,
+                        TipologiaPIC: datoObbligatorio,
+                    },
+                    Id_Rec: datoObbligatorio,
+                },
+                Valutazione: {
+                    $: {
+                        data: datoObbligatorio,
+                    },
+                    Patologia: {
+                        Prevalente: datoObbligatorio,
+                        Concomitante: datoObbligatorio,
+                    },
+                    Autonomia: 2,
+                    GradoMobilita: 2,
+                    Disturbi: {
+                        Cognitivi: 1,
+                        Comportamentali: 1,
+                    },
+                    SupportoSociale: 1,
+                    FragilitaFamiliare: 2,
+                    RischioInfettivo: 2,
+                    RischioSanguinamento: 2,
+                    DrenaggioPosturale: 2,
+                    OssigenoTerapia: 2,
+                    Ventiloterapia: 2,
+                    Tracheostomia: 2,
+                    Alimentazione: {
+                        Assistita: 2,
+                        Enterale: 2,
+                        Parenterale: 2,
+                    },
+                    GestioneStomia: 2,
+                    ElimiUrinariaIntestinale: 2,
+                    AlterRitmoSonnoVeglia: 2,
+                    IntEduTerapeutica: 2,
+                    LesioniCute: 2,
+                    CuraUlcereCutanee12Grado: 2,
+                    CuraUlcereCutanee34Grado: 2,
+                    PrelieviVenosiNonOcc: 2,
+                    ECG: 2,
+                    Telemetria: 2,
+                    TerSottocutIntraMuscInfus: 2,
+                    GestioneCatetere: 2,
+                    Trasfusioni: 2,
+                    ControlloDolore: 2,
+                    TrattamentiRiab: {
+                        Neurologico: 2,
+                        Motorio: 2,
+                        DiMantenimento: 2,
+                    },
+                    SupervisioneContinua: 2,
+                    AssistenzaIADL: 2,
+                    AssistenzaADL: 2,
+                    SupportoCareGiver: 2,
+                }
+            }
+        }
+        let out = [];
+        for (let datoRaw of datiRaw) {
+            let riga = _.cloneDeep(defaultRiga);
+            if (datiRaw[18].toString() === "2") {
+                // palliativa
+                riga.Erogatore.AppartenenzaRete = 1;
+                riga.Erogatore.TipoRete = 1;
+                riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
+                riga.Eventi.CurePalliative = 1;
+                riga.Valutazione.ValutazioneUCPDOM = {
+                    SegnoSintomoClinico: datoObbligatorio,
+                    UtilStrumentoIdentBisognoCP: datoObbligatorio,
+                    UtilStrumentoValMultid: datoObbligatorio
+                }
+            }
+
+            for (let chiave of Object.values(tracciato1Maggioli)) {
+                const dato = datoRaw[chiave];
+                if (dato && dato !== "") {
+                    switch (chiave) {
+                        case tracciato1Maggioli[1]: //CUNI
+                            riga.Assistito.DatiAnagrafici.CUNI = dato;
+                            break;
+                        case tracciato1Maggioli[4]: //AnnoNascita
+                            riga.Assistito.DatiAnagrafici.AnnoNascita = parseInt(dato);
+                            break;
+                        case tracciato1Maggioli[5]: //Genere
+                            riga.Assistito.DatiAnagrafici.Genere = parseInt(dato);
+                            break;
+                        case tracciato1Maggioli[15]: //Data Presa In Carico
+                            riga.Eventi.PresaInCarico.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
+                            break;
+                        case tracciato1Maggioli[19]: //data valutazione iniziale
+                            riga.Eventi.Valutazione.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
+                            break;
+                        case tracciato1Maggioli[18]: //Tipo PIC
+                            riga.Eventi.PresaInCarico.$.TipologiaPIC = parseInt(dato);
+                            break;
+                        case tracciato1Maggioli[54]: //Patologia prevalente
+                            riga.Eventi.Valutazione.Patologia.Prevalente = dato;
+                            break;
+                        case tracciato1Maggioli[55]: //Patologia concomitante
+                            riga.Eventi.Valutazione.Patologia.Concomitante = dato;
+                            break;
+                    }
+                }
+            }
+            riga.Eventi.PresaInCarico.Id_Rec = codRegione + codASL + riga.Eventi.PresaInCarico.$.data + riga.Assistito.DatiAnagrafici.CUNI;
+            out.push(riga);
+        }
+
+        // ogni dato obbligatorio deve essere valorizzato, verifichiamo che ne sia rimasto qualcuno
+        let ris = this.verificaPresenzaDiDatiMancanti(out, nomeFile);
+        if (ris.ok) {
+            const builder = new xml2js.Builder();
+            const obj = {
+                FlsAssDom_1: {
+                    $: {"xmlns": "http://flussi.mds.it/flsassdom_1"},
+                    Assistenza: out
+                }
+            };
+            const xml = builder.buildObject(obj);
+            fs.writeFileSync(folder + path.sep + codRegione + codASL + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_AAD_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
+            return true;
+        } else return false;
+
+    }
+
+    verificaPresenzaDiDatiMancanti(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
+        if (!ris)
+            ris = {ok: true, fullArray: oggetto, numeFile: id, errore: []};
+        if (Array.isArray(oggetto)) {
+            for (let dato of oggetto) {
+                ris = this.verificaPresenzaDiDatiMancanti(dato, dato.Eventi.PresaInCarico.Id_Rec, ris);
+            }
+        } else {
+            for (let chiave of Object.keys(oggetto)) {
+                if (typeof oggetto[chiave] === "object")
+                    ris = this.verificaPresenzaDiDatiMancanti(oggetto[chiave], id, ris);
+                else if (oggetto[chiave] === datoDaVerificare) {
+                    ris.ok = false;
+                    ris.errore.push({chiave: chiave, valore: oggetto[chiave], id: id});
+                }
+            }
+        }
+        return ris;
+    }
+
     generaFlussoRettificaCancellazione(pathFile, folderOut, codRegione, codASL) {
         const file = reader.readFile(pathFile);
 
@@ -658,17 +860,13 @@ export class FlussoSIAD {
         let dati = {};
         let files = utils.getAllFilesRecursive(pathFile, ".xml", filter);
         files.forEach(file => {
-            console.log(file);
-
             let xml_string = fs.readFileSync(file, "utf8");
-            console.log("file:" + file)
             parser.parseString(xml_string, function (error, result) {
                 if (error === null) {
                     let assistenze = result['FlsAssDom_1']['Assistenza'];
                     console.log("sono presenti " + assistenze.length + " assistiti");
                     for (var i = 0; i < assistenze.length; i++) {
                         let assistenza = assistenze[i];
-                        console.log(assistenza);
                         let newObj = {};
                         newObj[tracciato1.CUNI] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['CUNI'][0];
                         newObj[tracciato1.validitaCI] = assistenza['Assistito'][0]['DatiAnagrafici'][0]['validitaCI'][0];
@@ -723,9 +921,15 @@ export class FlussoSIAD {
                         newObj[tracciato1.trasfusioni] = assistenza['Eventi'][0]['Valutazione'][0]['Trasfusioni'][0];
                         newObj[tracciato1.controlloDolore] = assistenza['Eventi'][0]['Valutazione'][0]['ControlloDolore'][0];
                         newObj[tracciato1.curePalliative] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative']) ? assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative'][0] : null;
+                        newObj[tracciato1.appartenenzaRete] = assistenza.hasOwnProperty(assistenza['Erogatore'][0]['AppartenenzaRete']) ? assistenza['Erogatore'][0]['AppartenenzaRete'][0] : null;
+                        newObj[tracciato1.tipoRete] = assistenza.hasOwnProperty(assistenza['Erogatore'][0]['TipoRete']) ? assistenza['Erogatore'][0]['TipoRete'][0] : null;
+                        newObj[tracciato1.pianificazioneCondivisa] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['PresaInCarico'][0]['ATTR']['PianificazioneCondivisa']) ? assistenza['Eventi'][0]['PresaInCarico'][0]['ATTR']['PianificazioneCondivisa'] : null;
                         newObj[tracciato1.trattamentiRiabilitativiNeurologici] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['Neurologico'][0];
                         newObj[tracciato1.trattamentiRiabilitativiOrtopedici] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['Motorio'] ? assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['Motorio'][0] : 2;
                         newObj[tracciato1.trattamentiRiabilitativiDiMantenimento] = assistenza['Eventi'][0]['Valutazione'][0]['TrattamentiRiab'][0]['DiMantenimento'][0];
+                        newObj[tracciato1.segnoSintomoClinico] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM']) && assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['SegnoSintomoClinico']) ? assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['SegnoSintomoClinico'][0] : null;
+                        newObj[tracciato1.utilStrumentoIdentBisognoCp] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM']) && assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['UtilStrumentoIdentBisognoCP']) ? assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['UtilStrumentoIdentBisognoCP'][0] : null;
+                        newObj[tracciato1.utilStrumentoValMultidid] = assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM']) && assistenza.hasOwnProperty(assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['UtilStrumentoValMultid']) ? assistenza['Eventi'][0]['Valutazione'][0]['valutazioneUCPDOM'][0]['UtilStrumentoValMultid'][0] : null;
                         newObj[tracciato1.supervisioneContinua] = assistenza['Eventi'][0]['Valutazione'][0]['SupervisioneContinua'][0];
                         newObj[tracciato1.assistenzaIADL] = assistenza['Eventi'][0]['Valutazione'][0]['AssistenzaIADL'][0];
                         newObj[tracciato1.assistenzaADL] = assistenza['Eventi'][0]['Valutazione'][0]['AssistenzaADL'][0];
