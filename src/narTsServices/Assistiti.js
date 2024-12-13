@@ -67,7 +67,7 @@ export class Assistiti {
         return datiUtenti;
     }
 
-    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1) {
+    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1, visible= false) {
         // set _maxListeners 20
         EventEmitter.defaultMaxListeners = 20;
         // Funzione per eseguire un task con timeout
@@ -90,7 +90,7 @@ export class Assistiti {
         let out = {chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
 
         await this._nar.doLogout();
-        let page = await this._nar.getWorkingPage();
+        let page = await this._nar.getWorkingPage(visible);
         console.log("$#" + index + " " + " TOTALI: " + allCfAssistiti.length)
         if (page) {
             while (out.currentIndex < allCfAssistiti.length) {

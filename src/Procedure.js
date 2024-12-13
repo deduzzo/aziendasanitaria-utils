@@ -351,12 +351,12 @@ class Procedure {
             let numPerJob = Math.ceil(count / numParallelsJob);
             let allAssititi = allAssistiti[codNar].assistiti;
             //filp array
-            allAssititi = allAssititi.reverse();
+            //allAssititi = allAssititi.reverse();
             while (i < numParallelsJob) {
                 let assistiti = new Assistiti(impostazioniServizi, visible);
                 let slice = allAssititi.slice(i * numPerJob, (i + 1) * numPerJob);
                 //await assistiti.apriMMGAssistiti(codNar, allAssistiti[codNar].assistiti);
-                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1));
+                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1,visible));
                 i++;
             }
             let results = await Promise.all(allJobs);
@@ -463,7 +463,7 @@ class Procedure {
 
     }
 
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = false, visible = false, numParallels = 10, salvaFile = true, legacy=false) {
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = false, visible = false, numParallels = 10, legacy=false,salvaFile = true) {
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
