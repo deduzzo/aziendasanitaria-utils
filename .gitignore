@@ -17,3 +17,4 @@ yarn-error.log*
 private_example.js
 /data/
 package-lock.json
+/config/config.json

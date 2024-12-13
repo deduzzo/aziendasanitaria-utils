@@ -546,7 +546,7 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, inserisciIndirizzo = false, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null, allVerbose= false) {
+    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null, allVerbose= false) {
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}}}
         console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
         if (codiciFiscali.length > 0) {
@@ -585,7 +585,7 @@ export class Assistiti {
             if (legacy)
                 promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
             else
-                promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
+                promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
         }
         let results = await Promise.all(promises);
         promises = null;

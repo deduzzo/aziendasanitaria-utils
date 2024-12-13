@@ -1,0 +1,360 @@
+import { Button, VerticalBox, LineEdit,ScrollView, GroupBox } from "std-widgets.slint";
+
+struct PazienteData {
+    vivo: bool,
+    cf: string,
+    cognome: string,
+    nome: string,
+    sesso: string,
+    data_nascita: string,
+    comune_nascita: string,
+    indirizzo: string,
+    asp: string,
+    mmgCfTs: string,
+    mmgCognomeTs: string,
+    mmgNomeTs: string,
+    mmgDaTs: string,
+    tipoAssistitoSSN: string,
+    inizioAssistenzaSSN: string,
+    fineAssistenzaSSN: string,
+    motivazioneFineAssistenzaSSN: string,
+    numero_tessera: string,
+    dataDecesso: string,
+}
+
+component ReadOnlyLineEdit inherits LineEdit {
+    read_only: true;
+    height: 35px;
+}
+
+component FieldLabel inherits Text {
+    font_weight: 500;
+    vertical_alignment: center;
+}
+
+export component MainWindow {
+    width: 1200px;
+    height: 800px;
+
+    callback cf_input_changed(string);
+    in_out property <bool> is_loading: false;
+    in_out property <string> cf_input: "";
+    in_out property <PazienteData> paziente_data: {
+        vivo: false,
+        cf: "",
+        cognome: "",
+        nome: "",
+        sesso: "",
+        data_nascita: "",
+        comune_nascita: "",
+        indirizzo: "",
+        asp: "",
+        mmgCfTs: "",
+        mmgCognomeTs: "",
+        mmgNomeTs: "",
+        mmgDaTs: "",
+        tipoAssistitoSSN: "",
+        inizioAssistenzaSSN: "",
+        fineAssistenzaSSN: "",
+        motivazioneFineAssistenzaSSN: "",
+        numero_tessera: "",
+        dataDecesso: "",
+    };
+    callback cerca_paziente(string);
+
+    VerticalBox {
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 10px;
+            alignment: center;
+
+            Rectangle {
+                width: 0px;
+            }
+
+            LineEdit {
+                placeholder_text: "Inserisci Codice Fiscale";
+                text <=> root.cf_input;
+                height: 35px;
+                width: 250px;
+                enabled: !root.is_loading;
+                edited(text) => {
+                    root.cf_input_changed(text);
+                }
+            }
+
+            Button {
+                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
+                height: 35px;
+                enabled: !root.is_loading;
+                clicked => {
+                    root.cerca_paziente(root.cf_input);
+                }
+            }
+
+            Rectangle {
+                width: 0px;
+            }
+        }
+
+        ScrollView {
+            VerticalLayout {
+                padding: 20px;
+                spacing: 15px;
+
+                       // Dati Paziente
+                       GroupBox {
+                    title: "Dati Paziente";
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "CF:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.cf;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Cognome:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.cognome;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Nome:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.nome;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Sesso:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.sesso;
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Data Nascita:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.data_nascita;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Luogo Nascita:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.comune_nascita;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Indirizzo:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.indirizzo;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                       // Dati CF
+                       GroupBox {
+                    title: "Dati CF";
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "ASP:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.asp;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "N° Tessera:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.numero_tessera;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Vivo:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.vivo ? "SI" : "NO";
+                                }
+                            }
+                        }
+                    }
+                }
+                // Dati SSN
+                GroupBox {
+                    title: "Dati SSN";
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Medico CF:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.mmgCfTs;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Medico Cognome:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.mmgCognomeTs;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Medico Nome:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.mmgNomeTs;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Medico Data:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.mmgDaTs;
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Tipo SSN:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.tipoAssistitoSSN;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Inizio SSN:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.inizioAssistenzaSSN;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Fine SSN:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.fineAssistenzaSSN;
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Motivo Fine:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                    text: root.paziente_data.motivazioneFineAssistenzaSSN;
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 5px;
+                                FieldLabel {
+                                    text: "Data Decesso:";
+                                }
+
+                                ReadOnlyLineEdit {
+                                     text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

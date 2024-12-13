@@ -624,6 +624,15 @@ const riunisciJsonDaTag = async (path, tag, filter = null) => {
     return out;
 }
 
+const replaceNullWithEmptyString = (obj)  => {
+    return Object.fromEntries(
+        Object.entries(obj).map(([key, value]) => [
+            key,
+            value === null ? "" : value
+        ])
+    );
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -656,4 +665,5 @@ export const utils = {
     getWorkingPath,
     convertDocxToPdf,
     riunisciJsonDaTag,
+    replaceNullWithEmptyString
 }
