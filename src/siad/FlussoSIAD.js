@@ -553,6 +553,8 @@ export class FlussoSIAD {
                 perCf[cf] = [];
             perCf[cf].push(chiave);
         }
+        console.log("Sono presenti " + Object.keys(perCf).length + " assistiti");
+
         return {mappa: mappaChiavi, perCf: perCf};
     }
 
@@ -864,7 +866,7 @@ export class FlussoSIAD {
             parser.parseString(xml_string, function (error, result) {
                 if (error === null) {
                     let assistenze = result['FlsAssDom_1']['Assistenza'];
-                    console.log("sono presenti " + assistenze.length + " assistiti");
+                    console.log("sono presenti " + assistenze.length + " PIC");
                     for (var i = 0; i < assistenze.length; i++) {
                         let assistenza = assistenze[i];
                         let newObj = {};

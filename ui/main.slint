@@ -1,4 +1,4 @@
-import { Button, VerticalBox, LineEdit,ScrollView, GroupBox } from "std-widgets.slint";
+import { Button, VerticalBox, LineEdit, ScrollView, GroupBox, ComboBox } from "std-widgets.slint";
 
 struct PazienteData {
     vivo: bool,
@@ -37,9 +37,15 @@ export component MainWindow {
     height: 800px;
 
     callback cf_input_changed(string);
-    in_out property <bool> is_loading: false;
-    in_out property <string> cf_input: "";
-    in_out property <PazienteData> paziente_data: {
+    in-out property <[string]> combo_options: [];
+
+    in-out property <bool> is_loading: false;
+    in-out property <string> cf_input: "";
+    in-out property <string> search_type: "cf"; // "cf" o "details"
+    in-out property <string> nome: "";
+    in-out property <string> cognome: "";
+    in-out property <string> data_nascita: "";
+    in-out property <PazienteData> paziente_data: {
         vivo: false,
         cf: "",
         cognome: "",
@@ -60,7 +66,10 @@ export component MainWindow {
         numero_tessera: "",
         dataDecesso: "",
     };
-    callback cerca_paziente(string);
+    callback cerca_paziente();
+    callback reset_cf_fields();
+    callback reset_detail_fields();
+    callback on-search-type-changed(string);
 
     VerticalBox {
         HorizontalLayout {
@@ -68,32 +77,108 @@ export component MainWindow {
             spacing: 10px;
             alignment: center;
 
-            Rectangle {
-                width: 0px;
-            }
+            GroupBox {
+                title: "Dati di Ricerca";
+                width: parent.width;
+                vertical-stretch: 0; // Impedisce al GroupBox di espandersi verticalmente più del necessario
 
-            LineEdit {
-                placeholder_text: "Inserisci Codice Fiscale";
-                text <=> root.cf_input;
-                height: 35px;
-                width: 250px;
-                enabled: !root.is_loading;
-                edited(text) => {
-                    root.cf_input_changed(text);
+                        VerticalLayout {
+                    padding: 10px;
+                    spacing: 10px;
+                    vertical-stretch: 0; // Anche il layout interno non deve espandersi
+
+                            // Selezione tipo ricerca
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        vertical-stretch: 0;
+
+                        Text {
+                            text: "Tipo di ricerca:";
+                            vertical-alignment: center;
+                        }
+
+                        ComboBox {
+                            width: 200px;
+                            model: root.combo_options;
+                            selected => {
+                                root.on-search-type-changed(self.current-index);
+                            }
+                        }
+                    }
+
+                    // Campi di ricerca
+                    HorizontalLayout {
+                        spacing: 10px;
+                        alignment: start;
+                        vertical-stretch: 0;
+
+                                // Ricerca per CF
+                        if root.search_type == "cf": HorizontalLayout {
+                            spacing: 10px;
+                            vertical-stretch: 0;
+
+                            LineEdit {
+                                placeholder-text: "Inserisci Codice Fiscale";
+                                text <=> root.cf_input;
+                                height: 35px;
+                                width: 250px;
+                                enabled: !root.is_loading;
+                                edited(text) => {
+                                    root.cf_input_changed(text);
+                                }
+                            }
+
+                            Button {
+                                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
+                                height: 35px;
+                                enabled: !root.is_loading;
+                                clicked => {
+                                    root.cerca_paziente();
+                                }
+                            }
+                        }
+
+                                // Ricerca per dettagli
+                        if root.search_type == "details": HorizontalLayout {
+                            spacing: 10px;
+                            vertical-stretch: 0;
+
+                            LineEdit {
+                                placeholder-text: "Nome";
+                                text <=> root.nome;
+                                height: 35px;
+                                width: 150px;
+                                enabled: !root.is_loading;
+                            }
+
+                            LineEdit {
+                                placeholder-text: "Cognome";
+                                text <=> root.cognome;
+                                height: 35px;
+                                width: 150px;
+                                enabled: !root.is_loading;
+                            }
+
+                            LineEdit {
+                                placeholder-text: "Data di Nascita";
+                                text <=> root.data_nascita;
+                                height: 35px;
+                                width: 150px;
+                                enabled: !root.is_loading;
+                            }
+
+                            Button {
+                                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
+                                height: 35px;
+                                enabled: !root.is_loading && root.nome != "" && root.cognome != "" && root.data_nascita != "";
+                                clicked => {
+                                    root.cerca_paziente();
+                                }
+                            }
+                        }
+                    }
                 }
-            }
-
-            Button {
-                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
-                height: 35px;
-                enabled: !root.is_loading;
-                clicked => {
-                    root.cerca_paziente(root.cf_input);
-                }
-            }
-
-            Rectangle {
-                width: 0px;
             }
         }
 
@@ -103,7 +188,7 @@ export component MainWindow {
                 spacing: 15px;
 
                        // Dati Paziente
-                       GroupBox {
+                GroupBox {
                     title: "Dati Paziente";
                     VerticalLayout {
                         padding: 10px;
@@ -348,7 +433,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                     text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
+                                    text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
                                 }
                             }
                         }
