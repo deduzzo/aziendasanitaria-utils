@@ -14,7 +14,6 @@ yarn-error.log*
 *.ntvs*
 *.njsproj
 *.sln
-private_example.js
 /data/
 package-lock.json
 /config/config.json

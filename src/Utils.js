@@ -634,6 +634,33 @@ const replaceNullWithEmptyString = (obj)  => {
     );
 }
 
+const trovaPICfromData = (ids, data) => {
+    if (!ids || ids.length === 0) {
+        return null;
+    }
+
+    const targetMoment = moment(data, 'DD/MM/YYYY');
+    const targetStr = targetMoment.format('YYYY-MM-DD');
+    const sortedIds = [...ids].sort();
+
+    // Se anche il primo ID (che avrà la data più vecchia) è successivo alla data target
+    const firstDate = sortedIds[0].substring(6, 16);
+    if (firstDate > targetStr) {
+        return null;
+    }
+
+    let selectedID = 0;
+    for (let indexId = 0; indexId < sortedIds.length; indexId++) {
+        const dateOfid = sortedIds[indexId].substring(6, 16);
+        if (dateOfid > targetStr) {
+            break;
+        }
+        selectedID = indexId;
+    }
+
+    return sortedIds[selectedID];
+};
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -666,5 +693,6 @@ export const utils = {
     getWorkingPath,
     convertDocxToPdf,
     riunisciJsonDaTag,
-    replaceNullWithEmptyString
+    replaceNullWithEmptyString,
+    trovaPICfromData
 }

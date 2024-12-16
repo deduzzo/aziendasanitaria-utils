@@ -187,8 +187,6 @@ export class FlussoSIAD {
     }
 
     async creaMappaChiaviValideAssessorato(fileT1, fileT2, anno) {
-        let chiaviValideT1 = await this.importaTracciato1ChiaviValideAssessorato(fileT1);
-        let chiaviValideT2 = await this.importaTracciato2ChiaviValideAssessorato(fileT2);
 
         let mappa = {
             allIds: {},
@@ -204,6 +202,10 @@ export class FlussoSIAD {
             errors: [],
             warnings: []
         }
+
+        let chiaviValideT1 = await this.importaTracciato1ChiaviValideAssessorato(fileT1);
+        let chiaviValideT2 = await this.importaTracciato2ChiaviValideAssessorato(fileT2);
+
 
         for (let rigat1 of chiaviValideT1) {
             const annoPicFromMinistero = rigat1["Anno Presa In Carico"];
@@ -473,6 +475,21 @@ export class FlussoSIAD {
         }
 
         return outData;
+    }
+
+    generaFlussoRettificaScarti(pathFilePIC, pathFileDitte,fileChiaviValideMinistero, trimestre, folderOut) {
+        let out = {errors: []};
+        let tracciatiMinistero = {"T1": null, "T2": null };
+        const filesTracciato1Ministero = utils.getAllFilesRecursive(pathFilePIC, ".xls", "AA2");
+        const filesTracciato2Ministero = utils.getAllFilesRecursive(pathFileDitte, ".xls", "AP2");
+        if (filesTracciato1Ministero.length !== 0 || filesTracciato2Ministero.length !== 0)
+            out.errors.push("Non sono presenti file tracciato 1 o 2 Ministero oppure sono presenti più di un file file");
+        else {
+            tracciatiMinistero.T1 = this.importaTracciato1ChiaviValideAssessorato(filesTracciato1Ministero[0]);
+            tracciatiMinistero.T2 = this.importaTracciato2ChiaviValideAssessorato(filesTracciato2Ministero[0]);
+        }
+
+        return null;
     }
 
     generaFlussoRettificaChiusure(pathFile, folderOut, codRegione, codASL) {
