@@ -19,7 +19,7 @@ struct PazienteData {
     fineAssistenzaSSN: string,
     motivazioneFineAssistenzaSSN: string,
     numero_tessera: string,
-    dataDecesso: string,
+    data_decesso: string,
 }
 
 component ReadOnlyLineEdit inherits LineEdit {
@@ -64,7 +64,7 @@ export component MainWindow {
         fineAssistenzaSSN: "",
         motivazioneFineAssistenzaSSN: "",
         numero_tessera: "",
-        dataDecesso: "",
+        data_decesso: "",
     };
     callback cerca_paziente();
     callback reset_cf_fields();
@@ -433,7 +433,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
+                                    text: root.paziente_data.data_decesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.data_decesso;
                                 }
                             }
                         }
