@@ -17,3 +17,6 @@ yarn-error.log*
 /data/
 package-lock.json
 /config/config.json
+# all js files that start with private_
+private_*.js
+/spid/testkey/
