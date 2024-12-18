@@ -178,6 +178,16 @@ export class FlussoSIAD {
         return await utils.getObjectFromFileExcel(pathFile, null, true, 15);
     }
 
+    async importaAssistitiSoloTracciato1Assessorato(pathFile,anno) {
+        let data = await utils.getObjectFromFileExcel(pathFile, null, true, 10);
+        return data.filter((item) => item["Anno Presa In Carico"] === anno);
+    }
+
+    async importaPicSenzaAccessiAssessorato(pathFile,anno) {
+        let data = await utils.getObjectFromFileExcel(pathFile, null, true, 10);
+        return data.filter((item) => item["Anno Presa In Carico"] === anno);
+    }
+
     ottieniDatiFromIdPic(idPic) {
         return {
             cf: idPic.substring(16, 32),
@@ -477,17 +487,70 @@ export class FlussoSIAD {
         return outData;
     }
 
-    generaFlussoRettificaScarti(pathFilePIC, pathFileDitte,fileChiaviValideMinistero, trimestre, folderOut) {
-        let out = {errors: []};
-        let tracciatiMinistero = {"T1": null, "T2": null };
-        const filesTracciato1Ministero = utils.getAllFilesRecursive(pathFilePIC, ".xls", "AA2");
-        const filesTracciato2Ministero = utils.getAllFilesRecursive(pathFileDitte, ".xls", "AP2");
-        if (filesTracciato1Ministero.length !== 0 || filesTracciato2Ministero.length !== 0)
-            out.errors.push("Non sono presenti file tracciato 1 o 2 Ministero oppure sono presenti più di un file file");
+    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut) {
+        let out = {errors: {globals: [], t2ditte: []}, };
+        let data = {
+            "tracciatiMinistero": {"T1": null, "T2": null, "soloT1": null, "PicNoAccessi": null},
+            "mappa": null,
+            "datiDitte": {"T1": null, "T2": null, "T2byKey": {}}
+        };
+        const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
+        const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
+        const fileSoloT1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT01");
+        const filePicNoAccessi = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT06");
+        if (fileTracciato1Ministero.length !== 1 || fileTracciato2Ministero.length !== 1 || fileSoloT1Ministero.length !== 1 || filePicNoAccessi.length !== 1)
+            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ministero oppure sono presenti più di un file file");
         else {
-            tracciatiMinistero.T1 = this.importaTracciato1ChiaviValideAssessorato(filesTracciato1Ministero[0]);
-            tracciatiMinistero.T2 = this.importaTracciato2ChiaviValideAssessorato(filesTracciato2Ministero[0]);
+            data.mappa = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
+            data.tracciatiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0],anno);
+            data.tracciatiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0],anno);
         }
+        // dati ditte
+        let allFilesT1 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato1");
+        let allFilesT2 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato2");
+        if (allFilesT1.length === 0 || allFilesT2.length ===0)
+            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ditte");
+        else {
+            for (let file of allFilesT1) {
+                console.log(file);
+                let temp = await utils.getObjectFromFileExcel(file);
+                if (data.datiDitte.T1 === null)
+                    data.datiDitte.T1 = temp;
+                else
+                    data.datiDitte.T1 = [...data.datiDitte.T1, ...temp];
+            }
+            for (let file of allFilesT2) {
+                console.log(file);
+                let temp = await utils.getObjectFromFileExcel(file);
+                // add named property file to all rows
+                temp.forEach((row) => row.file = file);
+                if (data.datiDitte.T2 === null)
+                    data.datiDitte.T2 = temp;
+                else
+                    data.datiDitte.T2 = [...data.datiDitte.T2, ...temp];
+            }
+        }
+
+        if (out.errors.globals.length === 0) {
+            let index = 0;
+            for (let t2row of data.datiDitte.T2) {
+                const dataAttivita = moment(t2row[tracciato2Maggioli[10]],"DD/MM/YYYY");
+                const cf = t2row[tracciato2Maggioli[0]];
+                if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid ) {
+                    const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf;
+                    if (!data.datiDitte.T2byKey.hasOwnProperty(key))
+                        data.datiDitte.T2byKey[key] = t2row;
+                    else
+                        out.errors.t2ditte.push({error: "Chiave duplicata " + key, value: t2row});
+                }
+                else
+                    out.errors.t2ditte.push({error: "Errore in data o codice fiscale", value: t2row});
+                if (++index % 1000 === 0)
+                    console.log("Elaborazione " + index + " di " + data.datiDitte.T2.length + "% " + parseFloat((index / data.datiDitte.T2.length * 100).toString()).toFixed(2));
+            }
+            console.log("bau");
+        }
+
 
         return null;
     }

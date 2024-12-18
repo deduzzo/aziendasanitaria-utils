@@ -12,7 +12,7 @@ import {utils} from "./src/Utils.js";
 import {Procedure} from "./src/Procedure.js";
 import DBHelper from "./src/db/DBHelper.js";
 import {flussiRegioneSicilia} from "./index.js";
-const configData = require('./config/config.json');
+import config from './src/config.js';
 
 (async () => {
     //await flussiRegioneSicilia.flussoM.eseguiElaborazioneCompletaFlussoMDaCartella( true,true,true);
@@ -28,7 +28,7 @@ const configData = require('./config/config.json');
         struttureMessina
     );
 
-    const impostazioniEsterni = new ImpostazioniServiziTerzi(configData);
+    const impostazioniEsterni = new ImpostazioniServiziTerzi(config);
 
     const connData = {
         host: 'localhost',
@@ -96,7 +96,8 @@ const configData = require('./config/config.json');
     let res = await flussoSiad.generaFlussoRettificaScarti(
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/DATI ASTER/PER MESE/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/",
-        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO",
+        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/",
+        2024,
         1
         )
     //let data = await utils.getObjectFromFileExcel(nomeFile);
