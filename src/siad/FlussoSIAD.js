@@ -178,12 +178,12 @@ export class FlussoSIAD {
         return await utils.getObjectFromFileExcel(pathFile, null, true, 15);
     }
 
-    async importaAssistitiSoloTracciato1Assessorato(pathFile,anno) {
+    async importaAssistitiSoloTracciato1Assessorato(pathFile, anno) {
         let data = await utils.getObjectFromFileExcel(pathFile, null, true, 10);
         return data.filter((item) => item["Anno Presa In Carico"] === anno);
     }
 
-    async importaPicSenzaAccessiAssessorato(pathFile,anno) {
+    async importaPicSenzaAccessiAssessorato(pathFile, anno) {
         let data = await utils.getObjectFromFileExcel(pathFile, null, true, 10);
         return data.filter((item) => item["Anno Presa In Carico"] === anno);
     }
@@ -298,6 +298,70 @@ export class FlussoSIAD {
         return mappa;
 
 
+    }
+
+    ottieniDatiFileFlusso(file,out = null) {
+        if (!out)
+            out = {"T1": {}, "T2": {}, "T1byCf": {}, "T2byCf": {}, "rivalutazioni": {}, "sospensioni": {}, "conclusioni": {}, errors: []}
+        const type = file.toUpperCase().includes("AAD") || file.toUpperCase().includes("APS") ? ( file.toUpperCase().includes("AAD") ? "T1" : "T2") : null;
+        if (type) {
+            let xml_string = fs.readFileSync(file, "utf8");
+            const parser = new xml2js.Parser({attrkey: "ATTR"});
+            parser.parseString(xml_string, function (error, result) {
+                if (error === null) {
+                    let assistenze = result[type === "T1" ? 'FlsAssDom_1': 'FlsAssDom_2']['Assistenza'];
+                    for (let assistenza of assistenze) {
+                        const id = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0].toUpperCase().trim();
+                        const cfById = id.substring(16, 32).toUpperCase().trim();
+                        switch (type) {
+                            case "T1":
+                                const cuni = assistenza['Assistito'][0]['DatiAnagrafici'][0]['CUNI'][0].toUpperCase().trim();
+                                if (cfById.toUpperCase() === cuni.toUpperCase()) {
+                                    if (!out["T1"].hasOwnProperty(id)) {
+                                        out["T1"][id] = assistenza;
+                                        if (!out["T1byCf"].hasOwnProperty(cuni))
+                                            out["T1byCf"][cuni] = {};
+                                        out["T1byCf"][cuni][id] = assistenza;
+                                    } else
+                                        out.errors.push({
+                                            id: id,
+                                            cf: cuni,
+                                            msg: "Chiave duplicata"
+                                        });
+                                } else
+                                    out.errors.push({
+                                        id: id,
+                                        cf: cuni,
+                                        msg: "Chiave non corrispondente a cf"
+                                    });
+                                break;
+                            case "T2":
+                                if (!out["T2"].hasOwnProperty(id)) {
+                                    out["T2"][id] = assistenza;
+                                    if (!out["T2byCf"].hasOwnProperty(cfById))
+                                        out["T2byCf"][cfById] = {};
+                                    out["T2byCf"][cfById][id] = assistenza;
+                                    if (assistenza['Eventi'][0].hasOwnProperty("Rivalutazione")) {
+                                        out["rivalutazioni"][id] = assistenza['Eventi'][0]['Rivalutazione'][0];
+                                    }
+                                    if (assistenza['Eventi'][0].hasOwnProperty("Sospensione")) {
+                                        out["sospensioni"][id] = assistenza['Eventi'][0]['Sospensione'][0];
+                                    }
+                                    if (assistenza['Eventi'][0].hasOwnProperty("Conclusione")) {
+                                        out["conclusioni"][id] = assistenza['Eventi'][0]['Conclusione'][0];
+                                    }
+                                }
+                                break;
+                        }
+                    }
+                }
+            });
+            return out;
+        }
+        else {
+            // exception
+            throw new Error("Tipo di flusso non riconosciuto " + file);
+        }
     }
 
     contaPrestazioni() {
@@ -488,67 +552,85 @@ export class FlussoSIAD {
     }
 
     async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut) {
-        let out = {errors: {globals: [], t2ditte: []}, };
+        let out = {errors: {globals: [], t2ditte: []},};
         let data = {
-            "tracciatiMinistero": {"T1": null, "T2": null, "soloT1": null, "PicNoAccessi": null},
-            "mappa": null,
-            "datiDitte": {"T1": null, "T2": null, "T2byKey": {}}
+            "datiMinistero": {"soloT1": null, "PicNoAccessi": null},
+            "mappaDatiMinistero": null,
+            "datiTracciatiDitte": {"T1": null, "T2": null, "T2byKey": {}},
+            "datiAster": null,
         };
         const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
         const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
         const fileSoloT1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT01");
         const filePicNoAccessi = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT06");
+        const filesT1Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "AAD");
+        const filesT2Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "APS");
+        // mappa dati ministero
         if (fileTracciato1Ministero.length !== 1 || fileTracciato2Ministero.length !== 1 || fileSoloT1Ministero.length !== 1 || filePicNoAccessi.length !== 1)
-            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ministero oppure sono presenti più di un file file");
+            out.errors.globals.push("Problema nei files ministero, rendiconto o aster");
         else {
-            data.mappa = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
-            data.tracciatiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0],anno);
-            data.tracciatiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0],anno);
+            data.mappaDatiMinistero = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
+            data.datiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0], anno);
+            data.datiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0], anno);
         }
         // dati ditte
         let allFilesT1 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato1");
         let allFilesT2 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato2");
-        if (allFilesT1.length === 0 || allFilesT2.length ===0)
+        if (allFilesT1.length === 0 || allFilesT2.length === 0)
             out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ditte");
         else {
             for (let file of allFilesT1) {
                 console.log(file);
                 let temp = await utils.getObjectFromFileExcel(file);
-                if (data.datiDitte.T1 === null)
-                    data.datiDitte.T1 = temp;
+                if (data.datiTracciatiDitte.T1 === null)
+                    data.datiTracciatiDitte.T1 = temp;
                 else
-                    data.datiDitte.T1 = [...data.datiDitte.T1, ...temp];
+                    data.datiTracciatiDitte.T1 = [...data.datiTracciatiDitte.T1, ...temp];
             }
             for (let file of allFilesT2) {
                 console.log(file);
                 let temp = await utils.getObjectFromFileExcel(file);
                 // add named property file to all rows
                 temp.forEach((row) => row.file = file);
-                if (data.datiDitte.T2 === null)
-                    data.datiDitte.T2 = temp;
+                if (data.datiTracciatiDitte.T2 === null)
+                    data.datiTracciatiDitte.T2 = temp;
                 else
-                    data.datiDitte.T2 = [...data.datiDitte.T2, ...temp];
+                    data.datiTracciatiDitte.T2 = [...data.datiTracciatiDitte.T2, ...temp];
+            }
+        }
+        // aster
+        if (filesT1Aster.length === 0 || filesT2Aster.length === 0) {
+            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Aster");
+        } else {
+            for (let file of [...filesT1Aster,...filesT2Aster]) {
+                console.log(file);
+                data.datiAster = this.ottieniDatiFileFlusso(file, data.datiAster);
             }
         }
 
         if (out.errors.globals.length === 0) {
             let index = 0;
-            for (let t2row of data.datiDitte.T2) {
-                const dataAttivita = moment(t2row[tracciato2Maggioli[10]],"DD/MM/YYYY");
-                const cf = t2row[tracciato2Maggioli[0]];
-                if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid ) {
-                    const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf;
-                    if (!data.datiDitte.T2byKey.hasOwnProperty(key))
-                        data.datiDitte.T2byKey[key] = t2row;
+            for (let t2row of data.datiTracciatiDitte.T2) {
+                const dataAttivita = moment(t2row[tracciato2Maggioli[10]], "DD/MM/YYYY");
+                const cf = t2row[tracciato2Maggioli[0]].trim();
+                const tipoOperatore = typeof t2row[tracciato2Maggioli[11]] !== "number" ? (t2row[tracciato2Maggioli[11]] && t2row[tracciato2Maggioli[11]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[11]].toString().trim()) : null) : t2row[tracciato2Maggioli[11]];
+                const tipoPrestazione = typeof t2row[tracciato2Maggioli[12]] !== "number" ? (t2row[tracciato2Maggioli[12]] && t2row[tracciato2Maggioli[12]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[12]].toString().trim()) : null) : t2row[tracciato2Maggioli[12]];
+                if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid && tipoOperatore !== null && tipoPrestazione !== null) {
+                    const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
+                    if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
+                        data.datiTracciatiDitte.T2byKey[key] = t2row;
                     else
                         out.errors.t2ditte.push({error: "Chiave duplicata " + key, value: t2row});
-                }
-                else
-                    out.errors.t2ditte.push({error: "Errore in data o codice fiscale", value: t2row});
+                } else
+                    out.errors.t2ditte.push({error: "Errore in qualche campo chiave", value: t2row});
                 if (++index % 1000 === 0)
-                    console.log("Elaborazione " + index + " di " + data.datiDitte.T2.length + "% " + parseFloat((index / data.datiDitte.T2.length * 100).toString()).toFixed(2));
+                    console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
             }
-            console.log("bau");
+            const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
+
+            for (let key of t2bykeyOrdered) {
+                console.log("ciao");
+            }
         }
 
 
@@ -1620,4 +1702,6 @@ export class FlussoSIAD {
         await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "vivi.xlsx", ris.out.vivi);
         await utils.scriviOggettoSuNuovoFileExcel(pathFlusso + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
     }
+
+
 }
