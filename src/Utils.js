@@ -658,7 +658,12 @@ const trovaPICfromData = (ids, data) => {
         selectedID = indexId;
     }
 
-    return sortedIds[selectedID];
+    return {
+        // Prende tutti gli ID dall'inizio fino all'ID selezionato (escluso)
+        precedenti: sortedIds.slice(0, selectedID),
+        // Prende l'ID selezionato
+        corrente: sortedIds[selectedID]
+    };
 };
 
 

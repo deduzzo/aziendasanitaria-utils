@@ -551,12 +551,14 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut) {
+    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp=205) {
+        if (!folderOut)
+            folderOut = utils.getWorkingPath();
         let out = {errors: {globals: [], t2ditte: []},};
         let data = {
             "datiMinistero": {"soloT1": null, "PicNoAccessi": null},
             "mappaDatiMinistero": null,
-            "datiTracciatiDitte": {"T1": null, "T2": null, "T2byKey": {}},
+            "datiTracciatiDitte": {"T1": null, "T2": null, "T1byCf": null, "T2byKey": {}},
             "datiAster": null,
         };
         const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
@@ -587,6 +589,15 @@ export class FlussoSIAD {
                 else
                     data.datiTracciatiDitte.T1 = [...data.datiTracciatiDitte.T1, ...temp];
             }
+            // data.datiTracciatiDitte.T1byCf
+            for (let t1row of data.datiTracciatiDitte.T1) {
+                const cf = t1row[tracciato1Maggioli[0]].trim();
+                if (data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
+                    data.datiTracciatiDitte.T1byCf[cf].push(t1row);
+                else
+                    data.datiTracciatiDitte.T1byCf[cf] = [t1row];
+            }
+
             for (let file of allFilesT2) {
                 console.log(file);
                 let temp = await utils.getObjectFromFileExcel(file);
@@ -629,7 +640,21 @@ export class FlussoSIAD {
             const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
 
             for (let key of t2bykeyOrdered) {
+                const splitted = key.split("_");
+                const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
+                const cf = splitted[1];
+                const tipoOperatore = parseInt(splitted[2]);
+                const tipoPrestazione = parseInt(splitted[3]);
+                const id = regione.toString() + asp.toString() + splitted[0] + cf;
+
+                const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
+                //TODO: ha pic aperte aster?
+                const datiPicInteressate = haPicAperteMinistero ? utils.trovaPICfromData(dataAttivita.format("MM/DD/YYYY"),data.mappaDatiMinistero.perCf[cf].aperte) : null;
+                const picAssistitoAster = data.datiAster.T1byCf[cf];
+
+
                 console.log("ciao");
+
             }
         }
 
