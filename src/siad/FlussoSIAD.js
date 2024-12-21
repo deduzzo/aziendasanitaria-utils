@@ -8,6 +8,8 @@ import {utils} from "../Utils.js";
 import {Parser, Validator} from '@marketto/codice-fiscale-utils';
 import {Assistiti} from "../narTsServices/Assistiti.js";
 import _ from "lodash";
+import {pack, unpack} from "msgpackr";
+import winston from "winston";
 
 const tracciato1 = {
     CUNI: "CUNI",
@@ -157,6 +159,126 @@ const tracciato2Maggioli = {
     14: "Motivazione della sospensione dell’erogazione del servizio - I valori ammessi sono:\n1. ricovero temporaneo in ospedale\n2. allontanamento temporaneo\n3. ricovero temporaneo in struttura residenziale\n4. RICOVERO IN HOSPICE\n9 altro",
     15: "Data AD (conclusione dell’assistenza domiciliare all’assistito)"
 }
+const datoObbligatorio = "<OBB>";
+
+const defaultRigaT1 = {
+    Trasmissione: {$: {"tipo": datoObbligatorio}},
+    Assistito: {
+        DatiAnagrafici: {
+            CUNI: datoObbligatorio,
+            validitaCI: 0,
+            tipologiaCI: 0,
+            AnnoNascita: datoObbligatorio,
+            Genere: datoObbligatorio,
+            Cittadinanza: "IT",
+            StatoCivile: 9,
+            ResponsabilitaGenitoriale: 3,
+            Residenza: {
+                Regione: datoObbligatorio,
+                ASL: datoObbligatorio,
+                Comune: datoObbligatorio
+            },
+        }
+    },
+    Conviventi: {
+        NucleoFamiliare: 0,
+        AssistenteNonFamiliare: 2,
+    },
+    Erogatore: {
+        CodiceRegione: datoObbligatorio,
+        CodiceASL: datoObbligatorio
+    },
+    Eventi: {
+        PresaInCarico: {
+            $: {
+                data: datoObbligatorio,
+                soggettoRichiedente: 9,
+                TipologiaPIC: datoObbligatorio,
+            },
+            Id_Rec: datoObbligatorio,
+        },
+        Valutazione: {
+            $: {
+                data: datoObbligatorio,
+            },
+            Patologia: {
+                Prevalente: datoObbligatorio,
+                Concomitante: datoObbligatorio,
+            },
+            Autonomia: 2,
+            GradoMobilita: 2,
+            Disturbi: {
+                Cognitivi: 1,
+                Comportamentali: 1,
+            },
+            SupportoSociale: 1,
+            FragilitaFamiliare: 2,
+            RischioInfettivo: 2,
+            RischioSanguinamento: 2,
+            DrenaggioPosturale: 2,
+            OssigenoTerapia: 2,
+            Ventiloterapia: 2,
+            Tracheostomia: 2,
+            Alimentazione: {
+                Assistita: 2,
+                Enterale: 2,
+                Parenterale: 2,
+            },
+            GestioneStomia: 2,
+            ElimiUrinariaIntestinale: 2,
+            AlterRitmoSonnoVeglia: 2,
+            IntEduTerapeutica: 2,
+            LesioniCute: 2,
+            CuraUlcereCutanee12Grado: 2,
+            CuraUlcereCutanee34Grado: 2,
+            PrelieviVenosiNonOcc: 2,
+            ECG: 2,
+            Telemetria: 2,
+            TerSottocutIntraMuscInfus: 2,
+            GestioneCatetere: 2,
+            Trasfusioni: 2,
+            ControlloDolore: 2,
+            TrattamentiRiab: {
+                Neurologico: 2,
+                Motorio: 2,
+                DiMantenimento: 2,
+            },
+            SupervisioneContinua: 2,
+            AssistenzaIADL: 2,
+            AssistenzaADL: 2,
+            SupportoCareGiver: 2,
+        }
+    }
+}
+
+const defaultRigaT2 = {
+    Trasmissione: {$: {"tipo": datoObbligatorio}},
+    Erogatore: {
+        CodiceRegione: datoObbligatorio,
+        CodiceASL: datoObbligatorio
+    },
+    Eventi: {
+        PresaInCarico: {
+            $: {
+                data: datoObbligatorio
+            },
+            Id_Rec: datoObbligatorio,
+        },
+    }
+}
+
+const defaultErogazioneRigaT2 = {
+    $: {
+        TipoAccesso: 1,
+        data: datoObbligatorio,
+        numAccessi: 1
+    },
+    TipoOperatore: datoObbligatorio,
+    Prestazioni: {
+        TipoPrestazione: datoObbligatorio,
+        numPrestazione: 1
+    }
+}
 
 
 export class FlussoSIAD {
@@ -300,16 +422,25 @@ export class FlussoSIAD {
 
     }
 
-    ottieniDatiFileFlusso(file,out = null) {
+    ottieniDatiFileFlusso(file, out = null) {
         if (!out)
-            out = {"T1": {}, "T2": {}, "T1byCf": {}, "T2byCf": {}, "rivalutazioni": {}, "sospensioni": {}, "conclusioni": {}, errors: []}
-        const type = file.toUpperCase().includes("AAD") || file.toUpperCase().includes("APS") ? ( file.toUpperCase().includes("AAD") ? "T1" : "T2") : null;
+            out = {
+                "T1": {},
+                "T2": {},
+                "T1byCf": {},
+                "T2byCf": {},
+                "rivalutazioni": {},
+                "sospensioni": {},
+                "conclusioni": {},
+                errors: []
+            }
+        const type = file.toUpperCase().includes("AAD") || file.toUpperCase().includes("APS") ? (file.toUpperCase().includes("AAD") ? "T1" : "T2") : null;
         if (type) {
             let xml_string = fs.readFileSync(file, "utf8");
             const parser = new xml2js.Parser({attrkey: "ATTR"});
             parser.parseString(xml_string, function (error, result) {
                 if (error === null) {
-                    let assistenze = result[type === "T1" ? 'FlsAssDom_1': 'FlsAssDom_2']['Assistenza'];
+                    let assistenze = result[type === "T1" ? 'FlsAssDom_1' : 'FlsAssDom_2']['Assistenza'];
                     for (let assistenza of assistenze) {
                         const id = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0].toUpperCase().trim();
                         const cfById = id.substring(16, 32).toUpperCase().trim();
@@ -357,8 +488,7 @@ export class FlussoSIAD {
                 }
             });
             return out;
-        }
-        else {
+        } else {
             // exception
             throw new Error("Tipo di flusso non riconosciuto " + file);
         }
@@ -551,116 +681,153 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp=205) {
+    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: []};
+        let data = null;
+
+        // Configurazione del logger
+        const logger = winston.createLogger({
+            level: 'debug',
+            format: winston.format.combine(
+                winston.format.timestamp({
+                    format: 'YYYY-MM-DD HH:mm:ss.SSS'
+                }),
+                winston.format.printf(({level, message, timestamp}) => {
+                    return `${timestamp} [${level.toUpperCase()}] ${message}`;
+                })
+            ),
+            defaultMeta: {service: 'user-service'},
+            transports: [
+                new winston.transports.File({filename: utils.getWorkingPath() + path.sep + "logs.log"}),
+                new winston.transports.Console()
+            ]
+        });
+
+
         if (!folderOut)
             folderOut = utils.getWorkingPath();
-        let out = {errors: {globals: [], t2ditte: []},};
-        let data = {
-            "datiMinistero": {"soloT1": null, "PicNoAccessi": null},
-            "mappaDatiMinistero": null,
-            "datiTracciatiDitte": {"T1": null, "T2": null, "T1byCf": null, "T2byKey": {}},
-            "datiAster": null,
-        };
-        const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
-        const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
-        const fileSoloT1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT01");
-        const filePicNoAccessi = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT06");
-        const filesT1Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "AAD");
-        const filesT2Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "APS");
-        // mappa dati ministero
-        if (fileTracciato1Ministero.length !== 1 || fileTracciato2Ministero.length !== 1 || fileSoloT1Ministero.length !== 1 || filePicNoAccessi.length !== 1)
-            out.errors.globals.push("Problema nei files ministero, rendiconto o aster");
-        else {
-            data.mappaDatiMinistero = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
-            data.datiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0], anno);
-            data.datiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0], anno);
-        }
-        // dati ditte
-        let allFilesT1 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato1");
-        let allFilesT2 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato2");
-        if (allFilesT1.length === 0 || allFilesT2.length === 0)
-            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ditte");
-        else {
-            for (let file of allFilesT1) {
-                console.log(file);
-                let temp = await utils.getObjectFromFileExcel(file);
-                if (data.datiTracciatiDitte.T1 === null)
-                    data.datiTracciatiDitte.T1 = temp;
-                else
-                    data.datiTracciatiDitte.T1 = [...data.datiTracciatiDitte.T1, ...temp];
-            }
-            // data.datiTracciatiDitte.T1byCf
-            for (let t1row of data.datiTracciatiDitte.T1) {
-                const cf = t1row[tracciato1Maggioli[0]].trim();
-                if (data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
-                    data.datiTracciatiDitte.T1byCf[cf].push(t1row);
-                else
-                    data.datiTracciatiDitte.T1byCf[cf] = [t1row];
-            }
-
-            for (let file of allFilesT2) {
-                console.log(file);
-                let temp = await utils.getObjectFromFileExcel(file);
-                // add named property file to all rows
-                temp.forEach((row) => row.file = file);
-                if (data.datiTracciatiDitte.T2 === null)
-                    data.datiTracciatiDitte.T2 = temp;
-                else
-                    data.datiTracciatiDitte.T2 = [...data.datiTracciatiDitte.T2, ...temp];
-            }
-        }
-        // aster
-        if (filesT1Aster.length === 0 || filesT2Aster.length === 0) {
-            out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Aster");
+        // if exist folder and exist file named flussoRettificaScarti.json
+        if (fs.existsSync(folderOut) && fs.existsSync(folderOut + path.sep + dbFile)) {
+            logger.info("Esiste il file, caricamento in corso...");
+            data = await utils.leggiOggettoMP(folderOut + path.sep + dbFile);
+            logger.info("Caricamento da file completato");
         } else {
-            for (let file of [...filesT1Aster,...filesT2Aster]) {
-                console.log(file);
-                data.datiAster = this.ottieniDatiFileFlusso(file, data.datiAster);
+            data = {
+                "datiMinistero": {"soloT1": null, "PicNoAccessi": null},
+                "mappaDatiMinistero": null,
+                "datiTracciatiDitte": {"T1": null, "T2": null, "T1byCf": {}, "T2byKey": {}},
+                "datiAster": null,
+                "fromTS": {}
+            };
+            const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
+            const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
+            const fileSoloT1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT01");
+            const filePicNoAccessi = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT06");
+            const filesT1Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "AAD");
+            const filesT2Aster = utils.getAllFilesRecursive(pathFilePIC, ".xml", "APS");
+            // mappa dati ministero
+            if (fileTracciato1Ministero.length !== 1 || fileTracciato2Ministero.length !== 1 || fileSoloT1Ministero.length !== 1 || filePicNoAccessi.length !== 1)
+                out.errors.globals.push("Problema nei files ministero, rendiconto o aster");
+            else {
+                data.mappaDatiMinistero = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
+                data.datiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0], anno);
+                data.datiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0], anno);
             }
-        }
-
-        if (out.errors.globals.length === 0) {
-            let index = 0;
-            for (let t2row of data.datiTracciatiDitte.T2) {
-                const dataAttivita = moment(t2row[tracciato2Maggioli[10]], "DD/MM/YYYY");
-                const cf = t2row[tracciato2Maggioli[0]].trim();
-                const tipoOperatore = typeof t2row[tracciato2Maggioli[11]] !== "number" ? (t2row[tracciato2Maggioli[11]] && t2row[tracciato2Maggioli[11]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[11]].toString().trim()) : null) : t2row[tracciato2Maggioli[11]];
-                const tipoPrestazione = typeof t2row[tracciato2Maggioli[12]] !== "number" ? (t2row[tracciato2Maggioli[12]] && t2row[tracciato2Maggioli[12]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[12]].toString().trim()) : null) : t2row[tracciato2Maggioli[12]];
-                if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid && tipoOperatore !== null && tipoPrestazione !== null) {
-                    const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
-                    if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
-                        data.datiTracciatiDitte.T2byKey[key] = t2row;
+            // dati ditte
+            let allFilesT1 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato1");
+            let allFilesT2 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato2");
+            if (allFilesT1.length === 0 || allFilesT2.length === 0)
+                out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Ditte");
+            else {
+                for (let file of allFilesT1) {
+                    console.log(file);
+                    let temp = await utils.getObjectFromFileExcel(file);
+                    if (data.datiTracciatiDitte.T1 === null)
+                        data.datiTracciatiDitte.T1 = temp;
                     else
-                        out.errors.t2ditte.push({error: "Chiave duplicata " + key, value: t2row});
-                } else
-                    out.errors.t2ditte.push({error: "Errore in qualche campo chiave", value: t2row});
-                if (++index % 1000 === 0)
-                    console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
+                        data.datiTracciatiDitte.T1 = [...data.datiTracciatiDitte.T1, ...temp];
+                }
+                // data.datiTracciatiDitte.T1byCf
+                for (let t1row of data.datiTracciatiDitte.T1) {
+                    const cf = t1row[tracciato1Maggioli[0]].trim();
+                    if (data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
+                        data.datiTracciatiDitte.T1byCf[cf].push(t1row);
+                    else
+                        data.datiTracciatiDitte.T1byCf[cf] = [t1row];
+                }
+
+                for (let file of allFilesT2) {
+                    console.log(file);
+                    let temp = await utils.getObjectFromFileExcel(file);
+                    // add named property file to all rows
+                    temp.forEach((row) => row.file = file);
+                    if (data.datiTracciatiDitte.T2 === null)
+                        data.datiTracciatiDitte.T2 = temp;
+                    else
+                        data.datiTracciatiDitte.T2 = [...data.datiTracciatiDitte.T2, ...temp];
+                }
             }
-            const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
+            // aster
+            if (filesT1Aster.length === 0 || filesT2Aster.length === 0) {
+                out.errors.globals.push("Non sono presenti file tracciato 1 o 2 Aster");
+            } else {
+                for (let file of [...filesT1Aster, ...filesT2Aster]) {
+                    console.log(file);
+                    data.datiAster = this.ottieniDatiFileFlusso(file, data.datiAster);
+                }
+            }
 
-            for (let key of t2bykeyOrdered) {
-                const splitted = key.split("_");
-                const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
-                const cf = splitted[1];
-                const tipoOperatore = parseInt(splitted[2]);
-                const tipoPrestazione = parseInt(splitted[3]);
-                const id = regione.toString() + asp.toString() + splitted[0] + cf;
-
-                const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
-                //TODO: ha pic aperte aster?
-                const datiPicInteressate = haPicAperteMinistero ? utils.trovaPICfromData(dataAttivita.format("MM/DD/YYYY"),data.mappaDatiMinistero.perCf[cf].aperte) : null;
-                const picAssistitoAster = data.datiAster.T1byCf[cf];
-
-
-                console.log("ciao");
-
+            if (out.errors.globals.length === 0) {
+                let index = 0;
+                for (let t2row of data.datiTracciatiDitte.T2) {
+                    const dataAttivita = moment(t2row[tracciato2Maggioli[10]], "DD/MM/YYYY");
+                    const cf = t2row[tracciato2Maggioli[0]].trim();
+                    const tipoOperatore = typeof t2row[tracciato2Maggioli[11]] !== "number" ? (t2row[tracciato2Maggioli[11]] && t2row[tracciato2Maggioli[11]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[11]].toString().trim()) : null) : t2row[tracciato2Maggioli[11]];
+                    const tipoPrestazione = typeof t2row[tracciato2Maggioli[12]] !== "number" ? (t2row[tracciato2Maggioli[12]] && t2row[tracciato2Maggioli[12]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[12]].toString().trim()) : null) : t2row[tracciato2Maggioli[12]];
+                    if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid && tipoOperatore !== null && tipoPrestazione !== null) {
+                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
+                        if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
+                            data.datiTracciatiDitte.T2byKey[key] = t2row;
+                        else
+                            out.errors.t2ditte.push({error: "Chiave duplicata " + key, value: t2row});
+                    } else
+                        out.errors.t2ditte.push({error: "Errore in qualche campo chiave", value: t2row});
+                    if (++index % 1000 === 0)
+                        console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
+                }
+                let allCfT2 = [...new Set(Object.keys(data.datiTracciatiDitte.T2byKey).map(key => key.split("_")[1]))];
+                data.fromTS = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, allCfT2);
+                await utils.scriviOggettoMP(data, folderOut + path.sep + dbFile);
             }
         }
+        const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
 
+        let lastAccessoByCf = {};
+        let picAperteTempByCf = {};
 
+        for (let key of t2bykeyOrdered) {
+            const splitted = key.split("_");
+            const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
+            const cf = splitted[1];
+            const tipoOperatore = parseInt(splitted[2]);
+            const tipoPrestazione = parseInt(splitted[3]);
+
+            const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
+            //TODO: ha pic aperte aster?
+            const datiPicInteressate = haPicAperteMinistero ? utils.trovaPICfromData(dataAttivita.format("MM/DD/YYYY"), data.mappaDatiMinistero.perCf[cf].aperte) : null;
+            const picAssistitoAster = data.datiAster.T1byCf[cf];
+            const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
+
+            const id = regione.toString() + asp.toString() + splitted[0] + cf;
+
+            console.log("ciao");
+
+        }
+
+        logger.end();
         return null;
     }
+
 
     generaFlussoRettificaChiusure(pathFile, folderOut, codRegione, codASL) {
         //objRettifica = [{chiave: xx, pic:xxx, conclusione: xxx, motivazione: xxx} .... ]
@@ -745,175 +912,159 @@ export class FlussoSIAD {
         return {mappa: mappaChiavi, perCf: perCf};
     }
 
-    generaRigheTracciato1ConDefault(folder, datiRaw, nomeFile, anno, trimestre, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
-        const defaultRiga = {
-            Trasmissione: {$: {"tipo": tipo}},
-            Assistito: {
-                DatiAnagrafici: {
-                    CUNI: datoObbligatorio,
-                    validitaCI: 0,
-                    tipologiaCI: 0,
-                    AnnoNascita: datoObbligatorio,
-                    Genere: datoObbligatorio,
-                    Cittadinanza: "IT",
-                    StatoCivile: 9,
-                    ResponsabilitaGenitoriale: 3,
-                    Residenza: {
-                        Regione: codRegione,
-                        ASL: codASL,
-                        Comune: "083048"
-                    },
-                }
-            },
-            Conviventi: {
-                NucleoFamiliare: 0,
-                AssistenteNonFamiliare: 2,
-            },
-            Erogatore: {
-                CodiceRegione: codRegione,
-                CodiceASL: codASL
-            },
-            Eventi: {
-                PresaInCarico: {
-                    $: {
-                        data: datoObbligatorio,
-                        soggettoRichiedente: 9,
-                        TipologiaPIC: datoObbligatorio,
-                    },
-                    Id_Rec: datoObbligatorio,
-                },
-                Valutazione: {
-                    $: {
-                        data: datoObbligatorio,
-                    },
-                    Patologia: {
-                        Prevalente: datoObbligatorio,
-                        Concomitante: datoObbligatorio,
-                    },
-                    Autonomia: 2,
-                    GradoMobilita: 2,
-                    Disturbi: {
-                        Cognitivi: 1,
-                        Comportamentali: 1,
-                    },
-                    SupportoSociale: 1,
-                    FragilitaFamiliare: 2,
-                    RischioInfettivo: 2,
-                    RischioSanguinamento: 2,
-                    DrenaggioPosturale: 2,
-                    OssigenoTerapia: 2,
-                    Ventiloterapia: 2,
-                    Tracheostomia: 2,
-                    Alimentazione: {
-                        Assistita: 2,
-                        Enterale: 2,
-                        Parenterale: 2,
-                    },
-                    GestioneStomia: 2,
-                    ElimiUrinariaIntestinale: 2,
-                    AlterRitmoSonnoVeglia: 2,
-                    IntEduTerapeutica: 2,
-                    LesioniCute: 2,
-                    CuraUlcereCutanee12Grado: 2,
-                    CuraUlcereCutanee34Grado: 2,
-                    PrelieviVenosiNonOcc: 2,
-                    ECG: 2,
-                    Telemetria: 2,
-                    TerSottocutIntraMuscInfus: 2,
-                    GestioneCatetere: 2,
-                    Trasfusioni: 2,
-                    ControlloDolore: 2,
-                    TrattamentiRiab: {
-                        Neurologico: 2,
-                        Motorio: 2,
-                        DiMantenimento: 2,
-                    },
-                    SupervisioneContinua: 2,
-                    AssistenzaIADL: 2,
-                    AssistenzaADL: 2,
-                    SupportoCareGiver: 2,
+    gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, datiAssistiti, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
+        let riga = _.cloneDeep(defaultRiga);
+        if (rigaRaw[18].toString() === "2") {
+            // palliativa
+            riga.Erogatore.AppartenenzaRete = 1;
+            riga.Erogatore.TipoRete = 1;
+            riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
+            riga.Eventi.CurePalliative = 1;
+            riga.Valutazione.ValutazioneUCPDOM = {
+                SegnoSintomoClinico: datoObbligatorio,
+                UtilStrumentoIdentBisognoCP: datoObbligatorio,
+                UtilStrumentoValMultid: datoObbligatorio
+            }
+        }
+        riga.Erogatore.CodiceASL = codASL;
+        riga.Erogatore.CodiceRegione = codRegione;
+        riga.Trasmissione.$ = {tipo: tipo};
+        riga.Assistito.DatiAnagrafici.Residenza.Regione = codRegione;
+        riga.Assistito.DatiAnagrafici.Residenza.ASL = codASL;
+        //"083048"
+        riga.Assistito.DatiAnagrafici.CodiceComune = "083048";
+
+        for (let chiave of Object.values(tracciato1Maggioli)) {
+            const dato = rigaRaw[chiave];
+            if (dato && dato !== "") {
+                switch (chiave) {
+                    case tracciato1Maggioli[1]: //CUNI
+                        riga.Assistito.DatiAnagrafici.CUNI = dato;
+                        break;
+                    case tracciato1Maggioli[4]: //AnnoNascita
+                        riga.Assistito.DatiAnagrafici.AnnoNascita = parseInt(dato);
+                        break;
+                    case tracciato1Maggioli[5]: //Genere
+                        riga.Assistito.DatiAnagrafici.Genere = parseInt(dato);
+                        break;
+                    case tracciato1Maggioli[15]: //Data Presa In Carico
+                        riga.Eventi.PresaInCarico.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
+                        break;
+                    case tracciato1Maggioli[19]: //data valutazione iniziale
+                        riga.Eventi.Valutazione.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
+                        break;
+                    case tracciato1Maggioli[18]: //Tipo PIC
+                        riga.Eventi.PresaInCarico.$.TipologiaPIC = parseInt(dato);
+                        break;
+                    case tracciato1Maggioli[54]: //Patologia prevalente
+                        riga.Eventi.Valutazione.Patologia.Prevalente = dato;
+                        break;
+                    case tracciato1Maggioli[55]: //Patologia concomitante
+                        riga.Eventi.Valutazione.Patologia.Concomitante = dato;
+                        break;
                 }
             }
         }
-        let out = [];
-        for (let datoRaw of datiRaw) {
-            let riga = _.cloneDeep(defaultRiga);
-            if (datiRaw[18].toString() === "2") {
-                // palliativa
-                riga.Erogatore.AppartenenzaRete = 1;
-                riga.Erogatore.TipoRete = 1;
-                riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-                riga.Eventi.CurePalliative = 1;
-                riga.Valutazione.ValutazioneUCPDOM = {
-                    SegnoSintomoClinico: datoObbligatorio,
-                    UtilStrumentoIdentBisognoCP: datoObbligatorio,
-                    UtilStrumentoValMultid: datoObbligatorio
-                }
-            }
+        riga.Eventi.PresaInCarico.Id_Rec = codRegione + codASL + riga.Eventi.PresaInCarico.$.data + riga.Assistito.DatiAnagrafici.CUNI;
+        return riga;
+    }
 
-            for (let chiave of Object.values(tracciato1Maggioli)) {
-                const dato = datoRaw[chiave];
-                if (dato && dato !== "") {
-                    switch (chiave) {
-                        case tracciato1Maggioli[1]: //CUNI
-                            riga.Assistito.DatiAnagrafici.CUNI = dato;
-                            break;
-                        case tracciato1Maggioli[4]: //AnnoNascita
-                            riga.Assistito.DatiAnagrafici.AnnoNascita = parseInt(dato);
-                            break;
-                        case tracciato1Maggioli[5]: //Genere
-                            riga.Assistito.DatiAnagrafici.Genere = parseInt(dato);
-                            break;
-                        case tracciato1Maggioli[15]: //Data Presa In Carico
-                            riga.Eventi.PresaInCarico.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
-                            break;
-                        case tracciato1Maggioli[19]: //data valutazione iniziale
-                            riga.Eventi.Valutazione.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
-                            break;
-                        case tracciato1Maggioli[18]: //Tipo PIC
-                            riga.Eventi.PresaInCarico.$.TipologiaPIC = parseInt(dato);
-                            break;
-                        case tracciato1Maggioli[54]: //Patologia prevalente
-                            riga.Eventi.Valutazione.Patologia.Prevalente = dato;
-                            break;
-                        case tracciato1Maggioli[55]: //Patologia concomitante
-                            riga.Eventi.Valutazione.Patologia.Concomitante = dato;
-                            break;
-                    }
-                }
-            }
-            riga.Eventi.PresaInCarico.Id_Rec = codRegione + codASL + riga.Eventi.PresaInCarico.$.data + riga.Assistito.DatiAnagrafici.CUNI;
-            out.push(riga);
+
+    generaNuovaErogazioneT2FromData(data, tipoOperatore, tipoAccesso, tipoPrestazione, numAccessi = 1, numPrestazione = 1) {
+        let erogazione = _.cloneDeep(defaultErogazioneRigaT2);
+        erogazione.$ = {tipoAccesso: tipoAccesso.toString(), numAccessi: numAccessi.toString(), data: data};
+        erogazione.TipoOperatore = tipoOperatore;
+        erogazione.Prestazioni.TipoPrestazione = tipoPrestazione.toString();
+        erogazione.Prestazioni.numPrestazione = numPrestazione.toString();
+        return erogazione;
+    }
+
+    generaNuovaRigaTracciato2FromIdRec(allData, idRec, dataPic, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
+        if (!allData.hasOwnProperty(idRec)) {
+            let riga = _.cloneDeep(defaultRigaT2);
+            riga.Erogatore.CodiceASL = codASL;
+            riga.Erogatore.CodiceRegione = codRegione;
+            riga.Trasmissione.$ = {tipo: tipo};
+            riga.Eventi.PresaInCarico.$.data = dataPic;
+            riga.Eventi.PresaInCarico.Id_Rec = idRec;
+            allData[idRec] = riga;
         }
+        return allData;
+    }
 
-        // ogni dato obbligatorio deve essere valorizzato, verifichiamo che ne sia rimasto qualcuno
-        let ris = this.verificaPresenzaDiDatiMancanti(out, nomeFile);
+    aggiungiErogazioniTracciato2FromId(allData, idRec, erogazioni) {
+        if (allData.hasOwnProperty(idRec)) {
+            if (!allData[idRec].Eventi.hasOwnProperty("Erogazione"))
+                allData[idRec].Eventi.Erogazione = [];
+            allData[idRec].Eventi.Erogazione.push(...erogazioni);
+        }
+        return allData;
+    }
+
+
+    generaTracciato2Corretto(folder, t2Data, nomeFile, anno, trimestre, codRegione = "190", codASL = "205") {
+        let ris = this.verificaPresenzaDiDatiMancantiT2(Object.values(t2Data), nomeFile);
+        if (ris.ok) {
+            const builder = new xml2js.Builder();
+            const obj = {
+                FlsAssDom_2: {
+                    $: {"xmlns": "http://flussi.mds.it/flsassdom_2"},
+                    Assistenza: Object.values(t2Data)
+                }
+            };
+            const xml = builder.buildObject(obj);
+            fs.writeFileSync(folder + path.sep + codRegione + codASL + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_APS_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
+            return true;
+        } else return false;
+    }
+
+    generaTracciato1Corretto(folder, t1Data, nomeFile, anno, trimestre, codRegione = "190", codASL = "205") {
+        let ris = this.verificaPresenzaDiDatiMancantiT1(t1Data, nomeFile);
         if (ris.ok) {
             const builder = new xml2js.Builder();
             const obj = {
                 FlsAssDom_1: {
                     $: {"xmlns": "http://flussi.mds.it/flsassdom_1"},
-                    Assistenza: out
+                    Assistenza: t1Data
                 }
             };
             const xml = builder.buildObject(obj);
             fs.writeFileSync(folder + path.sep + codRegione + codASL + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_AAD_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
             return true;
         } else return false;
-
     }
 
-    verificaPresenzaDiDatiMancanti(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
+    verificaPresenzaDiDatiMancantiT2(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
         if (!ris)
             ris = {ok: true, fullArray: oggetto, numeFile: id, errore: []};
         if (Array.isArray(oggetto)) {
             for (let dato of oggetto) {
-                ris = this.verificaPresenzaDiDatiMancanti(dato, dato.Eventi.PresaInCarico.Id_Rec, ris);
+                ris = this.verificaPresenzaDiDatiMancantiT2(dato, dato.Eventi?.PresaInCarico?.Id_Rec ?? null, ris);
             }
         } else {
             for (let chiave of Object.keys(oggetto)) {
                 if (typeof oggetto[chiave] === "object")
-                    ris = this.verificaPresenzaDiDatiMancanti(oggetto[chiave], id, ris);
+                    ris = this.verificaPresenzaDiDatiMancantiT2(oggetto[chiave], id, ris);
+                else if (oggetto[chiave] === datoDaVerificare) {
+                    ris.ok = false;
+                    ris.errore.push({chiave: chiave, valore: oggetto[chiave], id: id});
+                }
+            }
+        }
+        return ris;
+    }
+
+    verificaPresenzaDiDatiMancantiT1(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
+        if (!ris)
+            ris = {ok: true, fullArray: oggetto, numeFile: id, errore: []};
+        if (Array.isArray(oggetto)) {
+            for (let dato of oggetto) {
+                ris = this.verificaPresenzaDiDatiMancantiT1(dato, dato.Eventi.PresaInCarico.Id_Rec, ris);
+            }
+        } else {
+            for (let chiave of Object.keys(oggetto)) {
+                if (typeof oggetto[chiave] === "object")
+                    ris = this.verificaPresenzaDiDatiMancantiT1(oggetto[chiave], id, ris);
                 else if (oggetto[chiave] === datoDaVerificare) {
                     ris.ok = false;
                     ris.errore.push({chiave: chiave, valore: oggetto[chiave], id: id});

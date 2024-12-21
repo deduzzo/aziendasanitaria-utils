@@ -570,7 +570,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = true, numParallelsJobs = 20, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];

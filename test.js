@@ -13,6 +13,8 @@ import {Procedure} from "./src/Procedure.js";
 import DBHelper from "./src/db/DBHelper.js";
 import {flussiRegioneSicilia} from "./index.js";
 import config from './src/config.js';
+import winston from "winston";
+import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
 
 (async () => {
     //await flussiRegioneSicilia.flussoM.eseguiElaborazioneCompletaFlussoMDaCartella( true,true,true);
@@ -79,7 +81,7 @@ import config from './src/config.js';
     }
 
     const assistiti = new Assistiti(impostazioniEsterni);
-    const flussoSiad = new flussiRegioneSicilia.FlussoSIAD(impostazioniMessina);
+    const flussoSiad = new flussiRegioneSicilia.FlussoSIAD(impostazioniMessina, impostazioniEsterni);
 
     //let out1 = await flussoSiad.importaTracciato2ChiaviValideAssessorato("/Users/deduzzo/Downloads/ChiaviValide_SIAD_AP2_Prestazioni_Sanitarie.xlsx");
     //let out2 = await flussoSiad.importaTracciato1ChiaviValideAssessorato("/Users/deduzzo/Downloads/ChiaviValide_SIAD_AA2_Anagrafica_Assistenza_Domiciliare.xlsx");
@@ -93,9 +95,22 @@ import config from './src/config.js';
     let nomeFile = "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/OTTOBRE/ADI_ADISICILIA2_202410_tracciato1_out.xlsx";
     //let res = await flussoSiad.generaMappaPICT1("/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/DATI ASTER//PER MESE//");
 
+    let testT2 = {};
+    flussoSiad.generaNuovaRigaTracciato2FromIdRec(testT2, "2024-01-02","test1");
+    flussoSiad.generaNuovaRigaTracciato2FromIdRec(testT2, "2024-01-01", "test2");
+
+    let erogazioni = [flussoSiad.generaNuovaErogazioneT2FromData("2024-01-01", "1", "1", "1")];
+    erogazioni.push(flussoSiad.generaNuovaErogazioneT2FromData("2024-01-02", "1", "1", "1"));
+    erogazioni.push(flussoSiad.generaNuovaErogazioneT2FromData("2024-01-03", "1", "1", "1"));
+    erogazioni.push(flussoSiad.generaNuovaErogazioneT2FromData("2024-01-04", "1", "1", "1"));
+
+    flussoSiad.aggiungiErogazioniTracciato2FromId(testT2, "2024-01-01", erogazioni);
+
+    flussoSiad.generaTracciato2Corretto(utils.getWorkingPath(), testT2, "test1", 2024, 1);
+
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
     let res = await flussoSiad.generaFlussoRettificaScarti(
-        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2023-2024 pulito/",
+        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024 pulito/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/",
         2024,

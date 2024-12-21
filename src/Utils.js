@@ -8,11 +8,17 @@ import MsgReader from '@freiraum/msgreader';
 import pdf2html from "pdf2html";
 import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
-import {Parser} from "@marketto/codice-fiscale-utils";
+//import {Parser} from "@marketto/codice-fiscale-utils";
 import os from "os";
 import {existsSync, mkdirSync} from "fs";
 import libre from "libreoffice-convert";
 import {promisify} from "util";
+import BigJSON from "big-json";
+import { parse } from 'JSONStream';
+import * as LZString from "lz-string";
+import Loki from 'lokijs';
+import {pack, Packr, unpack} from "msgpackr";
+import zlib from 'zlib';
 
 const mesi = {
     "01": "Gennaio",
@@ -374,6 +380,73 @@ const scriviOggettoSuFile = async (filename, data) => {
 }
 
 
+const scriviGrossoOggettoSuFileJSON = (filename, data) => {
+    return new Promise((resolve, reject) => {
+        const writeStream = fs.createWriteStream(filename);
+        const stringifyStream = BigJSON.createStringifyStream({
+            body: data
+        });
+
+        stringifyStream.pipe(writeStream);
+
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+    });
+}
+
+const leggiOggettoMP = async (filename = "dati.bin") => {
+
+    const ungzip = promisify(zlib.gunzip);
+
+    const packr = new Packr({
+        variableMapSize: true,
+        useRecords: false,
+        structuredClone: true,
+        moreTypes: true,
+        useFloat32: false
+    });
+
+    try {
+        console.log('🚀 Lettura file...');
+        const buffer = await fs.promises.readFile(filename);
+
+        console.log('🚀 Decompressione GZIP...');
+        const decompressed = await ungzip(buffer);
+
+        console.log('🚀 Decompressione MessagePack...');
+        return packr.unpack(decompressed);
+    } catch (error) {
+        console.log('🚀 Errore:', error);
+        return null
+    }
+};
+
+const scriviOggettoMP = async (data, filename = "dati.bin") => {
+    const packr = new Packr({
+        variableMapSize: true,
+        useRecords: false,
+        structuredClone: true,
+        moreTypes: true,           // Supporto per più tipi di dati
+        useFloat32: false          // Usa float64 per maggiore precisione
+    });
+
+    const gzip = promisify(zlib.gzip);
+
+
+    console.log('🚀 Compressione dati MessagePack...');
+    const packed = packr.pack(data);
+
+    console.log('🚀 Compressione GZIP...');
+    const compressed = await gzip(packed, { level: 9 }); // massimo livello di compressione
+
+    console.log('🚀 Salvataggio file...');
+    await fs.promises.writeFile(filename, compressed);
+
+    console.log('🚀 Completato');
+};
+
+
+
 const estraiDataDiNascita = (codiceFiscale) => {
     // Estra i caratteri relativi alla data di nascita
     let anno = parseInt(codiceFiscale.substring(6, 8));
@@ -699,5 +772,8 @@ export const utils = {
     convertDocxToPdf,
     riunisciJsonDaTag,
     replaceNullWithEmptyString,
-    trovaPICfromData
+    trovaPICfromData,
+    scriviGrossoOggettoSuFileJSON,
+    leggiOggettoMP,
+    scriviOggettoMP
 }
