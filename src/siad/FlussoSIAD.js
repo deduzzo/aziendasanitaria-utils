@@ -10,6 +10,7 @@ import {Assistiti} from "../narTsServices/Assistiti.js";
 import _ from "lodash";
 import {pack, unpack} from "msgpackr";
 import winston from "winston";
+import {format} from "winston"
 
 const tracciato1 = {
     CUNI: "CUNI",
@@ -682,27 +683,23 @@ export class FlussoSIAD {
     }
 
     async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp = 205, dbFile = "siad.mpdb") {
-        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: []};
+        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: [],attivitaT1Successivi: {}};
         let data = null;
 
-        // Configurazione del logger
         const logger = winston.createLogger({
-            level: 'debug',
-            format: winston.format.combine(
-                winston.format.timestamp({
-                    format: 'YYYY-MM-DD HH:mm:ss.SSS'
-                }),
-                winston.format.printf(({level, message, timestamp}) => {
-                    return `${timestamp} [${level.toUpperCase()}] ${message}`;
-                })
+            level: 'info',
+            format: format.combine(
+                format.splat(),
+                format.simple()
             ),
             defaultMeta: {service: 'user-service'},
             transports: [
-                new winston.transports.File({filename: utils.getWorkingPath() + path.sep + "logs.log"}),
+                new winston.transports.File({
+                    filename: utils.getWorkingPath() + path.sep + "logs.log",
+                }),
                 new winston.transports.Console()
             ]
         });
-
 
         if (!folderOut)
             folderOut = utils.getWorkingPath();
@@ -713,7 +710,7 @@ export class FlussoSIAD {
             logger.info("Caricamento da file completato");
         } else {
             data = {
-                "datiMinistero": {"soloT1": null, "PicNoAccessi": null},
+                "datiMinistero": {"soloT1": null, "PicNoAccessi": null, soloT1bycf: {}, PicNoAccessibyCf: {}},
                 "mappaDatiMinistero": null,
                 "datiTracciatiDitte": {"T1": null, "T2": null, "T1byCf": {}, "T2byKey": {}},
                 "datiAster": null,
@@ -732,6 +729,20 @@ export class FlussoSIAD {
                 data.mappaDatiMinistero = await this.creaMappaChiaviValideAssessorato(fileTracciato1Ministero[0], fileTracciato2Ministero[0], anno);
                 data.datiMinistero.soloT1 = await this.importaAssistitiSoloTracciato1Assessorato(fileSoloT1Ministero[0], anno);
                 data.datiMinistero.PicNoAccessi = await this.importaPicSenzaAccessiAssessorato(filePicNoAccessi[0], anno);
+                data.datiMinistero.soloT1.forEach((item) => {
+                    const cf = item["ID RECORD"].substring(16, 32);
+                    if (data.datiMinistero.soloT1bycf.hasOwnProperty(cf))
+                        data.datiMinistero.soloT1bycf[cf].push(item);
+                    else
+                        data.datiMinistero.soloT1bycf[cf] = [item];
+                });
+                data.datiMinistero.PicNoAccessi.forEach((item) => {
+                    const cf = item["ID RECORD"].substring(16, 32);
+                    if (data.datiMinistero.PicNoAccessibyCf.hasOwnProperty(cf))
+                        data.datiMinistero.PicNoAccessibyCf[cf].push(item);
+                    else
+                        data.datiMinistero.PicNoAccessibyCf[cf] = [item];
+                });
             }
             // dati ditte
             let allFilesT1 = utils.getAllFilesRecursive(pathFileDitte, ".xlsx", "tracciato1");
@@ -801,7 +812,6 @@ export class FlussoSIAD {
             }
         }
         const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
-
         let lastAccessoByCf = {};
         let picAperteTempByCf = {};
 
@@ -814,16 +824,49 @@ export class FlussoSIAD {
 
             const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
             //TODO: ha pic aperte aster?
-            const datiPicInteressate = haPicAperteMinistero ? utils.trovaPICfromData(dataAttivita.format("MM/DD/YYYY"), data.mappaDatiMinistero.perCf[cf].aperte) : null;
+            const datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita.format("MM/DD/YYYY")) : null;
+            const datiPicAster = utils.trovaPICfromData(Object.keys(data.datiAster.T2byCf[cf]), dataAttivita.format("MM/DD/YYYY"));
             const picAssistitoAster = data.datiAster.T1byCf[cf];
+            const picAssistitoDitte = data.datiTracciatiDitte.T1byCf[cf];
             const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
+            //const id = regione.toString() + asp.toString() + splitted[0] + cf;
+            if (haPicAperteMinistero) {
+                logger.info("L'attività " + key + " ha " + Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length + " aperte in ministero");
+                if (!datiPicAperteMinistero) {
+                    logger.info("L'attività " + key + " non puà essere inviata in quanto non ha pic valide in ministero per la data " + dataAttivita.format("MM/DD/YYYY") +
+                        ". Inseriamo l'assistito in una lista a parte in attesa di avere almeno un attività.");
+                    if (!out.attivitaT1Successivi.hasOwnProperty(cf))
+                        out.attivitaT1Successivi[cf] = [];
+                    out.attivitaT1Successivi[cf].push(key);
+                }
+                else {
+                    if (datiPicAperteMinistero.precedenti.length > 0) {
+                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
+                        // TODO: chiudi pic precedenti
 
-            const id = regione.toString() + asp.toString() + splitted[0] + cf;
-
-            console.log("ciao");
-
+                    }
+                    if (data.datiMinistero.soloT1.hasOwnProperty(cf) || data.datiMinistero.soloT1.hasOwnProperty(cf)) {
+                        console.log("ciao");
+                    }
+                }
+            }
+            else {
+                logger.info("L'attività " + key + " non ha pic aperte in ministero");
+                const t1ByDitte = data.datiTracciatiDitte.T1byCf[cf];
+                const t1ByAster = data.datiAster.T1[datiPicAster.corrente];
+                if (t1ByDitte) {
+                    console.log("ciao");
+                }else if (t1ByAster) {
+                    let tempT1 = _.cloneDeep(defaultRigaT1);
+                    console.log("ciao");
+                }
+                else {
+                    // TODO: è un problema
+                    console.log("ciao");
+                }
+                console.log("ciao");
+            }
         }
-
         logger.end();
         return null;
     }
@@ -913,7 +956,7 @@ export class FlussoSIAD {
     }
 
     gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, datiAssistiti, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
-        let riga = _.cloneDeep(defaultRiga);
+        let riga = _.cloneDeep(defaultRigaT1);
         if (rigaRaw[18].toString() === "2") {
             // palliativa
             riga.Erogatore.AppartenenzaRete = 1;
