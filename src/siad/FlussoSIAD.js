@@ -687,8 +687,8 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp = 205, dbFile = "siad.mpdb") {
-        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: [], attivitaT1Successivi: {}};
+    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+        let out = {errors: {globals: [], t2ditte: []}, T1: {}, T2: {}, attivitaT1Successivi: {}};
         let data = null;
 
         const logger = winston.createLogger({
@@ -699,9 +699,9 @@ export class FlussoSIAD {
             ),
             defaultMeta: {service: 'user-service'},
             transports: [
-                new winston.transports.File({
+/*                new winston.transports.File({
                     filename: utils.getWorkingPath() + path.sep + "logs.log",
-                }),
+                }),*/
                 new winston.transports.Console()
             ]
         });
@@ -821,24 +821,27 @@ export class FlussoSIAD {
         let picAperteTempByCf = {};
 
         for (let key of t2bykeyOrdered) {
+
+            console.log(key);
+            // debug
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             const cf = splitted[1];
-            const tipoOperatore = parseInt(splitted[2]);
-            const tipoPrestazione = parseInt(splitted[3]);
+            const tipoOperatore = parseInt(splitted[2]).toString();
+            const tipoPrestazione = parseInt(splitted[3]).toString();
 
             const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
             //TODO: ha pic aperte aster?
             const datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita.format("MM/DD/YYYY")) : null;
-            const datiPicAster = utils.trovaPICfromData(Object.keys(data.datiAster.T2byCf[cf]), dataAttivita.format("MM/DD/YYYY"));
             const picAssistitoAster = data.datiAster.T1byCf[cf];
+            const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita.format("MM/DD/YYYY")) : null;
             const picAssistitoDitte = data.datiTracciatiDitte.T1byCf[cf];
             const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
             //const id = regione.toString() + asp.toString() + splitted[0] + cf;
             if (haPicAperteMinistero) {
                 logger.info("L'attività " + key + " ha " + Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length + " aperte in ministero");
                 if (!datiPicAperteMinistero) {
-                    logger.info("L'attività " + key + " non puà essere inviata in quanto non ha pic valide in ministero per la data " + dataAttivita.format("MM/DD/YYYY") +
+                    logger.info("L'attività " + key + " non può essere inviata in quanto non ha pic valide in ministero per la data " + dataAttivita.format("MM/DD/YYYY") +
                         ". Inseriamo l'assistito in una lista a parte in attesa di avere almeno un attività.");
                     if (!out.attivitaT1Successivi.hasOwnProperty(cf))
                         out.attivitaT1Successivi[cf] = [];
@@ -846,44 +849,73 @@ export class FlussoSIAD {
                 } else {
                     if (datiPicAperteMinistero.precedenti.length > 0) {
                         logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
-                        // TODO: chiudi pic precedenti
-
+                        for (let i = 0; i<datiPicAperteMinistero.precedenti.length; i++) {
+                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                                out.T2,
+                                datiPicAperteMinistero.precedenti[i]);
+                            // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
+                            let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6,16);
+                            this.aggiungiConclusioneTracciato2FromId(
+                                out.T2,
+                                datiPicAperteMinistero.precedenti[i],
+                                dataConclusione);
+                        }
+                    }
+                    if (datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
+                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.successive.length + " pic successive in ministero. Attendiamo di popolare l'ultima");
+                    }
+                    else if (datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
+                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.successive.length + " pic successive in ministero. Possiamo procedere con l'invio");
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2,
+                            datiPicAperteMinistero.corrente);
+                        let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
+                            dataAttivita.format("YYYY-MM-DD"),
+                            tipoOperatore,
+                            tipoPrestazione);
+                        this.aggiungiErogazioniTracciato2FromId(
+                            out.T2,
+                            datiPicAperteMinistero.corrente,
+                            erogazioneTemp);
                     }
                     if (data.datiMinistero.soloT1.hasOwnProperty(cf) || data.datiMinistero.soloT1.hasOwnProperty(cf)) {
-                        console.log("ciao");
+                        logger.info("L'attività " + key + " risultava mai trattata");
                     }
                 }
-            } else {
+            } else if (datiPicAster) {
                 logger.info("L'attività " + key + " non ha pic aperte in ministero");
                 const t1ByDitte = data.datiTracciatiDitte.T1byCf[cf];
                 const t1ByAster = data.datiAster.T1[datiPicAster.corrente];
-                if (t1ByDitte) {
-
-                    console.log("ciao");
-                } else if (t1ByAster) {
+                if (t1ByAster) {
                     let tempT1 = _.cloneDeep(defaultRigaT1);
-                    this.copiaValutazioneNuovoTracciato1(t1ByAster, tempT1)
+                    let tipoPic = (tipoPrestazione >21 && tipoPrestazione <29) ? "2" : "1";
+                    tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita,tipoPic)
 
-                    console.log("ciao");
+                    console.log("bau");
+                } else if (t1ByDitte) {
+                    console.log("importare tracciato 1 da ditta, ma serve valutazione");
                 } else {
                     // TODO: è un problema
-                    console.log("ciao");
+                    console.log("non abbiamo t1, problema");
                 }
-                console.log("ciao");
+            }
+            else {
+                console.log("problema");
             }
         }
         logger.end();
         return null;
     }
 
-    copiaT1AsterSuRigaDefault = (rigaSorgente,rigaDestinazione, dataPic, tipoPic = 1, trasmissione = "I") => {
+    copiaT1AsterSuRigaDefault = (rigaSorgente,rigaDestinazione, dataPic, tipoPic = "1", trasmissione = "I") => {
         rigaDestinazione.Trasmissione.$.tipo = trasmissione;
         rigaDestinazione.Assistito.DatiAnagrafici.CUNI = rigaSorgente.Assistito[0].DatiAnagrafici[0].CUNI[0];
         rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Genere = rigaSorgente.Assistito[0].DatiAnagrafici[0].Genere[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Cittadinanza = rigaSorgente.Assistito[0].DatiAnagrafici[0].Cittadinanza[0];
         rigaDestinazione.Assistito.DatiAnagrafici.StatoCivile = rigaSorgente.Assistito[0].DatiAnagrafici[0].StatoCivile[0];
-        rigaDestinazione.Assistito.DatiAnagrafici.ResponsabilitaGenitoriale = rigaSorgente.Assistito[0].DatiAnagrafici[0].ResponsabilitaGenitoriale[0];
+        if (rigaSorgente.Assistito[0].DatiAnagrafici[0].hasOwnProperty("ResponsabilitaGenitoriale"))
+            rigaDestinazione.Assistito.DatiAnagrafici.ResponsabilitaGenitoriale = rigaSorgente.Assistito[0].DatiAnagrafici[0].ResponsabilitaGenitoriale[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Regione = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Regione[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Residenza.ASL = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].ASL[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Comune = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Comune[0];
@@ -891,7 +923,7 @@ export class FlussoSIAD {
         rigaDestinazione.Conviventi.AssistenteNonFamiliare = rigaSorgente.Conviventi[0].AssistenteNonFamiliare[0];
         rigaDestinazione.Erogatore.CodiceRegione = rigaSorgente.Erogatore[0].CodiceRegione[0];
         rigaDestinazione.Erogatore.CodiceASL = rigaSorgente.Erogatore[0].CodiceASL[0];
-        rigaDestinazione.Eventi.PresaInCarico.$.data = moment(dataPic, "DD/MM/YYYY").format("YYYY-MM-DD");
+        rigaDestinazione.Eventi.PresaInCarico.$.data = dataPic.format("YYYY-MM-DD");
         rigaDestinazione.Eventi.PresaInCarico.$.TipologiaPIC = tipoPic;
         rigaDestinazione.Eventi.PresaInCarico.Id_Rec = rigaDestinazione.Erogatore.CodiceRegione + rigaDestinazione.Erogatore.CodiceASL + rigaDestinazione.Eventi.PresaInCarico.$.data + rigaDestinazione.Assistito.DatiAnagrafici.CUNI;
         rigaDestinazione.Eventi.Valutazione.$.data = rigaSorgente.Eventi[0].Valutazione[0]['ATTR'].data[0];
@@ -902,13 +934,16 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.Disturbi.Cognitivi = rigaSorgente.Eventi[0].Valutazione[0].Disturbi[0].Cognitivi[0];
         rigaDestinazione.Eventi.Valutazione.Disturbi.Comportamentali = rigaSorgente.Eventi[0].Valutazione[0].Disturbi[0].Comportamentali[0];
         rigaDestinazione.Eventi.Valutazione.SupportoSociale = rigaSorgente.Eventi[0].Valutazione[0].SupportoSociale[0];
-        rigaDestinazione.Eventi.Valutazione.FragilitaFamiliare = rigaSorgente.Eventi[0].Valutazione[0].FragilitaFamiliare[0];
+        if (rigaSorgente.Eventi[0].Valutazione[0].hasOwnProperty("FragilitaFamiliare"))
+            rigaDestinazione.Eventi.Valutazione.FragilitaFamiliare = rigaSorgente.Eventi[0].Valutazione[0].FragilitaFamiliare[0];
         rigaDestinazione.Eventi.Valutazione.RischioInfettivo = rigaSorgente.Eventi[0].Valutazione[0].RischioInfettivo[0];
-        rigaDestinazione.Eventi.Valutazione.RischioSanguinamento = rigaSorgente.Eventi[0].Valutazione[0].RischioSanguinamento[0];
+        if (rigaSorgente.Eventi[0].Valutazione[0].hasOwnProperty("RischioSanguinamento"))
+            rigaDestinazione.Eventi.Valutazione.RischioSanguinamento = rigaSorgente.Eventi[0].Valutazione[0].RischioSanguinamento[0];
         rigaDestinazione.Eventi.Valutazione.DrenaggioPosturale = rigaSorgente.Eventi[0].Valutazione[0].DrenaggioPosturale[0];
         rigaDestinazione.Eventi.Valutazione.OssigenoTerapia = rigaSorgente.Eventi[0].Valutazione[0].OssigenoTerapia[0];
         rigaDestinazione.Eventi.Valutazione.Ventiloterapia = rigaSorgente.Eventi[0].Valutazione[0].Ventiloterapia[0];
-        rigaDestinazione.Eventi.Valutazione.Tracheostomiaventiloterapia = rigaSorgente.Eventi[0].Valutazione[0].Tracheostomiaventiloterapia[0];
+        if (rigaSorgente.Eventi[0].Valutazione[0].hasOwnProperty("Tracheostomiaventiloterapia"))
+            rigaDestinazione.Eventi.Valutazione.Tracheostomiaventiloterapia = rigaSorgente.Eventi[0].Valutazione[0].Tracheostomiaventiloterapia[0];
         rigaDestinazione.Eventi.Valutazione.Alimentazione.Assistita = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Assistita[0];
         rigaDestinazione.Eventi.Valutazione.Alimentazione.Enterale = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Enterale[0];
         rigaDestinazione.Eventi.Valutazione.Alimentazione.Parenterale = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Parenterale[0];
@@ -916,7 +951,8 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.ElimiUrinariaIntestinale = rigaSorgente.Eventi[0].Valutazione[0].ElimiUrinariaIntestinale[0];
         rigaDestinazione.Eventi.Valutazione.AlterRitmoSonnoVeglia = rigaSorgente.Eventi[0].Valutazione[0].AlterRitmoSonnoVeglia[0];
         rigaDestinazione.Eventi.Valutazione.IntEduTerapeutica = rigaSorgente.Eventi[0].Valutazione[0].IntEduTerapeutica[0];
-        rigaDestinazione.Eventi.Valutazione.LesioniCute = rigaSorgente.Eventi[0].Valutazione[0].LesioniCute[0];
+        if (rigaSorgente.Eventi[0].Valutazione[0].hasOwnProperty("LesioniCute"))
+            rigaDestinazione.Eventi.Valutazione.LesioniCute = rigaSorgente.Eventi[0].Valutazione[0].LesioniCute[0];
         rigaDestinazione.Eventi.Valutazione.CuraUlcereCutanee12Grado = rigaSorgente.Eventi[0].Valutazione[0].CuraUlcereCutanee12Grado[0];
         rigaDestinazione.Eventi.Valutazione.CuraUlcereCutanee34Grado = rigaSorgente.Eventi[0].Valutazione[0].CuraUlcereCutanee34Grado[0];
         rigaDestinazione.Eventi.Valutazione.PrelieviVenosiNonOcc = rigaSorgente.Eventi[0].Valutazione[0].PrelieviVenosiNonOcc[0];
@@ -924,7 +960,28 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.Telemetria = rigaSorgente.Eventi[0].Valutazione[0].Telemetria[0];
         rigaDestinazione.Eventi.Valutazione.TerSottocutIntraMuscInfus = rigaSorgente.Eventi[0].Valutazione[0].TerSottocutIntraMuscInfus[0];
         rigaDestinazione.Eventi.Valutazione.GestioneCatetere = rigaSorgente.Eventi[0].Valutazione[0].GestioneCatetere[0];
-        rigaDestinazione.Eventi.Valutazione.Trasfusioni
+        rigaDestinazione.Eventi.Valutazione.Trasfusioni = rigaSorgente.Eventi[0].Valutazione[0].Trasfusioni[0];
+        rigaDestinazione.Eventi.Valutazione.ControlloDolore = rigaSorgente.Eventi[0].Valutazione[0].ControlloDolore[0];
+        rigaDestinazione.Eventi.Valutazione.TrattamentiRiab.Neurologico = rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].Neurologico[0];
+        if (rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].hasOwnProperty("Motorio"))
+            rigaDestinazione.Eventi.Valutazione.TrattamentiRiab.Motorio = rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].Motorio[0];
+        rigaDestinazione.Eventi.Valutazione.TrattamentiRiab.DiMantenimento = rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].DiMantenimento[0];
+        rigaDestinazione.Eventi.Valutazione.SupervisioneContinua = rigaSorgente.Eventi[0].Valutazione[0].SupervisioneContinua[0];
+        rigaDestinazione.Eventi.Valutazione.AssistenzaIADL = rigaSorgente.Eventi[0].Valutazione[0].AssistenzaIADL[0];
+        rigaDestinazione.Eventi.Valutazione.AssistenzaADL = rigaSorgente.Eventi[0].Valutazione[0].AssistenzaADL[0];
+        rigaDestinazione.Eventi.Valutazione.SupportoCareGiver = rigaSorgente.Eventi[0].Valutazione[0].SupportoCareGiver[0];
+        if (tipoPic === "2") {
+            rigaDestinazione.Erogatore.AppartenenzaRete = 1;
+            rigaDestinazione.Erogatore.TipoRete = 1;
+            rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
+            rigaDestinazione.Eventi.CurePalliative = 1;
+            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
+                    SegnoSintomoClinico: datoObbligatorio,
+                    UtilStrumentoIdentBisognoCP: datoObbligatorio,
+                    UtilStrumentoValMultid: datoObbligatorio
+                }
+        }
+        return rigaDestinazione;
     }
 
 
@@ -1011,8 +1068,6 @@ export class FlussoSIAD {
         return {mappa: mappaChiavi, perCf: perCf};
     }
 
-    generaRigaTracciato1DaAster
-
     gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, datiAssistiti, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
         let riga = _.cloneDeep(defaultRigaT1);
         if (rigaRaw[18].toString() === "2") {
@@ -1071,7 +1126,7 @@ export class FlussoSIAD {
     }
 
 
-    generaNuovaErogazioneT2FromData(data, tipoOperatore, tipoAccesso, tipoPrestazione, numAccessi = 1, numPrestazione = 1) {
+    generaNuovaErogazioneT2FromData(data, tipoOperatore, tipoPrestazione,tipoAccesso = "1", numAccessi = "1", numPrestazione = "1") {
         let erogazione = _.cloneDeep(defaultErogazioneRigaT2);
         erogazione.$ = {tipoAccesso: tipoAccesso.toString(), numAccessi: numAccessi.toString(), data: data};
         erogazione.TipoOperatore = tipoOperatore;
@@ -1080,12 +1135,14 @@ export class FlussoSIAD {
         return erogazione;
     }
 
-    generaNuovaRigaTracciato2FromIdRec(allData, idRec, dataPic, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
+    generaNuovaRigaTracciato2FromIdRecSeNonEsiste(allData, idRec, dataPic = null, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
         if (!allData.hasOwnProperty(idRec)) {
             let riga = _.cloneDeep(defaultRigaT2);
             riga.Erogatore.CodiceASL = codASL;
             riga.Erogatore.CodiceRegione = codRegione;
             riga.Trasmissione.$ = {tipo: tipo};
+            if (!dataPic)
+                dataPic = idRec.substring(6,16);
             riga.Eventi.PresaInCarico.$.data = dataPic;
             riga.Eventi.PresaInCarico.Id_Rec = idRec;
             allData[idRec] = riga;
@@ -1095,9 +1152,22 @@ export class FlussoSIAD {
 
     aggiungiErogazioniTracciato2FromId(allData, idRec, erogazioni) {
         if (allData.hasOwnProperty(idRec)) {
+            if (typeof erogazioni === "object")
+                erogazioni = [erogazioni];
             if (!allData[idRec].Eventi.hasOwnProperty("Erogazione"))
                 allData[idRec].Eventi.Erogazione = [];
             allData[idRec].Eventi.Erogazione.push(...erogazioni);
+        }
+        return allData;
+    }
+
+    aggiungiConclusioneTracciato2FromId(allData, idRec, dataConclusione, motivazione = 99) {
+        if (allData.hasOwnProperty(idRec)) {
+            if (!allData[idRec].Eventi.hasOwnProperty("Conclusione")) {
+                allData[idRec].Eventi.Conclusione = {};
+                allData[idRec].Eventi.Conclusione.$ = {dataAD: dataConclusione};
+                allData[idRec].Eventi.Conclusione.Motivazione = motivazione;
+            }
         }
         return allData;
     }
