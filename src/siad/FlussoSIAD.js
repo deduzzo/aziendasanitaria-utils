@@ -162,6 +162,18 @@ const tracciato2Maggioli = {
 }
 const datoObbligatorio = "<OBB>";
 
+
+const nodoPresaInCaricoT1 = {
+    PresaInCarico: {
+        $: {
+            data: datoObbligatorio,
+            soggettoRichiedente: 9,
+            TipologiaPIC: datoObbligatorio,
+        },
+        Id_Rec: datoObbligatorio,
+    }
+}
+
 const defaultRigaT1 = {
     Trasmissione: {$: {"tipo": datoObbligatorio}},
     Assistito: {
@@ -190,14 +202,7 @@ const defaultRigaT1 = {
         CodiceASL: datoObbligatorio
     },
     Eventi: {
-        PresaInCarico: {
-            $: {
-                data: datoObbligatorio,
-                soggettoRichiedente: 9,
-                TipologiaPIC: datoObbligatorio,
-            },
-            Id_Rec: datoObbligatorio,
-        },
+        ...nodoPresaInCaricoT1,
         Valutazione: {
             $: {
                 data: datoObbligatorio,
@@ -683,7 +688,7 @@ export class FlussoSIAD {
     }
 
     async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut, regione = 190, asp = 205, dbFile = "siad.mpdb") {
-        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: [],attivitaT1Successivi: {}};
+        let out = {errors: {globals: [], t2ditte: []}, T1: [], T2: [], attivitaT1Successivi: {}};
         let data = null;
 
         const logger = winston.createLogger({
@@ -838,8 +843,7 @@ export class FlussoSIAD {
                     if (!out.attivitaT1Successivi.hasOwnProperty(cf))
                         out.attivitaT1Successivi[cf] = [];
                     out.attivitaT1Successivi[cf].push(key);
-                }
-                else {
+                } else {
                     if (datiPicAperteMinistero.precedenti.length > 0) {
                         logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
                         // TODO: chiudi pic precedenti
@@ -849,18 +853,19 @@ export class FlussoSIAD {
                         console.log("ciao");
                     }
                 }
-            }
-            else {
+            } else {
                 logger.info("L'attività " + key + " non ha pic aperte in ministero");
                 const t1ByDitte = data.datiTracciatiDitte.T1byCf[cf];
                 const t1ByAster = data.datiAster.T1[datiPicAster.corrente];
                 if (t1ByDitte) {
+
                     console.log("ciao");
-                }else if (t1ByAster) {
+                } else if (t1ByAster) {
                     let tempT1 = _.cloneDeep(defaultRigaT1);
+                    this.copiaValutazioneNuovoTracciato1(t1ByAster, tempT1)
+
                     console.log("ciao");
-                }
-                else {
+                } else {
                     // TODO: è un problema
                     console.log("ciao");
                 }
@@ -869,6 +874,57 @@ export class FlussoSIAD {
         }
         logger.end();
         return null;
+    }
+
+    copiaT1AsterSuRigaDefault = (rigaSorgente,rigaDestinazione, dataPic, tipoPic = 1, trasmissione = "I") => {
+        rigaDestinazione.Trasmissione.$.tipo = trasmissione;
+        rigaDestinazione.Assistito.DatiAnagrafici.CUNI = rigaSorgente.Assistito[0].DatiAnagrafici[0].CUNI[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Genere = rigaSorgente.Assistito[0].DatiAnagrafici[0].Genere[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Cittadinanza = rigaSorgente.Assistito[0].DatiAnagrafici[0].Cittadinanza[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.StatoCivile = rigaSorgente.Assistito[0].DatiAnagrafici[0].StatoCivile[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.ResponsabilitaGenitoriale = rigaSorgente.Assistito[0].DatiAnagrafici[0].ResponsabilitaGenitoriale[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Regione = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Regione[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Residenza.ASL = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].ASL[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Comune = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Comune[0];
+        rigaDestinazione.Conviventi.NucleoFamiliare = rigaSorgente.Conviventi[0].NucleoFamiliare[0];
+        rigaDestinazione.Conviventi.AssistenteNonFamiliare = rigaSorgente.Conviventi[0].AssistenteNonFamiliare[0];
+        rigaDestinazione.Erogatore.CodiceRegione = rigaSorgente.Erogatore[0].CodiceRegione[0];
+        rigaDestinazione.Erogatore.CodiceASL = rigaSorgente.Erogatore[0].CodiceASL[0];
+        rigaDestinazione.Eventi.PresaInCarico.$.data = moment(dataPic, "DD/MM/YYYY").format("YYYY-MM-DD");
+        rigaDestinazione.Eventi.PresaInCarico.$.TipologiaPIC = tipoPic;
+        rigaDestinazione.Eventi.PresaInCarico.Id_Rec = rigaDestinazione.Erogatore.CodiceRegione + rigaDestinazione.Erogatore.CodiceASL + rigaDestinazione.Eventi.PresaInCarico.$.data + rigaDestinazione.Assistito.DatiAnagrafici.CUNI;
+        rigaDestinazione.Eventi.Valutazione.$.data = rigaSorgente.Eventi[0].Valutazione[0]['ATTR'].data[0];
+        rigaDestinazione.Eventi.Valutazione.Patologia.Prevalente = rigaSorgente.Eventi[0].Valutazione[0].Patologia[0].Prevalente[0];
+        rigaDestinazione.Eventi.Valutazione.Patologia.Concomitante = rigaSorgente.Eventi[0].Valutazione[0].Patologia[0].Concomitante[0];
+        rigaDestinazione.Eventi.Valutazione.Autonomia = rigaSorgente.Eventi[0].Valutazione[0].Autonomia[0];
+        rigaDestinazione.Eventi.Valutazione.GradoMobilita = rigaSorgente.Eventi[0].Valutazione[0].GradoMobilita[0];
+        rigaDestinazione.Eventi.Valutazione.Disturbi.Cognitivi = rigaSorgente.Eventi[0].Valutazione[0].Disturbi[0].Cognitivi[0];
+        rigaDestinazione.Eventi.Valutazione.Disturbi.Comportamentali = rigaSorgente.Eventi[0].Valutazione[0].Disturbi[0].Comportamentali[0];
+        rigaDestinazione.Eventi.Valutazione.SupportoSociale = rigaSorgente.Eventi[0].Valutazione[0].SupportoSociale[0];
+        rigaDestinazione.Eventi.Valutazione.FragilitaFamiliare = rigaSorgente.Eventi[0].Valutazione[0].FragilitaFamiliare[0];
+        rigaDestinazione.Eventi.Valutazione.RischioInfettivo = rigaSorgente.Eventi[0].Valutazione[0].RischioInfettivo[0];
+        rigaDestinazione.Eventi.Valutazione.RischioSanguinamento = rigaSorgente.Eventi[0].Valutazione[0].RischioSanguinamento[0];
+        rigaDestinazione.Eventi.Valutazione.DrenaggioPosturale = rigaSorgente.Eventi[0].Valutazione[0].DrenaggioPosturale[0];
+        rigaDestinazione.Eventi.Valutazione.OssigenoTerapia = rigaSorgente.Eventi[0].Valutazione[0].OssigenoTerapia[0];
+        rigaDestinazione.Eventi.Valutazione.Ventiloterapia = rigaSorgente.Eventi[0].Valutazione[0].Ventiloterapia[0];
+        rigaDestinazione.Eventi.Valutazione.Tracheostomiaventiloterapia = rigaSorgente.Eventi[0].Valutazione[0].Tracheostomiaventiloterapia[0];
+        rigaDestinazione.Eventi.Valutazione.Alimentazione.Assistita = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Assistita[0];
+        rigaDestinazione.Eventi.Valutazione.Alimentazione.Enterale = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Enterale[0];
+        rigaDestinazione.Eventi.Valutazione.Alimentazione.Parenterale = rigaSorgente.Eventi[0].Valutazione[0].Alimentazione[0].Parenterale[0];
+        rigaDestinazione.Eventi.Valutazione.GestioneStomia = rigaSorgente.Eventi[0].Valutazione[0].GestioneStomia[0];
+        rigaDestinazione.Eventi.Valutazione.ElimiUrinariaIntestinale = rigaSorgente.Eventi[0].Valutazione[0].ElimiUrinariaIntestinale[0];
+        rigaDestinazione.Eventi.Valutazione.AlterRitmoSonnoVeglia = rigaSorgente.Eventi[0].Valutazione[0].AlterRitmoSonnoVeglia[0];
+        rigaDestinazione.Eventi.Valutazione.IntEduTerapeutica = rigaSorgente.Eventi[0].Valutazione[0].IntEduTerapeutica[0];
+        rigaDestinazione.Eventi.Valutazione.LesioniCute = rigaSorgente.Eventi[0].Valutazione[0].LesioniCute[0];
+        rigaDestinazione.Eventi.Valutazione.CuraUlcereCutanee12Grado = rigaSorgente.Eventi[0].Valutazione[0].CuraUlcereCutanee12Grado[0];
+        rigaDestinazione.Eventi.Valutazione.CuraUlcereCutanee34Grado = rigaSorgente.Eventi[0].Valutazione[0].CuraUlcereCutanee34Grado[0];
+        rigaDestinazione.Eventi.Valutazione.PrelieviVenosiNonOcc = rigaSorgente.Eventi[0].Valutazione[0].PrelieviVenosiNonOcc[0];
+        rigaDestinazione.Eventi.Valutazione.ECG = rigaSorgente.Eventi[0].Valutazione[0].ECG[0];
+        rigaDestinazione.Eventi.Valutazione.Telemetria = rigaSorgente.Eventi[0].Valutazione[0].Telemetria[0];
+        rigaDestinazione.Eventi.Valutazione.TerSottocutIntraMuscInfus = rigaSorgente.Eventi[0].Valutazione[0].TerSottocutIntraMuscInfus[0];
+        rigaDestinazione.Eventi.Valutazione.GestioneCatetere = rigaSorgente.Eventi[0].Valutazione[0].GestioneCatetere[0];
+        rigaDestinazione.Eventi.Valutazione.Trasfusioni
     }
 
 
@@ -954,6 +1010,8 @@ export class FlussoSIAD {
 
         return {mappa: mappaChiavi, perCf: perCf};
     }
+
+    generaRigaTracciato1DaAster
 
     gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, datiAssistiti, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
         let riga = _.cloneDeep(defaultRigaT1);

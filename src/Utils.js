@@ -8,15 +8,12 @@ import MsgReader from '@freiraum/msgreader';
 import pdf2html from "pdf2html";
 import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
-//import {Parser} from "@marketto/codice-fiscale-utils";
+import {Parser} from "@marketto/codice-fiscale-utils";
 import os from "os";
 import {existsSync, mkdirSync} from "fs";
 import libre from "libreoffice-convert";
 import {promisify} from "util";
 import BigJSON from "big-json";
-import { parse } from 'JSONStream';
-import * as LZString from "lz-string";
-import Loki from 'lokijs';
 import {pack, Packr, unpack} from "msgpackr";
 import zlib from 'zlib';
 
@@ -437,14 +434,13 @@ const scriviOggettoMP = async (data, filename = "dati.bin") => {
     const packed = packr.pack(data);
 
     console.log('🚀 Compressione GZIP...');
-    const compressed = await gzip(packed, { level: 9 }); // massimo livello di compressione
+    const compressed = await gzip(packed, {level: 9}); // massimo livello di compressione
 
     console.log('🚀 Salvataggio file...');
     await fs.promises.writeFile(filename, compressed);
 
     console.log('🚀 Completato');
 };
-
 
 
 const estraiDataDiNascita = (codiceFiscale) => {
@@ -698,7 +694,7 @@ const riunisciJsonDaTag = async (path, tag, filter = null) => {
     return out;
 }
 
-const replaceNullWithEmptyString = (obj)  => {
+const replaceNullWithEmptyString = (obj) => {
     return Object.fromEntries(
         Object.entries(obj).map(([key, value]) => [
             key,
@@ -775,5 +771,5 @@ export const utils = {
     trovaPICfromData,
     scriviGrossoOggettoSuFileJSON,
     leggiOggettoMP,
-    scriviOggettoMP
+    scriviOggettoMP,
 }
