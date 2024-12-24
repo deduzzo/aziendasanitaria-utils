@@ -766,10 +766,10 @@ export class FlussoSIAD {
                 // data.datiTracciatiDitte.T1byCf
                 for (let t1row of data.datiTracciatiDitte.T1) {
                     const cf = t1row[tracciato1Maggioli[0]].trim();
-                    if (data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
-                        data.datiTracciatiDitte.T1byCf[cf].push(t1row);
+                    if (!data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
+                        data.datiTracciatiDitte.T1byCf[cf] = [t1row]
                     else
-                        data.datiTracciatiDitte.T1byCf[cf] = [t1row];
+                        data.datiTracciatiDitte.T1byCf[cf].push(t1row);
                 }
 
                 for (let file of allFilesT2) {
@@ -841,7 +841,7 @@ export class FlussoSIAD {
             if (haPicAperteMinistero) {
                 logger.info("L'attività " + key + " ha " + Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length + " aperte in ministero");
                 if (!datiPicAperteMinistero) {
-                    logger.info("L'attività " + key + " non può essere inviata in quanto non ha pic valide in ministero per la data " + dataAttivita.format("MM/DD/YYYY") +
+                    logger.info("L'attività " + key + " non può essere inviata in quanto non ha pic valide in ministero per la data " + dataAttivita.format("MM/DD/YYYY") + " ma ha solo pic successive" +
                         ". Inseriamo l'assistito in una lista a parte in attesa di avere almeno un attività.");
                     if (!out.attivitaT1Successivi.hasOwnProperty(cf))
                         out.attivitaT1Successivi[cf] = [];
@@ -865,7 +865,7 @@ export class FlussoSIAD {
                         logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.successive.length + " pic successive in ministero. Attendiamo di popolare l'ultima");
                     }
                     else if (datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
-                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.successive.length + " pic successive in ministero. Possiamo procedere con l'invio");
+                        logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
                         this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
                             out.T2,
                             datiPicAperteMinistero.corrente);
