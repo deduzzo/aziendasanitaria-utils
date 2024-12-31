@@ -4,7 +4,6 @@ import {utils as Utils, utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
-
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
@@ -12,7 +11,7 @@ import {ImpostazioniServiziTerzi} from "../config/ImpostazioniServiziTerzi.js";
 import {Document, Packer, Table, TableRow, TableCell, Paragraph, TextRun} from "docx";
 import moment from "moment";
 import {Nar2} from "./Nar2.js";
-
+import cliProgress from 'cli-progress';
 
 export class Assistiti {
 
@@ -552,15 +551,16 @@ export class Assistiti {
         if (codiciFiscali.length > 0) {
             let i = 0;
             for (let codiceFiscale of codiciFiscali) {
-                let datiAssistito = await this._nar2.getDatiAssistitoFromCfSuSogei(codiceFiscale)
+                let datiAssistito = await this._nar2.getDatiAssistitoCompleti(codiceFiscale)
                 if (allVerbose)
                     console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
+                let cleanData = datiAssistito.ok ? datiAssistito.data.getDati() : null;
                 if (!datiAssistito.ok)
                     out.out.nonTrovati.push(codiceFiscale);
-                else if (!datiAssistito.data.vivo)
-                    out.out.morti[codiceFiscale] = datiAssistito.data;
+                else if (!cleanData.inVita)
+                    out.out.morti[codiceFiscale] = cleanData;
                 else
-                    out.out.vivi[codiceFiscale] = datiAssistito.data;
+                    out.out.vivi[codiceFiscale] = cleanData;
                 if (i % 20 === 0 && i >0)
                     console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + Object.keys(out.out.morti).length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
                 i++;
@@ -570,7 +570,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = true, numParallelsJobs = 20, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = true, numParallelsJobs = 10, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
         let jobs = [];
@@ -912,36 +912,42 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 15, visibile = false, nomeFile = "assistitiNar.json") {
-        const cliProgress = require('cli-progress');
-        const cliProgressFooter = require("cli-progress-footer")({
-            outStream: process.stdout,
-            syncOutput: true,
-            progressLength: numOfParallelJobs + 1
-        });
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 5, visibile = false, nomeFile = "assistitiNar.json") {
         EventEmitter.defaultMaxListeners = 100;
 
         // Stato globale del progresso
         let completati = 0;
         let totaleMedici = 0;
 
+        // Creiamo una nuova barra di progresso multi-riga
+        const multibar = new cliProgress.MultiBar({
+            clearOnComplete: false,
+            hideCursor: true,
+            format: '{bar} {percentage}% | {value}/{total} | {message}',
+        }, cliProgress.Presets.shades_classic);
+
+        // Creiamo la barra principale e le barre per i job
+        const mainBar = multibar.create(100, 0, { message: 'Totale' });
+        const jobBars = Array(numOfParallelJobs).fill(null).map(() =>
+            multibar.create(100, 0, { message: 'In attesa...' })
+        );
+
         const updateUI = (index, message, incrementaCompletati = false) => {
-            if (incrementaCompletati) completati++;
-            const percentuale = totaleMedici > 0 ? ((completati / totaleMedici) * 100).toFixed(1) : 0;
-            const mainProgress = `Progresso Totale: ${completati}/${totaleMedici} (${percentuale}%)`;
+            if (incrementaCompletati) {
+                completati++;
+                const percentuale = totaleMedici > 0 ? Math.floor((completati / totaleMedici) * 100) : 0;
+                mainBar.update(percentuale, {
+                    message: `Progresso: ${completati}/${totaleMedici}`
+                });
+            }
 
             if (index !== undefined) {
-                progressLines[index % numOfParallelJobs] = message;
+                const barIndex = index % numOfParallelJobs;
+                jobBars[barIndex].update(0, { message });
             }
-            const content = [mainProgress, ...progressLines].join('\n');
-            cliProgressFooter.updateProgress(content);
         };
 
-        // Creiamo le linee di progresso
-        let progressLines = Array(numOfParallelJobs).fill('In attesa...');
-
         const processJob = async (codMedico, index) => {
-            const mainProcess = Math.floor(index / numOfParallelJobs) + 1;
             const subProcess = (index % numOfParallelJobs) + 1;
 
             let assistitiCfArray = [];
@@ -979,7 +985,10 @@ export class Assistiti {
 
             return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
                 if (err) {
-                    updateUI(subProcess - 1, `[#${subProcess}] ERRORE ${codMedico}: ${err.message}`);
+                    const barIndex = (subProcess - 1) % numOfParallelJobs;
+                    jobBars[barIndex].update(0, {
+                        message: `[#${subProcess}] ERRORE ${codMedico}: ${err.message}`
+                    });
                 }
                 ris = null;
             });
@@ -1025,12 +1034,12 @@ export class Assistiti {
 
             if (jobStatus[codiceMedico].hasOwnProperty("ok") && jobStatus[codiceMedico].nonTrovati > jobStatus[codiceMedico].totale * 0.1) {
                 jobStatus[codiceMedico].completo = false;
-                _.unset(jobStatus[codMedico], "nonTrovati");
-                _.unset(jobStatus[codMedico], "elaborati");
-                _.unset(jobStatus[codMedico], "vivi");
-                _.unset(jobStatus[codMedico], "deceduti");
-                _.unset(jobStatus[codMedico], "nonTrovati");
-                _.unset(jobStatus[codMedico], "ok");
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "elaborati");
+                _.unset(jobStatus[codiceMedico], "vivi");
+                _.unset(jobStatus[codiceMedico], "deceduti");
+                _.unset(jobStatus[codiceMedico], "nonTrovati");
+                _.unset(jobStatus[codiceMedico], "ok");
 
                 let files = fs.readdirSync(pathJob + path.sep + outPath);
                 for (let file of files) {
@@ -1048,12 +1057,13 @@ export class Assistiti {
         totaleMedici = jobsDaElaborare.length;
 
         // Inizializziamo la UI
-        updateUI(undefined, `Avvio elaborazione di ${totaleMedici} medici...`);
+        mainBar.update(0, { message: `Avvio elaborazione di ${totaleMedici} medici...` });
 
         await taskPool(numOfParallelJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
 
-        // Aggiorniamo con il messaggio finale
-        updateUI(undefined, "PROCESSO COMPLETATO!");
+        // Completiamo e fermiamo le barre di progresso
+        mainBar.update(100, { message: "PROCESSO COMPLETATO!" });
+        multibar.stop();
     }
 
 

@@ -1,3 +1,5 @@
+import moment from "moment";
+
 export const DATI = {
     CF: "cf",
     COGNOME: "cognome",
@@ -70,14 +72,19 @@ const createEmptyState = () => {
 };
 
 export class Assistito {
-    #fromNar;
-    #fromNar2;
-    #fromTs;
+    #dataFromNar;
+    #dataFromNar2;
+    #dataFromTs;
+    #fullData = {
+        Nar: null,
+        Nar2: null,
+        Ts: null
+    };
 
     constructor() {
-        this.#fromNar = createEmptyState();
-        this.#fromNar2 = createEmptyState();
-        this.#fromTs = createEmptyState();
+        this.#dataFromNar = createEmptyState();
+        this.#dataFromNar2 = createEmptyState();
+        this.#dataFromTs = createEmptyState();
     }
 
     // Metodo helper per validare le chiavi
@@ -88,45 +95,70 @@ export class Assistito {
         return true;
     }
 
-    // Getter e Setter per fromNar
+    // Getter e Setter per dataFromNar
     get fromNar() {
-        return {...this.#fromNar};
+        return {...this.#dataFromNar};
     }
 
     setNar(key, value) {
         if (this.#validateKey(key)) {
-            this.#fromNar[key] = value;
+            this.#dataFromNar[key] = value;
         }
     }
 
-    // Getter e Setter per fromNar2
+    // Getter e Setter per dataFromNar2
     get fromNar2() {
-        return {...this.#fromNar2};
+        return {...this.#dataFromNar2};
     }
 
     setNar2(key, value) {
         if (this.#validateKey(key)) {
-            this.#fromNar2[key] = value;
+            this.#dataFromNar2[key] = value;
         }
     }
 
-    // Getter e Setter per fromTs
+    // Getter e Setter per dataFromTs
     get fromTs() {
-        return {...this.#fromTs};
+        return {...this.#dataFromTs};
     }
 
     setTs(key, value) {
         if (this.#validateKey(key)) {
-            this.#fromTs[key] = value;
+            this.#dataFromTs[key] = value;
         }
+    }
+
+    // Getter e Setter per fullData
+    get fullDataNar() {
+        return this.#fullData.Nar;
+    }
+
+    set fullDataNar(value) {
+        this.#fullData.Nar = value;
+    }
+
+    get fullDataNar2() {
+        return this.#fullData.Nar2;
+    }
+
+    set fullDataNar2(value) {
+        this.#fullData.Nar2 = value;
+    }
+
+    get fullDataTs() {
+        return this.#fullData.Ts;
+    }
+
+    set fullDataTs(value) {
+        this.#fullData.Ts = value;
     }
 
     // Metodo helper per implementare la logica di fallback
     #getDatoConFallback(campo) {
-        return this.#fromTs[campo] ?? this.#fromNar2[campo] ?? this.#fromNar[campo];
+        return this.#dataFromTs[campo] ?? this.#dataFromNar2[campo] ?? this.#dataFromNar[campo];
     }
 
-    // Getter per ogni campo
+    // [... resto dei getter per ogni campo rimane invariato ...]
     get cf() {
         return this.#getDatoConFallback(DATI.CF);
     }
@@ -251,21 +283,27 @@ export class Assistito {
         return this.#getDatoConFallback(DATI.DATA_DECESSO);
     }
 
-    // Metodo per ottenere tutti i dati
-    getAllData() {
-        return {
-            fromNar: {...this.#fromNar},
-            fromNar2: {...this.#fromNar2},
-            fromTs: {...this.#fromTs}
-        };
+    get inVita() {
+        return !this.dataDecesso;
     }
 
-    // Debug method
-    debug() {
+    eta(atDate = null) {
+        // using moments and consider the date of death if present
+        if (this.dataDecesso || atDate) {
+            return moment(atDate ?? this.dataDecesso, "DD/MM/YYYY").diff(moment(this.dataNascita, "DD/MM/YYYY"), 'years');
+        } else {
+            return moment().diff(moment(this.dataNascita, "DD/MM/YYYY"), 'years');
+        }
+    }
+
+    getDati() {
         return {
-            fromNar: this.#fromNar,
-            fromNar2: this.#fromNar2,
-            fromTs: this.#fromTs
+            ...Object.values(DATI).reduce((acc, key) => {
+                acc[key] = this.#getDatoConFallback(key);
+                return acc;
+            }, {}),
+            inVita: this.inVita,
+            eta: this.eta()
         };
     }
 }
