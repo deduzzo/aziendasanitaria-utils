@@ -703,34 +703,50 @@ const replaceNullWithEmptyString = (obj) => {
     );
 }
 
-const trovaPICfromData = (ids, data) => {
-    if (!ids || ids.length === 0) {
+const removeKeyIfExist = (obj, key) => {
+    if (obj.hasOwnProperty(key))
+        delete obj[key];
+    return obj;
+}
+
+const ottieniEtaDaDataDiNascita = (dataNascita,eventualeDataDecesso = null) => {
+    if (moment(dataNascita, 'DD/MM/YYYY').isValid()) {
+        let eta = moment().diff(moment(dataNascita, 'DD/MM/YYYY'), 'years');
+        if(eventualeDataDecesso && moment(eventualeDataDecesso, 'DD/MM/YYYY').isValid())
+            eta = moment(eventualeDataDecesso, 'DD/MM/YYYY').diff(moment(dataNascita, 'DD/MM/YYYY'), 'years');
+        return eta;
+    } else {
         return null;
     }
+}
+
+const trovaPICfromData = (ids, data) => {
+    if (!ids || ids.length === 0) return null;
 
     const targetMoment = moment(data, 'DD/MM/YYYY');
     const targetStr = targetMoment.format('YYYY-MM-DD');
     const sortedIds = [...ids].sort();
 
-    // Se anche il primo ID (che avrà la data più vecchia) è successivo alla data target
-    const firstDate = sortedIds[0].substring(6, 16);
-    if (firstDate > targetStr) {
-        return null;
-    }
-
-    let selectedID = 0;
-    for (let indexId = 0; indexId < sortedIds.length; indexId++) {
-        const dateOfid = sortedIds[indexId].substring(6, 16);
-        if (dateOfid > targetStr) {
+    let selectedID = -1;
+    for (let i = 0; i < sortedIds.length; i++) {
+        const dateOfid = sortedIds[i].substring(6, 16);
+        if (dateOfid <= targetStr) {
+            selectedID = i;
+        } else {
             break;
         }
-        selectedID = indexId;
+    }
+
+    if (selectedID === -1) {
+        return {
+            precedenti: [],
+            corrente: null,
+            successive: sortedIds
+        };
     }
 
     return {
-        // Prende tutti gli ID dall'inizio fino all'ID selezionato (escluso)
         precedenti: sortedIds.slice(0, selectedID),
-        // Prende l'ID selezionato
         corrente: sortedIds[selectedID],
         successive: sortedIds.slice(selectedID + 1)
     };
@@ -773,4 +789,6 @@ export const utils = {
     scriviGrossoOggettoSuFileJSON,
     leggiOggettoMP,
     scriviOggettoMP,
+    removeKeyIfExist,
+    ottieniEtaDaDataDiNascita
 }

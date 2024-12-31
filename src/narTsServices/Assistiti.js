@@ -912,15 +912,46 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 10, visibile = false, nomeFile = "assistitiNar.json") {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 15, visibile = false, nomeFile = "assistitiNar.json") {
+        const cliProgress = require('cli-progress');
+        const cliProgressFooter = require("cli-progress-footer")({
+            outStream: process.stdout,
+            syncOutput: true,
+            progressLength: numOfParallelJobs + 1
+        });
         EventEmitter.defaultMaxListeners = 100;
+
+        // Stato globale del progresso
+        let completati = 0;
+        let totaleMedici = 0;
+
+        const updateUI = (index, message, incrementaCompletati = false) => {
+            if (incrementaCompletati) completati++;
+            const percentuale = totaleMedici > 0 ? ((completati / totaleMedici) * 100).toFixed(1) : 0;
+            const mainProgress = `Progresso Totale: ${completati}/${totaleMedici} (${percentuale}%)`;
+
+            if (index !== undefined) {
+                progressLines[index % numOfParallelJobs] = message;
+            }
+            const content = [mainProgress, ...progressLines].join('\n');
+            cliProgressFooter.updateProgress(content);
+        };
+
+        // Creiamo le linee di progresso
+        let progressLines = Array(numOfParallelJobs).fill('In attesa...');
+
         const processJob = async (codMedico, index) => {
-            index = (index % numOfParallelJobs) + 1;
-            //let ris = await assistiti.verificaAssititiInVita(Object.keys(datiAssititi[codMedico].assistiti, true), null, false, index, visibile);
+            const mainProcess = Math.floor(index / numOfParallelJobs) + 1;
+            const subProcess = (index % numOfParallelJobs) + 1;
+
             let assistitiCfArray = [];
             for (let cf of datiAssititi[codMedico].assistiti) {
                 assistitiCfArray.push(cf.codiceFiscale);
             }
+
+            // Aggiorniamo UI per mostrare che stiamo processando
+            updateUI(subProcess - 1, `[#${subProcess}] Elaborazione ${codMedico} in corso... [0/${datiAssititi[codMedico].assistiti.length}]`);
+
             let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, numOfParallelJobs, visibile);
 
             const updateJobStatus = async (ris) => {
@@ -933,7 +964,7 @@ export class Assistiti {
                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_deceduti.xlsx", Object.values(ris.out.morti));
                 if (ris.out.nonTrovati.length > 0)
                     await utils.scriviOggettoSuNuovoFileExcel(pathJob + path.sep + outPath + path.sep + codMedico + "_nontrovati.xlsx", ris.out.nonTrovati, ["CF non trovati"]);
-                // update jobstatus.json
+
                 jobStatus[codMedico].elaborati = Object.keys(ris.out.vivi).length + Object.keys(ris.out.morti).length + ris.out.nonTrovati.length;
                 jobStatus[codMedico].vivi = Object.keys(ris.out.vivi).length;
                 jobStatus[codMedico].deceduti = Object.keys(ris.out.morti).length;
@@ -941,17 +972,18 @@ export class Assistiti {
                 jobStatus[codMedico].completo = true;
                 jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
-                console.log("[" + index + "]" + " AGGIORNAMENTO JOB STATUS OK");
+
+                const message = `[#${subProcess}] ${codMedico}: ${jobStatus[codMedico].elaborati}/${jobStatus[codMedico].totale} [vivi: ${jobStatus[codMedico].vivi}, morti: ${jobStatus[codMedico].deceduti}, nonTrovati: ${jobStatus[codMedico].nonTrovati}]`;
+                updateUI(subProcess - 1, message, true);
             };
 
             return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
                 if (err) {
-                    console.log("[" + index + "] errore elaborazione job:" + codMedico + " " + err.message + " " + err.stack);
+                    updateUI(subProcess - 1, `[#${subProcess}] ERRORE ${codMedico}: ${err.message}`);
                 }
                 ris = null;
             });
         }
-
 
         const taskPool = async (poolSize, tasks) => {
             const results = [];
@@ -970,12 +1002,11 @@ export class Assistiti {
             return Promise.all(results);
         }
 
-
         if (!fs.existsSync(pathJob + path.sep + outPath))
             fs.mkdirSync(pathJob + path.sep + outPath);
-        // get assititi.json in pathJob
+
         let datiAssititi = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + nomeFile);
-        // if !exist jobstatus.json create it
+
         if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
             let dati = {}
             for (let codiceMedico of Object.keys(datiAssititi)) {
@@ -986,36 +1017,44 @@ export class Assistiti {
             }
             await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", dati);
         }
-        // load jobstatus.json
+
         let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
-        // verifica non trovati
+
         for (let codiceMedico in jobStatus) {
             let modifica = false;
 
             if (jobStatus[codiceMedico].hasOwnProperty("ok") && jobStatus[codiceMedico].nonTrovati > jobStatus[codiceMedico].totale * 0.1) {
                 jobStatus[codiceMedico].completo = false;
-                _.unset(jobStatus[codiceMedico], "nonTrovati");
-                _.unset(jobStatus[codiceMedico], "elaborati");
-                _.unset(jobStatus[codiceMedico], "vivi");
-                _.unset(jobStatus[codiceMedico], "deceduti");
-                _.unset(jobStatus[codiceMedico], "nonTrovati");
-                _.unset(jobStatus[codiceMedico], "ok");
-                // remove all files that starts with "codiceMedico*" from pathJob + path.sep + outPath
+                _.unset(jobStatus[codMedico], "nonTrovati");
+                _.unset(jobStatus[codMedico], "elaborati");
+                _.unset(jobStatus[codMedico], "vivi");
+                _.unset(jobStatus[codMedico], "deceduti");
+                _.unset(jobStatus[codMedico], "nonTrovati");
+                _.unset(jobStatus[codMedico], "ok");
+
                 let files = fs.readdirSync(pathJob + path.sep + outPath);
                 for (let file of files) {
                     if (file.startsWith(codiceMedico))
                         fs.unlinkSync(pathJob + path.sep + outPath + path.sep + file);
                 }
                 modifica = true;
-                console.log("[" + codiceMedico + "] " + "RIMOSSO PER TROPPI NON TROVATI");
+                updateUI(undefined, `RIMOSSO PER TROPPI NON TROVATI: ${codiceMedico}`);
             }
             if (modifica)
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
         }
-        // filter all jobs that have completo = false
+
         let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
+        totaleMedici = jobsDaElaborare.length;
+
+        // Inizializziamo la UI
+        updateUI(undefined, `Avvio elaborazione di ${totaleMedici} medici...`);
+
         await taskPool(numOfParallelJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
-        console.log("PROCESSO COMPLETATO!");
+
+        // Aggiorniamo con il messaggio finale
+        updateUI(undefined, "PROCESSO COMPLETATO!");
+        cliProgressFooter.stop();
     }
 
 
