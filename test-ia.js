@@ -1,7 +1,7 @@
 import {GoogleGenerativeAI} from "@google/generative-ai";
-
+import config from './src/config.js';
 // Sostituisci con la tua chiave API
-const API_KEY = "AIzaSyDPhvf3iPmhqQvAYSBq6g69j9-1bqduM2o";
+const API_KEY = config.gemini_api_key;
 
 // Inizializza il modello
 const genAI = new GoogleGenerativeAI(API_KEY);
