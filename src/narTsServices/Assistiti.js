@@ -1054,7 +1054,6 @@ export class Assistiti {
 
         // Aggiorniamo con il messaggio finale
         updateUI(undefined, "PROCESSO COMPLETATO!");
-        cliProgressFooter.stop();
     }
 
 
