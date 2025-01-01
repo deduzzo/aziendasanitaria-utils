@@ -16,6 +16,8 @@ import {promisify} from "util";
 import BigJSON from "big-json";
 import {pack, Packr, unpack} from "msgpackr";
 import zlib from 'zlib';
+import archiver from 'archiver';
+import unzipper from 'unzipper';
 
 const mesi = {
     "01": "Gennaio",
@@ -651,6 +653,97 @@ const leggiOggettoDaFileJSON = async (filename) => {
     return out;
 }
 
+/**
+ * Scrive un oggetto su file e lo comprime in formato ZIP
+ * @param {string} filename - Nome del file da creare
+ * @param {Array|Object} data - Dati da scrivere nel file
+ * @param {string} [zipFilename] - Nome del file ZIP di output (opzionale)
+ * @returns {Promise<void>}
+ */
+const scriviEComprimiFile = async (filename, data) => {
+    try {
+        // Prima scriviamo il file normale usando la funzione esistente
+        await scriviOggettoSuFile(filename, data);
+
+        // Creiamo il nome del file zip se non specificato
+        const outputZipFile = filename.replace(/\.[^/.]+$/, '') + '.zip';
+
+        // Creiamo uno stream di scrittura per il file ZIP
+        const output = fs.createWriteStream(outputZipFile);
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Massima compressione
+        });
+
+        // Gestiamo gli eventi dello stream
+        archive.on('error', (err) => {
+            throw err;
+        });
+
+        // Pipe dell'archivio sullo stream di scrittura
+        archive.pipe(output);
+
+        // Aggiungiamo il file all'archivio
+        archive.file(filename, { name: path.basename(filename) });
+
+        // Finalizziamo l'archivio
+        await archive.finalize();
+
+        // Eliminiamo il file originale
+        await fs.promises.unlink(filename);
+
+    } catch (error) {
+        console.error('Errore durante la compressione:', error);
+        throw error;
+    }
+};
+
+/**
+ * Decomprime un file ZIP e restituisce i dati contenuti
+ * @param {string} zipFilename - Nome del file ZIP da decomprimere
+ * @returns {Promise<Array|Object>} - Dati contenuti nel file
+ */
+const decomprimiELeggiFile = async (zipFilename) => {
+    try {
+        // Verifichiamo che il file esista
+        if (!fs.existsSync(zipFilename)) {
+            throw new Error(`Il file ${zipFilename} non esiste`);
+        }
+
+        // Creiamo una directory temporanea per l'estrazione
+        const tempDir = path.join(path.dirname(zipFilename), 'temp_extract');
+        await fs.promises.mkdir(tempDir, { recursive: true });
+
+        // Estraiamo il contenuto del ZIP
+        await fs.createReadStream(zipFilename)
+            .pipe(unzipper.Extract({ path: tempDir }))
+            .promise();
+
+        // Troviamo il primo file nella directory temporanea
+        const files = await fs.promises.readdir(tempDir);
+        if (files.length === 0) {
+            throw new Error('ZIP vuoto');
+        }
+
+        // Leggiamo il contenuto del file
+        const extractedFilePath = path.join(tempDir, files[0]);
+        const content = await fs.promises.readFile(extractedFilePath, 'utf8');
+
+        // Puliamo la directory temporanea
+        await fs.promises.rm(tempDir, { recursive: true });
+
+        // Parsifichiamo il JSON
+        return JSON.parse(content, (key, value) => {
+            if (value && value.dataType === 'Map' && Array.isArray(value.value)) {
+                return new Map(value.value);
+            }
+            return value;
+        });
+    } catch (error) {
+        console.error('Errore durante la decompressione:', error);
+        throw error;
+    }
+};
+
 const calcolaMesiDifferenza = (dataInizio, dataFine = null) => {
     dataInizio = moment(dataInizio, "DD/MM/YYYY");
     if (dataFine == null)
@@ -790,5 +883,7 @@ export const utils = {
     leggiOggettoMP,
     scriviOggettoMP,
     removeKeyIfExist,
-    ottieniEtaDaDataDiNascita
+    ottieniEtaDaDataDiNascita,
+    decomprimiELeggiFile,
+    scriviEComprimiFile
 }

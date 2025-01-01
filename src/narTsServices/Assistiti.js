@@ -554,7 +554,7 @@ export class Assistiti {
                 let datiAssistito = await this._nar2.getDatiAssistitoCompleti(codiceFiscale)
                 if (allVerbose)
                     console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
-                let cleanData = datiAssistito.ok ? datiAssistito.data.getDati() : null;
+                let cleanData = datiAssistito.ok ? datiAssistito.dati() : null;
                 if (!datiAssistito.ok)
                     out.out.nonTrovati.push(codiceFiscale);
                 else if (!cleanData.inVita)
@@ -912,7 +912,7 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 5, visibile = false, nomeFile = "assistitiNar.json") {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 15, visibile = false, nomeFile = "assistitiNar.json") {
         EventEmitter.defaultMaxListeners = 100;
 
         // Stato globale del progresso
@@ -961,7 +961,8 @@ export class Assistiti {
             let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, numOfParallelJobs, visibile);
 
             const updateJobStatus = async (ris) => {
-                await utils.scriviOggettoSuFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                await utils.scriviEComprimiFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
+                    vivi: ris.out.vivi,
                     deceduti: ris.out.morti,
                     nonTrovati: ris.out.nonTrovati,
                     obsoleti: ris.out.obsoleti,

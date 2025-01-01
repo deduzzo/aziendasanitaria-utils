@@ -25,7 +25,6 @@ export const DATI = {
     MMG_ULTIMO_STATO: "MMGUltimoStato",
     MMG_TIPO: "MMGTipo",
     MMG_COD_REG: "MMGCodReg",
-    MMG_NOMINATIVO_COMPLETO: "MMGNominativoCompleto",
     MMG_NOME: "MMGNome",
     MMG_COGNOME: "MMGCognome",
     MMG_CF: "MMGCf",
@@ -80,6 +79,12 @@ export class Assistito {
         Nar2: null,
         Ts: null
     };
+    #okNar = null;
+    #okNar2 = null;
+    #okTs = false;
+    #erroreNar = null;
+    #erroreNar2 = null;
+    #erroreTs = null;
 
     constructor() {
         this.#dataFromNar = createEmptyState();
@@ -255,10 +260,6 @@ export class Assistito {
         return this.#getDatoConFallback(DATI.MMG_COD_REG);
     }
 
-    get mmgNominativoCompleto() {
-        return this.#getDatoConFallback(DATI.MMG_NOMINATIVO_COMPLETO);
-    }
-
     get mmgNome() {
         return this.#getDatoConFallback(DATI.MMG_NOME);
     }
@@ -296,7 +297,7 @@ export class Assistito {
         }
     }
 
-    getDati() {
+    dati() {
         return {
             ...Object.values(DATI).reduce((acc, key) => {
                 acc[key] = this.#getDatoConFallback(key);
@@ -305,5 +306,58 @@ export class Assistito {
             inVita: this.inVita,
             eta: this.eta()
         };
+    }
+
+    get okNar() {
+        return this.#okNar;
+    }
+
+    set okNar(value) {
+        this.#okNar = value;
+    }
+
+    get okNar2() {
+        return this.#okNar2;
+    }
+
+    set okNar2(value) {
+        this.#okNar2 = value;
+    }
+
+    get okTs() {
+        return this.#okTs;
+    }
+
+    set okTs(value) {
+        this.#okTs = value;
+    }
+
+    get erroreNar() {
+        return this.#erroreNar;
+    }
+
+    set erroreNar(value) {
+        this.#erroreNar = value;
+    }
+
+    get erroreNar2() {
+        return this.#erroreNar2;
+    }
+
+    set erroreNar2(value) {
+        this.#erroreNar2 = value;
+    }
+
+    get erroreTs() {
+        return this.#erroreTs;
+    }
+
+    set erroreTs(value) {
+        this.#erroreTs = value;
+    }
+
+    get ok() {
+        // ritorna true se almeno uno dei tre flussi è ok
+        return this.okNar || this.okNar2 || this.okTs;
     }
 }
