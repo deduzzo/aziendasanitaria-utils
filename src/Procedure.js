@@ -366,7 +366,7 @@ class Procedure {
 
 
 
-    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 10, visible = false) {
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -433,14 +433,14 @@ class Procedure {
 
     }
 
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, verificaIndirizzi = false, visible = false, numParallels = 10, legacy=false,salvaFile = true) {
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, includiIndirizzo = false, visible = false, numParallelsJobs = 10, legacy=false,salvaFile = true) {
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
             if (assistito[colonnaCf] !== undefined && assistito[colonnaCf] !== null && assistito[colonnaCf] !== "")
                 cfs.push(assistito[colonnaCf]);
         }
-        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, verificaIndirizzi, numParallels, visible,legacy);
+        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, {includiIndirizzo,visible,numParallelsJobs,legacy});
         console.log("FINE VERIFICA");
         if (salvaFile) {
             let parentFolder = path.dirname(fileExcel);

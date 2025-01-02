@@ -828,7 +828,7 @@ export class FlussoSIAD {
                         console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
                 }
                 let allCfT2 = [...new Set(Object.keys(data.datiTracciatiDitte.T2byKey).map(key => key.split("_")[1]))];
-                data.fromTS = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, allCfT2);
+                data.fromTS = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, allCfT2, {numParallelsJobs: 20});
                 await utils.scriviOggettoMP(data, folderOut + path.sep + dbFile);
             }
         }

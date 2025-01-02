@@ -1,13 +1,13 @@
 import { Button, VerticalBox, LineEdit, ScrollView, GroupBox, ComboBox } from "std-widgets.slint";
 
 struct PazienteData {
-    vivo: bool,
+    inVita: bool,
     cf: string,
     cognome: string,
     nome: string,
     sesso: string,
-    data_nascita: string,
-    comune_nascita: string,
+    dataNascita: string,
+    comuneNascita: string,
     indirizzo: string,
     asp: string,
     mmgCfTs: string,
@@ -44,15 +44,15 @@ export component MainWindow {
     in-out property <string> search_type: "cf"; // "cf" o "details"
     in-out property <string> nome: "";
     in-out property <string> cognome: "";
-    in-out property <string> data_nascita: "";
+    in-out property <string> dataNascita: "";
     in-out property <PazienteData> paziente_data: {
-        vivo: false,
+        inVita: false,
         cf: "",
         cognome: "",
         nome: "",
         sesso: "",
-        data_nascita: "",
-        comune_nascita: "",
+        dataNascita: "",
+        comuneNascita: "",
         indirizzo: "",
         asp: "",
         mmgCfTs: "",
@@ -162,7 +162,7 @@ export component MainWindow {
 
                             LineEdit {
                                 placeholder-text: "Data di Nascita";
-                                text <=> root.data_nascita;
+                                text <=> root.dataNascita;
                                 height: 35px;
                                 width: 150px;
                                 enabled: !root.is_loading;
@@ -171,7 +171,7 @@ export component MainWindow {
                             Button {
                                 text: root.is_loading ? "Ricerca in corso..." : "Cerca";
                                 height: 35px;
-                                enabled: !root.is_loading && root.nome != "" && root.cognome != "" && root.data_nascita != "";
+                                enabled: !root.is_loading && root.nome != "" && root.cognome != "" && root.dataNascita != "";
                                 clicked => {
                                     root.cerca_paziente();
                                 }
@@ -250,7 +250,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.data_nascita;
+                                    text: root.paziente_data.dataNascita;
                                 }
                             }
 
@@ -261,7 +261,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.comune_nascita;
+                                    text: root.paziente_data.comuneNascita;
                                 }
                             }
 
@@ -317,7 +317,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.vivo ? "SI" : "NO";
+                                    text: root.paziente_data.inVita ? "SI" : "NO";
                                 }
                             }
                         }

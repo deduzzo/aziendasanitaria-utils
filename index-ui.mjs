@@ -61,10 +61,10 @@ async function main() {
 
                 let impostazioniServizi = new ImpostazioniServiziTerzi(configData);
                 let nar2 = new Nar2(impostazioniServizi);
-                let data = await nar2.getDatiAssistitoFromCfSuSogeiNew(mainWindow.cf_input);
+                let data = await nar2.getDatiAssistitoCompleti(mainWindow.cf_input);
                 if (data.ok) {
                     // Aggiorna l'interfaccia usando gli stessi nomi delle proprietà del file Slint
-                    mainWindow.paziente_data = utils.replaceNullWithEmptyString(data.data);
+                    mainWindow.paziente_data = utils.replaceNullWithEmptyString(data.dati());
                 }
             } catch (error) {
                 console.error("Errore durante la ricerca:", error);

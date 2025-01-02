@@ -105,7 +105,7 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
         )
     //let data = await utils.getObjectFromFileExcel(nomeFile);
     //let out = flussoSiad.generaRigheTracciato1ConDefault("/Users/deduzzo/Desktop/outFolder", data, nomeFile, 2024, 3);
-    console.log("ciao");
+
 
     // LISTA ASSISTITI SU TS
     //let medici = new Medici(impostazioniEsterni);

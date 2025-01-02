@@ -545,24 +545,64 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssititiInVitaNar2(codiciFiscali, limit = null, index = 1, visibile = true, datiMedicoNar, dateSceltaCfMap = null, allVerbose= false) {
-        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}}}
-        console.log("$#" + index + " " + " TOTALI: " + codiciFiscali.length)
+    async verificaAssititiInVitaNar2(codiciFiscali, config = {}) {
+        const defaultConfig = {
+            limit: null,
+            index: 1,
+            visibile: true,
+            datiMedicoNar: null,
+            dateSceltaCfMap: null,
+            allVerbose: false,
+            sogei: true,
+            nar2: true
+        };
+
+        const validKeys = Object.keys(defaultConfig);
+        const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
+
+        if (invalidKeys.length > 0) {
+            throw new Error(`Chiavi di configurazione non valide: ${invalidKeys.join(', ')}`);
+        }
+
+        const finalConfig = { ...defaultConfig, ...config };
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}}};
+
+        console.log("$#" + finalConfig.index + " " + " TOTALI: " + codiciFiscali.length);
+
         if (codiciFiscali.length > 0) {
             let i = 0;
             for (let codiceFiscale of codiciFiscali) {
-                let datiAssistito = await this._nar2.getDatiAssistitoCompleti(codiceFiscale)
-                if (allVerbose)
-                    console.log("#" + index + " " + codiceFiscale + " stato:" + (!datiAssistito.ok ? " ERRORE" : (!datiAssistito.deceduto ? " VIVO" : (" MORTO il " + datiAssistito.dataDecesso))))
+                let datiAssistito = await this._nar2.getDatiAssistitoCompleti(
+                    codiceFiscale,
+                    null,
+                    finalConfig.sogei,
+                    finalConfig.nar2
+                );
+
+                if (finalConfig.allVerbose) {
+                    console.log("#" + finalConfig.index + " " + codiceFiscale + " stato:" +
+                        (!datiAssistito.ok ? " ERRORE" :
+                            (!datiAssistito.deceduto ? " VIVO" :
+                                (" MORTO il " + datiAssistito.dataDecesso))));
+                }
+
                 let cleanData = datiAssistito.ok ? datiAssistito.dati() : null;
-                if (!datiAssistito.ok)
+
+                if (!datiAssistito.ok) {
                     out.out.nonTrovati.push(codiceFiscale);
-                else if (!cleanData.inVita)
+                } else if (!cleanData.inVita) {
                     out.out.morti[codiceFiscale] = cleanData;
-                else
+                } else {
                     out.out.vivi[codiceFiscale] = cleanData;
-                if (i % 20 === 0 && i >0)
-                    console.log("#" + index + " - " + i + "/" + codiciFiscali.length + " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " + " [vivi: " + Object.keys(out.out.vivi).length + ", morti: " + Object.keys(out.out.morti).length + ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                }
+
+                if (i % 20 === 0 && i > 0) {
+                    console.log("#" + finalConfig.index + " - " + i + "/" + codiciFiscali.length +
+                        " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " +
+                        " [vivi: " + Object.keys(out.out.vivi).length +
+                        ", morti: " + Object.keys(out.out.morti).length +
+                        ", nonTrovati:" + out.out.nonTrovati.length + "]");
+                }
                 i++;
             }
         }
@@ -570,25 +610,89 @@ export class Assistiti {
     }
 
 
-    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = true, numParallelsJobs = 10, visible = false, legacy = false, datiMedicoNar = null, dateSceltaCfMap = null) {
+/**
+ * Verifica gli assistiti in parallelo.
+ *
+ * @param {Object} configImpostazioniServizi - Configurazione dei servizi.
+ * @param {Array} codiciFiscali - Lista dei codici fiscali degli assistiti.
+ * @param {Object} [config={}] - Configurazione opzionale.
+ * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
+ * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+ * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
+ * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
+ * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
+ * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
+ * @param {boolean} [config.sogei=true] - Se utilizzare SOGEI.
+ * @param {boolean} [config.nar2=false] - Se utilizzare NAR2.
+ * @returns {Promise<Object>} - Risultato della verifica.
+ */
+static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, config = {}) {
+        // Configurazione di default
+        const defaultConfig = {
+            includiIndirizzo: true,
+            numParallelsJobs: 10,
+            visible: false,
+            legacy: false,
+            datiMedicoNar: null,
+            dateSceltaCfMap: null,
+            sogei: true,
+            nar2: true
+        };
+
+        // Validazione delle chiavi fornite
+        const validKeys = Object.keys(defaultConfig);
+        const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
+
+        if (invalidKeys.length > 0) {
+            throw new Error(`Chiavi di configurazione non valide: ${invalidKeys.join(', ')}`);
+        }
+
+        // Unione della configurazione di default con quella fornita
+        const finalConfig = { ...defaultConfig, ...config };
+
         EventEmitter.defaultMaxListeners = 100;
-        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}}
+        let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}};
         let jobs = [];
-        let jobSize = Math.ceil(codiciFiscali.length / numParallelsJobs);
-        for (let i = 0; i < numParallelsJobs; i++) {
+        let jobSize = Math.ceil(codiciFiscali.length / finalConfig.numParallelsJobs);
+
+        for (let i = 0; i < finalConfig.numParallelsJobs; i++) {
             let job = codiciFiscali.slice(i * jobSize, (i + 1) * jobSize);
             jobs.push(job);
         }
+
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
-            if (legacy)
-                promises.push(assistitiTemp.verificaAssititiInVita(jobs[i], null, includiIndirizzo, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
-            else
-                promises.push(assistitiTemp.verificaAssititiInVitaNar2(jobs[i], null, i + 1, visible, datiMedicoNar, dateSceltaCfMap));
+            let assistitiTemp = new Assistiti(configImpostazioniServizi, finalConfig.visible);
+            if (finalConfig.legacy) {
+                promises.push(
+                    assistitiTemp.verificaAssititiInVita(
+                        jobs[i],
+                        null,
+                        finalConfig.includiIndirizzo,
+                        i + 1,
+                        finalConfig.visible,
+                        finalConfig.datiMedicoNar,
+                        finalConfig.dateSceltaCfMap
+                    )
+                );
+            } else {
+                promises.push(
+                    assistitiTemp.verificaAssititiInVitaNar2(
+                        jobs[i],
+                        {
+                            datiMedicoNar: finalConfig.datiMedicoNar,
+                            dateSceltaCfMap: finalConfig.dateSceltaCfMap,
+                            sogei: finalConfig.sogei,
+                            nar2: finalConfig.nar2
+                        }
+                    )
+                );
+            }
         }
+
         let results = await Promise.all(promises);
         promises = null;
+
         for (let result of results) {
             out.error = out.error || result.error;
             out.out.vivi = Object.assign(out.out.vivi, result.out.vivi);
@@ -596,6 +700,7 @@ export class Assistiti {
             out.out.morti = Object.assign(out.out.morti, result.out.morti);
             result = null;
         }
+
         return out;
     }
 
@@ -912,53 +1017,26 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numOfParallelJobs = 15, visibile = false, nomeFile = "assistitiNar.json") {
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numParallelsJobs = 10, visibile = false, nomeFile = "assistitiNar.json") {
         EventEmitter.defaultMaxListeners = 100;
 
         // Stato globale del progresso
         let completati = 0;
         let totaleMedici = 0;
 
-        // Creiamo una nuova barra di progresso multi-riga
-        const multibar = new cliProgress.MultiBar({
-            clearOnComplete: false,
-            hideCursor: true,
-            format: '{bar} {percentage}% | {value}/{total} | {message}',
-        }, cliProgress.Presets.shades_classic);
+        const showInfo = () => {
+            const totalPercentage = (completati / totaleMedici * 100).toFixed(2);
+            console.log(`[${totalPercentage}%] ${completati}/${totaleMedici} medici completati`);
+        }
 
-        // Creiamo la barra principale e le barre per i job
-        const mainBar = multibar.create(100, 0, { message: 'Totale' });
-        const jobBars = Array(numOfParallelJobs).fill(null).map(() =>
-            multibar.create(100, 0, { message: 'In attesa...' })
-        );
-
-        const updateUI = (index, message, incrementaCompletati = false) => {
-            if (incrementaCompletati) {
-                completati++;
-                const percentuale = totaleMedici > 0 ? Math.floor((completati / totaleMedici) * 100) : 0;
-                mainBar.update(percentuale, {
-                    message: `Progresso: ${completati}/${totaleMedici}`
-                });
-            }
-
-            if (index !== undefined) {
-                const barIndex = index % numOfParallelJobs;
-                jobBars[barIndex].update(0, { message });
-            }
-        };
-
-        const processJob = async (codMedico, index) => {
-            const subProcess = (index % numOfParallelJobs) + 1;
+        const processJob = async (codMedico, index) => {;
 
             let assistitiCfArray = [];
             for (let cf of datiAssititi[codMedico].assistiti) {
                 assistitiCfArray.push(cf.codiceFiscale);
             }
 
-            // Aggiorniamo UI per mostrare che stiamo processando
-            updateUI(subProcess - 1, `[#${subProcess}] Elaborazione ${codMedico} in corso... [0/${datiAssititi[codMedico].assistiti.length}]`);
-
-            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, false, numOfParallelJobs, visibile);
+            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, {numParallelsJobs});
 
             const updateJobStatus = async (ris) => {
                 await utils.scriviEComprimiFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {
@@ -980,16 +1058,16 @@ export class Assistiti {
                 jobStatus[codMedico].ok = (jobStatus[codMedico].elaborati === jobStatus[codMedico].totale);
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
 
-                const message = `[#${subProcess}] ${codMedico}: ${jobStatus[codMedico].elaborati}/${jobStatus[codMedico].totale} [vivi: ${jobStatus[codMedico].vivi}, morti: ${jobStatus[codMedico].deceduti}, nonTrovati: ${jobStatus[codMedico].nonTrovati}]`;
-                updateUI(subProcess - 1, message, true);
             };
 
+
+
             return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {
+                completati++
+                // show total percentage
+                showInfo();
                 if (err) {
-                    const barIndex = (subProcess - 1) % numOfParallelJobs;
-                    jobBars[barIndex].update(0, {
-                        message: `[#${subProcess}] ERRORE ${codMedico}: ${err.message}`
-                    });
+                    console.log(`Errore: ${err}`);
                 }
                 ris = null;
             });
@@ -1029,6 +1107,7 @@ export class Assistiti {
         }
 
         let jobStatus = await utils.leggiOggettoDaFileJSON(pathJob + path.sep + "jobstatus.json");
+        totaleMedici = Object.keys(jobStatus).length;
 
         for (let codiceMedico in jobStatus) {
             let modifica = false;
@@ -1048,23 +1127,16 @@ export class Assistiti {
                         fs.unlinkSync(pathJob + path.sep + outPath + path.sep + file);
                 }
                 modifica = true;
-                updateUI(undefined, `RIMOSSO PER TROPPI NON TROVATI: ${codiceMedico}`);
             }
             if (modifica)
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
         }
 
         let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
-        totaleMedici = jobsDaElaborare.length;
+        completati = Object.keys(jobStatus).length - jobsDaElaborare.length;
+        showInfo();
+        await taskPool(numParallelsJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
 
-        // Inizializziamo la UI
-        mainBar.update(0, { message: `Avvio elaborazione di ${totaleMedici} medici...` });
-
-        await taskPool(numOfParallelJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
-
-        // Completiamo e fermiamo le barre di progresso
-        mainBar.update(100, { message: "PROCESSO COMPLETATO!" });
-        multibar.stop();
     }
 
 

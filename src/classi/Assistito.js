@@ -158,9 +158,16 @@ export class Assistito {
         this.#fullData.Ts = value;
     }
 
-    // Metodo helper per implementare la logica di fallback
     #getDatoConFallback(campo) {
-        return this.#dataFromTs[campo] ?? this.#dataFromNar2[campo] ?? this.#dataFromNar[campo];
+        const getValue = (data) => {
+            const value = data[campo];
+            // Controlla se il valore è una stringa vuota o null/undefined
+            return value === '' || value === null || value === undefined ? null : value;
+        };
+
+        return getValue(this.#dataFromTs) ??
+            getValue(this.#dataFromNar2) ??
+            getValue(this.#dataFromNar);
     }
 
     // [... resto dei getter per ogni campo rimane invariato ...]

@@ -177,12 +177,20 @@ export class Nar2 {
     }
 
     async getDatiAssistitoCompleti(cf, assistito = null, sogei = true, nar2 = true) {
-        if (!assistito)
+        if (!assistito) {
             assistito = new Assistito();
-        if (sogei)
-            await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito);
-        if (nar2)
-            await this.getDatiAssistitoNar2FromCf(cf, assistito);
+        }
+
+        if (sogei && nar2) {
+            await Promise.all([
+                this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito),
+                this.getDatiAssistitoNar2FromCf(cf, assistito)
+            ]);
+        } else {
+            if (sogei) await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito);
+            if (nar2) await this.getDatiAssistitoNar2FromCf(cf, assistito);
+        }
+
         return assistito;
     }
 
