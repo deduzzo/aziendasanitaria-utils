@@ -4,6 +4,7 @@ import {utils as Utils, utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
+
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
@@ -13,7 +14,21 @@ import moment from "moment";
 import {Nar2} from "./Nar2.js";
 import cliProgress from 'cli-progress';
 
+// Configurazione di default
+const defaultConfig = {
+    includiIndirizzo: true,
+    numParallelsJobs: 10,
+    visible: false,
+    legacy: false,
+    datiMedicoNar: null,
+    dateSceltaCfMap: null,
+    sogei: true,
+    nar2: true,
+    salvaFile: true,
+};
+
 export class Assistiti {
+
 
     /**
      *
@@ -66,7 +81,7 @@ export class Assistiti {
         return datiUtenti;
     }
 
-    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1, visible= false) {
+    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1, visible = false) {
         // set _maxListeners 20
         EventEmitter.defaultMaxListeners = 20;
         // Funzione per eseguire un task con timeout
@@ -546,25 +561,9 @@ export class Assistiti {
     }
 
     async verificaAssititiInVitaNar2(codiciFiscali, config = {}) {
-        const defaultConfig = {
-            limit: null,
-            index: 1,
-            visibile: true,
-            datiMedicoNar: null,
-            dateSceltaCfMap: null,
-            allVerbose: false,
-            sogei: true,
-            nar2: true
-        };
 
-        const validKeys = Object.keys(defaultConfig);
-        const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
+        const finalConfig = utils.getFinalConfigFromTemplate(config);
 
-        if (invalidKeys.length > 0) {
-            throw new Error(`Chiavi di configurazione non valide: ${invalidKeys.join(', ')}`);
-        }
-
-        const finalConfig = { ...defaultConfig, ...config };
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}}};
 
         console.log("$#" + finalConfig.index + " " + " TOTALI: " + codiciFiscali.length);
@@ -579,12 +578,9 @@ export class Assistiti {
                     finalConfig.nar2
                 );
 
-                if (finalConfig.allVerbose) {
+                if (finalConfig.verbose && (datiAssistito.deceduto || !datiAssistito.ok))
                     console.log("#" + finalConfig.index + " " + codiceFiscale + " stato:" +
-                        (!datiAssistito.ok ? " ERRORE" :
-                            (!datiAssistito.deceduto ? " VIVO" :
-                                (" MORTO il " + datiAssistito.dataDecesso))));
-                }
+                        (!datiAssistito.ok ? " ERRORE" : " MORTO il " + datiAssistito.dataDecesso));
 
                 let cleanData = datiAssistito.ok ? datiAssistito.dati() : null;
 
@@ -596,7 +592,7 @@ export class Assistiti {
                     out.out.vivi[codiceFiscale] = cleanData;
                 }
 
-                if (i % 20 === 0 && i > 0) {
+                if (i % 10 === 0 && i > 0) {
                     console.log("#" + finalConfig.index + " - " + i + "/" + codiciFiscali.length +
                         " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " +
                         " [vivi: " + Object.keys(out.out.vivi).length +
@@ -610,45 +606,26 @@ export class Assistiti {
     }
 
 
-/**
- * Verifica gli assistiti in parallelo.
- *
- * @param {Object} configImpostazioniServizi - Configurazione dei servizi.
- * @param {Array} codiciFiscali - Lista dei codici fiscali degli assistiti.
- * @param {Object} [config={}] - Configurazione opzionale.
- * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
- * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
- * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
- * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
- * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
- * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
- * @param {boolean} [config.sogei=true] - Se utilizzare SOGEI.
- * @param {boolean} [config.nar2=false] - Se utilizzare NAR2.
- * @returns {Promise<Object>} - Risultato della verifica.
- */
-static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, config = {}) {
-        // Configurazione di default
-        const defaultConfig = {
-            includiIndirizzo: true,
-            numParallelsJobs: 10,
-            visible: false,
-            legacy: false,
-            datiMedicoNar: null,
-            dateSceltaCfMap: null,
-            sogei: true,
-            nar2: true
-        };
+    /**
+     * Verifica gli assistiti in parallelo.
+     *
+     * @param {Object} configImpostazioniServizi - Configurazione dei servizi.
+     * @param {Array} codiciFiscali - Lista dei codici fiscali degli assistiti.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
+     * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
+     * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
+     * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
+     * @param {boolean} [config.sogei=true] - Se utilizzare SOGEI.
+     * @param {boolean} [config.nar2=false] - Se utilizzare NAR2.
+     * @param {boolean} [config.salfaFile=true] - Se salvare eventuali file
+     * @returns {Promise<Object>} - Risultato della verifica.
+     */
+    static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, config = {}) {
 
-        // Validazione delle chiavi fornite
-        const validKeys = Object.keys(defaultConfig);
-        const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
-
-        if (invalidKeys.length > 0) {
-            throw new Error(`Chiavi di configurazione non valide: ${invalidKeys.join(', ')}`);
-        }
-
-        // Unione della configurazione di default con quella fornita
-        const finalConfig = { ...defaultConfig, ...config };
+        const finalConfig = utils.getFinalConfigFromTemplate(config);
 
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {vivi: {}, nonTrovati: [], morti: {}, obsoleti: {}}};
@@ -683,7 +660,8 @@ static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali
                             datiMedicoNar: finalConfig.datiMedicoNar,
                             dateSceltaCfMap: finalConfig.dateSceltaCfMap,
                             sogei: finalConfig.sogei,
-                            nar2: finalConfig.nar2
+                            nar2: finalConfig.nar2,
+                            index: i + 1
                         }
                     )
                 );
@@ -1029,7 +1007,8 @@ static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali
             console.log(`[${totalPercentage}%] ${completati}/${totaleMedici} medici completati`);
         }
 
-        const processJob = async (codMedico, index) => {;
+        const processJob = async (codMedico, index) => {
+            ;
 
             let assistitiCfArray = [];
             for (let cf of datiAssititi[codMedico].assistiti) {
@@ -1059,7 +1038,6 @@ static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
 
             };
-
 
 
             return lock.acquire('jobstatus.json', () => updateJobStatus(ris), (err, ret) => {

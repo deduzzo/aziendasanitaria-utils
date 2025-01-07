@@ -18,6 +18,7 @@ import {pack, Packr, unpack} from "msgpackr";
 import zlib from 'zlib';
 import archiver from 'archiver';
 import unzipper from 'unzipper';
+import _ from "lodash";
 
 const mesi = {
     "01": "Gennaio",
@@ -32,6 +33,35 @@ const mesi = {
     "10": "Ottobre",
     "11": "Novembre",
     "12": "Dicembre"
+}
+
+const defaultJobConfig = {
+    includiIndirizzo: true,
+    numParallelsJobs: 10,
+    visible: false,
+    verbose: true,
+    legacy: false,
+    datiMedicoNar: null,
+    dateSceltaCfMap: null,
+    sogei: true,
+    nar2: true,
+    salvaFile: true,
+    index: 1,
+};
+
+const getFinalConfigFromTemplate = (config, template = defaultJobConfig) => {
+    let outConfig = _.cloneDeep(template);
+    for (let key in config) {
+        outConfig[key] = config[key];
+    }
+
+    const validKeys = [... Object.keys(template)];
+    const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
+
+    if (invalidKeys.length > 0)
+        throw new Error(`Chiavi di configurazione non valide: ${invalidKeys.join(', ')}`);
+    else
+        return outConfig;
 }
 
 const getAllFilesRecursive = (dirPath, extensions, filterFileName = null, arrayOfFiles = []) => {
@@ -885,5 +915,7 @@ export const utils = {
     removeKeyIfExist,
     ottieniEtaDaDataDiNascita,
     decomprimiELeggiFile,
-    scriviEComprimiFile
+    scriviEComprimiFile,
+    defaultJobConfig,
+    getFinalConfigFromTemplate
 }

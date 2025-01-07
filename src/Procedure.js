@@ -7,6 +7,7 @@ import knex from "knex";
 import fs from "fs";
 import sqlite3 from 'sqlite3';
 import {Nar} from "./narTsServices/Nar.js";
+import * as util from "node:util";
 
 
 class Procedure {
@@ -266,16 +267,32 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno , visible = false,conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
+
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
         let medici = new Medici(impostazioniServizi, visible, null, true, Nar.PAGHE);
+        const workingPath = medici._nar.getWorkingPath();
+        let outFinal = [];
         do {
             let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
             let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), da.month() + 1, da.year());
+            for (let conteggioVoce of conteggioVoci) {
+                let outData = {};
+                outData["voce"] = conteggioVoce;
+                outData["descrizione"] = out2.data.voci[conteggioVoce].descrizioneVoce;
+                outData["dal"] = out2.data.voci[conteggioVoce].dal;
+                outData["al"] = out2.data.voci[conteggioVoce].al;
+                outData["quanti"] = parseFloat(out2.data.voci[conteggioVoce].quanti.replaceAll(".",",").replaceAll(",","."))
+                outData['importoUnitario'] = parseFloat(out2.data.voci[conteggioVoce].importoUnitario.replaceAll(".",",").replaceAll(",","."))
+                outData['competenza'] = parseFloat(out2.data.voci[conteggioVoce].competenza.replaceAll(".",",").replaceAll(",","."))
+                outData['trattenuta'] = out2.data.voci[conteggioVoce].trattenuta === "" ? out2.data.voci[conteggioVoce].trattenuta : parseFloat(out2.data.voci[conteggioVoce].trattenuta.replaceAll(".",",").replaceAll(",","."))
+                outFinal.push(outData);
+            }
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a));
+        await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
     }
 
     static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
@@ -433,23 +450,42 @@ class Procedure {
 
     }
 
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, colonnaCf, includiIndirizzo = false, visible = false, numParallelsJobs = 10, legacy=false,salvaFile = true) {
+    /**
+     * Verifica gli assistiti in parallelo.
+     *
+     * @param {string} fileExcel - File Excel con gli assistiti.
+     * @param {Object} impostazioniServizi - Impostazioni dei servizi.
+     * @param {string} [colonnaCf="cf"] - Colonna del codice fiscale
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
+     * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
+     * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
+     * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
+     * @param {boolean} [config.sogei=true] - Se utilizzare SOGEI.
+     * @param {boolean} [config.nar2=false] - Se utilizzare NAR2.
+     * @param {boolean} [config.salvaFile=true] - Se salvare eventuali file
+     * @returns {Promise<Object>} - Risultato della verifica.
+     */
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, config = {},colonnaCf = "cf",  ) {
+        const outConfig = utils.getFinalConfigFromTemplate(config);
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
         for (let assistito of assistiti) {
             if (assistito[colonnaCf] !== undefined && assistito[colonnaCf] !== null && assistito[colonnaCf] !== "")
                 cfs.push(assistito[colonnaCf]);
         }
-        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, {includiIndirizzo,visible,numParallelsJobs,legacy});
+        let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, cfs, outConfig);
         console.log("FINE VERIFICA");
-        if (salvaFile) {
+        if (outConfig.salvaFile) {
             let parentFolder = path.dirname(fileExcel);
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "vivi.xlsx", Object.values(ris.out.vivi));
             await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "morti.xlsx", Object.values(ris.out.morti));
             if (ris.out.nonTrovati.length > 0)
                 await Utils.scriviOggettoSuNuovoFileExcel(parentFolder + path.sep + "nonTrovati.xlsx", ris.out.nonTrovati);
+            console.log("FILE SALVATI");
         }
-        console.log("FILE SALVATI");
     }
 
     static async raggruppaDecedutiFile(folterPath) {
