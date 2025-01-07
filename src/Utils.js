@@ -846,14 +846,12 @@ const ottieniEtaDaDataDiNascita = (dataNascita,eventualeDataDecesso = null) => {
 const trovaPICfromData = (ids, data) => {
     if (!ids || ids.length === 0) return null;
 
-    const targetMoment = moment(data, 'DD/MM/YYYY');
-    const targetStr = targetMoment.format('YYYY-MM-DD');
     const sortedIds = [...ids].sort();
 
     let selectedID = -1;
     for (let i = 0; i < sortedIds.length; i++) {
-        const dateOfid = sortedIds[i].substring(6, 16);
-        if (dateOfid <= targetStr) {
+        const dateOfid = moment(sortedIds[i].substring(6, 16),"YYYY-MM-DD");
+        if (dateOfid <= data) {
             selectedID = i;
         } else {
             break;
