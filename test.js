@@ -95,6 +95,8 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
     let nomeFile = "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/OTTOBRE/ADI_ADISICILIA2_202410_tracciato1_out.xlsx";
     //let res = await flussoSiad.generaMappaPICT1("/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/DATI ASTER//PER MESE//");
 
+
+
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
     let res = await flussoSiad.generaFlussoRettificaScarti(
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024 pulito/",
