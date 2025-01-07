@@ -2,6 +2,7 @@ import moment from "moment";
 
 export const DATI = {
     CF: "cf",
+    CF_NORMALIZZATO: "cfNormalizzato",
     COGNOME: "cognome",
     NOME: "nome",
     SESSO: "sesso",
@@ -37,6 +38,7 @@ export const DATI = {
 const createEmptyState = () => {
     return {
         [DATI.CF]: null,
+        [DATI.CF_NORMALIZZATO]: null,
         [DATI.COGNOME]: null,
         [DATI.NOME]: null,
         [DATI.SESSO]: null,
@@ -116,6 +118,7 @@ export class Assistito {
         return {...this.#dataFromNar2};
     }
 
+
     setNar2(key, value) {
         if (this.#validateKey(key)) {
             this.#dataFromNar2[key] = value;
@@ -170,9 +173,12 @@ export class Assistito {
             getValue(this.#dataFromNar);
     }
 
-    // [... resto dei getter per ogni campo rimane invariato ...]
     get cf() {
         return this.#getDatoConFallback(DATI.CF);
+    }
+
+    get cfNormalizzato() {
+        return this.#getDatoConFallback(DATI.CF_NORMALIZZATO);
     }
 
     get cognome() {

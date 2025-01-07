@@ -560,7 +560,7 @@ export class Assistiti {
         return out;
     }
 
-    async verificaAssititiInVitaNar2(codiciFiscali, config = {}) {
+    async verificaAssititiInVitaNar2(codiciFiscali, config = utils.defaultJobConfig) {
 
         const finalConfig = utils.getFinalConfigFromTemplate(config);
 

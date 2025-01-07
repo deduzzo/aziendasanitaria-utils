@@ -69,7 +69,8 @@ export class Nar2 {
             let datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
             if (datiAssistito.ok) {
                 try {
-                    assistito.setNar2(DATI.CF, datiAssistito.data.pz_cfis);
+                    assistito.setNar2(DATI.CF, codiceFiscale.toUpperCase().trim());
+                    assistito.setNar2(DATI.CF_NORMALIZZATO, datiAssistito.data.pz_cfis);
                 } catch (e) {
                     console.log(e);
                 }
@@ -109,6 +110,7 @@ export class Nar2 {
                 assistito.setNar2(DATI.MMG_DATA_REVOCA, storicoMedici.pm_dt_disable ? moment(storicoMedici.pm_dt_disable, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
                 assistito.setNar2(DATI.DATA_DECESSO, datiAssistito.data.pz_dt_dec ? moment(datiAssistito.data.pz_dt_dec, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
                 assistito.okNar2 = true;
+                assistito.fullDataNar2 = datiAssistito.data;
                 return {
                     ok: true,
                     data: assistito,
@@ -236,7 +238,8 @@ export class Nar2 {
                         nullArray(out.data.data.p801descrizioneAslResidenzaAsl).trim();
 
                     // Popoliamo i dati in fromTs usando i setter
-                    assistito.setTs(DATI.CF, nullArray(out.data.data.p801codiceFiscale));
+                    assistito.setTs(DATI.CF, cf.toUpperCase().trim());
+                    assistito.setTs(DATI.CF_NORMALIZZATO, nullArray(out.data.data.p801codiceFiscale));
                     assistito.setTs(DATI.COGNOME, nullArray(out.data.data.p801cognome));
                     assistito.setTs(DATI.NOME, nullArray(out.data.data.p801nome));
                     assistito.setTs(DATI.SESSO, nullArray(out.data.data.p801sesso));
@@ -259,6 +262,7 @@ export class Nar2 {
                     assistito.setTs(DATI.SSN_NUMERO_TESSERA, nullArray(out.data.data.p801numeroTessera));
                     assistito.setTs(DATI.DATA_DECESSO, deceduto ? nullArray(out.data.data.p801dataDecesso) : null);
                     assistito.okTs = true;
+                    assistito.fullDataTs = out.data;
                     out = {
                         ok: true,
                         fullData: out.data,
