@@ -888,6 +888,60 @@ const trovaPICfromData = (ids, data) => {
     };
 };
 
+/**
+ * Trova la data precedente e successiva in un array di stringhe
+ * @param {string} dataAttivita - Data nel formato YYYY-MM-DD
+ * @param {string[]} array - Array di stringhe che iniziano con date nel formato YYYY-MM-DD
+ * @returns {Object|null} Oggetto con date precedente e successiva, o null se l'array è vuoto
+ */
+const trovaDataPicDaAttivita = (dataAttivita, array) => {
+    // Se l'array è vuoto, restituisci null
+    if (!dataAttivita || !array || Object.keys(array).length === 0) {
+        return null;
+    }
+    let scartate = 0;
+    const keys = Object.keys(array);
+    let kysOk = [];
+    for (let key of keys) {
+       const obj = array[key];
+       const fine = moment(obj.fine, "YYYY-MM-DD");
+       const fineReale = moment(obj.fine_reale, "YYYY-MM-DD");
+       const inizio = moment(obj.inizio, "YYYY-MM-DD");
+       const durataTeorica = fine.diff(inizio, 'days');
+       const durataReale = fineReale.diff(inizio, 'days');
+       // se la durata reale è superiore alla metà di quella teorica
+         if (durataReale > durataTeorica / 3)
+              kysOk.push(key);
+            else
+                scartate++;
+    }
+
+    // Estrai le date dall'inizio di ogni stringa (primi 10 caratteri)
+    const dates = kysOk.map(str => str.substring(0, 10));
+
+    // Ordina le date
+    dates.sort();
+
+    let corrente = null;
+    let successiva = null;
+
+    // Trova la data precedente e successiva
+    for (let i = 0; i < dates.length; i++) {
+        if (dates[i] <= dataAttivita) {
+            corrente = array[dates.indexOf(dates[i])];
+        } else {
+            successiva = array[dates.indexOf(dates[i])];
+            break;
+        }
+    }
+    if (scartate >0)
+        console.log("Scartate: " + scartate);
+    return {
+        corrente,
+        successiva
+    };
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -931,5 +985,6 @@ export const utils = {
     scriviEComprimiFile,
     defaultJobConfig,
     getFinalConfigFromTemplate,
-    meseNumero
+    meseNumero,
+    trovaDataPicDaAttivita
 }

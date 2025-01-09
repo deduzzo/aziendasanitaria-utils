@@ -687,7 +687,7 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(anno, trimestre,pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+    async generaFlussoRettificaScarti(anno, trimestre, pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
         let out = {
             errors: {
                 globals: [],
@@ -738,7 +738,16 @@ export class FlussoSIAD {
                 "fromPortalePic": {}
             };
             if (portalePicFileJson) {
-                data.fromPortalePic = utils.leggiOggettoDaFileJSON(portalePicFileJson);
+                let tempDataPic = await utils.leggiOggettoDaFileJSON(portalePicFileJson);
+                if (tempDataPic) {
+                    let tempData = tempDataPic[2].data;
+                    for (let item of tempData) {
+                        if (!data.fromPortalePic.hasOwnProperty(item.cf))
+                            data.fromPortalePic[item.cf] = {};
+                        let key = item.inizio + "#" + item.cartella_aster;
+                        data.fromPortalePic[item.cf][key] = item;
+                    }
+                }
             }
             const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
             const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
@@ -837,12 +846,12 @@ export class FlussoSIAD {
         }
         const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
         const inizioTrimestre = moment().year(anno).quarter(trimestre).startOf('quarter');
-
+        const ultimaPicAttivitaPerAssistito = {};
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
             //x debug
-            key = "2024-01-01_BRRNTN74M02F158I_8_1";
+            //key = "2024-01-01_BRRNTN74M02F158I_8_1";
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             const cf = splitted[1];
@@ -851,7 +860,7 @@ export class FlussoSIAD {
 
             const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
             //TODO: ha pic aperte aster?
-            const datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita) : null;
+            let datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita) : null;
             const dataUltimaErogazioneMinistero = datiPicAperteMinistero && data.mappaDatiMinistero.almenoUnaErogazione.hasOwnProperty(datiPicAperteMinistero.corrente) ? moment(data.mappaDatiMinistero.almenoUnaErogazione[datiPicAperteMinistero.corrente]["Ultima Data Erogazione\n"]) : null;
             const picAssistitoAster = data.datiAster.T1byCf[cf];
             const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
@@ -859,17 +868,25 @@ export class FlussoSIAD {
             const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
             const etaAssistito = datiAssistitoTs ? utils.ottieniEtaDaDataDiNascita(datiAssistitoTs.data_nascita, datiAssistitoTs.data_decesso) : null;
             //const sovrapposte = data.mappaDatiMinistero.sovrapposte.hasOwnProperty(cf) ? data.mappaDatiMinistero.sovrapposte[cf] : null;
-            const pazientegiatrattato = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
+            const pazienteGiaTrattato = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
             //const idPicConAttivitaPerAssistito = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) ? data.mappaDatiMinistero.perCf[cf].almenoUnaErogazione : null;
             //const id = regione.toString() + asp.toString() + splitted[0] + cf;
+            let picPortale = {
+                ...utils.trovaDataPicDaAttivita(dataAttivita.format("YYYY-MM-DD"), data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null),
+                tutte: data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null
+            };
+            let erogato = false;
 
 
             if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && dataUltimaErogazioneMinistero && dataUltimaErogazioneMinistero.isAfter(dataAttivita)) {
                 logger.info("Skip attività " + key + " in quanto precedente all'ultima valida erogazione ministero, quindi sicuramente già inviata");
+                ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
             } else {
                 if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
+                    // abbiamo almeno una pic corrente e valida aperta nel ministero
+                    // verifichiamo se ci sono ulteriori pic aperte successive
                     if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
-                        if (pazientegiatrattato) {
+                        if (pazienteGiaTrattato) {
                             if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
                                 out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
                             out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
@@ -886,7 +903,7 @@ export class FlussoSIAD {
                         const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
 
                         if (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster) ||
-                            dataPicMinistero !== dataPicCorrenteAster && dataPicCorrenteAster &&  dataPicCorrenteAster.isAfter(dataPicMinistero)) {
+                            dataPicMinistero !== dataPicCorrenteAster && dataPicCorrenteAster && dataPicCorrenteAster.isAfter(dataPicMinistero)) {
                             logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura");
                             datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
                             delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
@@ -916,7 +933,7 @@ export class FlussoSIAD {
                 if (!datiPicAperteMinistero || !datiPicAperteMinistero.corrente) {
                     // se non esiste una pic corrente, troviamola ed apriamola
 
-                    if (datiPicAster && (datiPicAster.corrente || datiPicAster.successive.length > 0 || datiPicAster.precedenti.length >0)) {
+                    if (datiPicAster && (datiPicAster.corrente || datiPicAster.successive.length > 0 || datiPicAster.precedenti.length > 0)) {
                         logger.info("L'attività " + key + " ha almeno una PIC valida su Aster, procediamo con l'apertura e l'invio dei tracciati 1 e 2");
                         let selectedId = datiPicAster.corrente || datiPicAster.successive[0] || datiPicAster.precedenti[0];
 
@@ -975,8 +992,14 @@ export class FlussoSIAD {
                                 out.allCfTrattatiOk.over65[cf] = [];
                             out.allCfTrattatiOk.over65[cf].push(key);
                         }
+                        erogato = true;
+                        datiPicAperteMinistero = {
+                            corrente: idT1,
+                            precedenti: [],
+                            successive: []
+                        };
                     }
-                } else if (datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
+                } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
                     logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
                     this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
                         out.T2,
@@ -1011,6 +1034,7 @@ export class FlussoSIAD {
                         data.datiMinistero.soloT1bycf = utils.removeKeyIfExist(data.datiMinistero.soloT1bycf, cf);
                         data.datiMinistero.PicNoAccessibyCf = utils.removeKeyIfExist(data.datiMinistero.PicNoAccessibyCf, cf);
                     }
+                    erogato = true;
                 } else if (picAssistitoDitte) {
                     logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, da attenzionare");
                     if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
@@ -1028,6 +1052,11 @@ export class FlussoSIAD {
                         out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
                     }
                 }
+
+                if (erogato) {
+                    logger.info("L'attività " + key + " è stata erogata con successo");
+                    ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
+                }
             }
         }
         logger.end();
@@ -1040,7 +1069,6 @@ export class FlussoSIAD {
             delete cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf];
         return cfDaAttenzionare;
     }
-
 
 
     /**
