@@ -275,11 +275,12 @@ class Procedure {
         let medici = new Medici(impostazioniServizi, visible, null, true, Nar.PAGHE);
         const workingPath = medici._nar.getWorkingPath();
         let outFinal = [];
+        let outData = {};
+        let outDettaglioMese = {};
         do {
             let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
             let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), da.month() + 1, da.year());
             for (let conteggioVoce of conteggioVoci) {
-                let outData = {};
                 outData["voce"] = conteggioVoce;
                 outData["descrizione"] = out2.data.voci[conteggioVoce].descrizioneVoce;
                 outData["dal"] = out2.data.voci[conteggioVoce].dal;
@@ -288,11 +289,33 @@ class Procedure {
                 outData['importoUnitario'] = parseFloat(out2.data.voci[conteggioVoce].importoUnitario.replaceAll(".",",").replaceAll(",","."))
                 outData['competenza'] = parseFloat(out2.data.voci[conteggioVoce].competenza.replaceAll(".",",").replaceAll(",","."))
                 outData['trattenuta'] = out2.data.voci[conteggioVoce].trattenuta === "" ? out2.data.voci[conteggioVoce].trattenuta : parseFloat(out2.data.voci[conteggioVoce].trattenuta.replaceAll(".",",").replaceAll(",","."))
+                let ok = false;
+                for (let riga of out2.data.voci[conteggioVoce].dettaglio.splitted) {
+                    if (riga.startsWith("periodo"))
+                        ok = true;
+                    else if (ok) {
+                        let splitted2 = riga.split("\t");
+                        if (!riga.hasOwnProperty(splitted2[0]))
+                            outDettaglioMese[splitted2[0]] = {
+                                mese: utils.meseNumero[splitted2[0].split(" ")[0]],
+                                anno: parseInt(splitted2[0].split(" ")[1]),
+                                quantita: parseInt(splitted2[2]),
+                                importoUnitario: parseFloat(splitted2[3].replaceAll(".",",").replaceAll(",",".")),
+                                importo: parseFloat(splitted2[4].replaceAll(".",",").replaceAll(",","."))
+                        };
+                        else {
+                            outDettaglioMese[splitted2[0]].quantita += parseInt(splitted2[2]);
+                            outDettaglioMese[splitted2[0]].importoUnitario += parseFloat(splitted2[3].replaceAll(".",",").replaceAll(",","."));
+                            outDettaglioMese[splitted2[0]].importo += parseFloat(splitted2[4].replaceAll(".",",").replaceAll(",","."));
+                        }
+                    }
+                }
                 outFinal.push(outData);
             }
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a));
         await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
+        await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_dettaglio-report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", Object.values(outDettaglioMese));
     }
 
     static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
