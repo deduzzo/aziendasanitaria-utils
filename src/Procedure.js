@@ -267,51 +267,51 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno , visible = false,conteggioVoci = ["CM0020"]) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false, conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
 
+        process.setMaxListeners(0);
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
         let medici = new Medici(impostazioniServizi, visible, null, true, Nar.PAGHE);
         const workingPath = medici._nar.getWorkingPath();
         let outFinal = [];
-        let outData = {};
-        let outDettaglioMese = {};
+        let outDettaglioMese = [];
         do {
             let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
             let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), da.month() + 1, da.year());
+            const bustakey = da.year().toString() + "-" + (da.month() + 1).toString().padStart(2, '0');
+            let outData = {};
             for (let conteggioVoce of conteggioVoci) {
+                outData["cedolino"] = bustakey;
                 outData["voce"] = conteggioVoce;
                 outData["descrizione"] = out2.data.voci[conteggioVoce].descrizioneVoce;
                 outData["dal"] = out2.data.voci[conteggioVoce].dal;
                 outData["al"] = out2.data.voci[conteggioVoce].al;
-                outData["quanti"] = parseFloat(out2.data.voci[conteggioVoce].quanti.replaceAll(".",",").replaceAll(",","."))
-                outData['importoUnitario'] = parseFloat(out2.data.voci[conteggioVoce].importoUnitario.replaceAll(".",",").replaceAll(",","."))
-                outData['competenza'] = parseFloat(out2.data.voci[conteggioVoce].competenza.replaceAll(".",",").replaceAll(",","."))
-                outData['trattenuta'] = out2.data.voci[conteggioVoce].trattenuta === "" ? out2.data.voci[conteggioVoce].trattenuta : parseFloat(out2.data.voci[conteggioVoce].trattenuta.replaceAll(".",",").replaceAll(",","."))
+                outData["quanti"] = parseFloat(out2.data.voci[conteggioVoce].quanti.replaceAll(",", ""))
+                outData['importoUnitario'] = parseFloat(out2.data.voci[conteggioVoce].importoUnitario)
+                outData['competenza'] = parseFloat(out2.data.voci[conteggioVoce].competenza.replaceAll(",", ""))
+                outData['trattenuta'] = out2.data.voci[conteggioVoce].trattenuta === "" ? out2.data.voci[conteggioVoce].trattenuta : parseFloat(out2.data.voci[conteggioVoce].trattenuta.replaceAll(",", ""))
                 let ok = false;
                 for (let riga of out2.data.voci[conteggioVoce].dettaglio.splitted) {
                     if (riga.startsWith("periodo"))
                         ok = true;
+                    else if (riga.startsWith("tot"))
+                        break;
                     else if (ok) {
                         let splitted2 = riga.split("\t");
-                        if (!riga.hasOwnProperty(splitted2[0]))
-                            outDettaglioMese[splitted2[0]] = {
-                                mese: utils.meseNumero[splitted2[0].split(" ")[0]],
-                                anno: parseInt(splitted2[0].split(" ")[1]),
-                                quantita: parseInt(splitted2[2]),
-                                importoUnitario: parseFloat(splitted2[3].replaceAll(".",",").replaceAll(",",".")),
-                                importo: parseFloat(splitted2[4].replaceAll(".",",").replaceAll(",","."))
-                        };
-                        else {
-                            outDettaglioMese[splitted2[0]].quantita += parseInt(splitted2[2]);
-                            outDettaglioMese[splitted2[0]].importoUnitario += parseFloat(splitted2[3].replaceAll(".",",").replaceAll(",","."));
-                            outDettaglioMese[splitted2[0]].importo += parseFloat(splitted2[4].replaceAll(".",",").replaceAll(",","."));
-                        }
+                        outDettaglioMese.push({
+                            cedolino: bustakey,
+                            mese: utils.meseNumero[splitted2[0].split(" ")[0]],
+                            anno: parseInt(splitted2[0].split(" ")[1]),
+                            quantita: parseInt(splitted2[2]),
+                            importoUnitario: parseFloat(splitted2[3].replaceAll(",", ".")),
+                            importo: parseFloat(splitted2[4].replaceAll(".", ",").replaceAll(",", "."))
+                        });
                     }
                 }
-                outFinal.push(outData);
             }
+            outFinal.push(outData);
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a));
         await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
@@ -396,14 +396,13 @@ class Procedure {
                 let assistiti = new Assistiti(impostazioniServizi, visible);
                 let slice = allAssititi.slice(i * numPerJob, (i + 1) * numPerJob);
                 //await assistiti.apriMMGAssistiti(codNar, allAssistiti[codNar].assistiti);
-                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1,visible));
+                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1, visible));
                 i++;
             }
             let results = await Promise.all(allJobs);
             allJobs = null;
         }
     }
-
 
 
     static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
@@ -491,7 +490,7 @@ class Procedure {
      * @param {boolean} [config.salvaFile=true] - Se salvare eventuali file
      * @returns {Promise<Object>} - Risultato della verifica.
      */
-    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, config = {},colonnaCf = "cf",  ) {
+    static async verificaDecessiDaFileExcel(fileExcel, impostazioniServizi, config = {}, colonnaCf = "cf",) {
         const outConfig = utils.getFinalConfigFromTemplate(config);
         let assistiti = await Utils.getObjectFromFileExcel(fileExcel);
         let cfs = [];
