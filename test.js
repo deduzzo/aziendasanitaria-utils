@@ -96,15 +96,15 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
     //let res = await flussoSiad.generaMappaPICT1("/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/DATI ASTER//PER MESE//");
 
 
-
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
     let res = await flussoSiad.generaFlussoRettificaScarti(
+        2024,
+        1,
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024 pulito/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/",
-        2024,
-        1
-        )
+        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_01_08.json",
+    )
     //let data = await utils.getObjectFromFileExcel(nomeFile);
     //let out = flussoSiad.generaRigheTracciato1ConDefault("/Users/deduzzo/Desktop/outFolder", data, nomeFile, 2024, 3);
 
@@ -236,23 +236,10 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
         )*/
 
     // FLUSSO SIAD
-    /*
-        await flussoSiad.creaTracciatiDitta(
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/1 trimestre tracciato1",
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/TRACCIATI RICEVUTI EXCEL/SIAD DITTE/1-3 DATI PRIMO TRIMESTRE/ANTEA_OK",
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2023_CHIAVI VALIDE/chiavi_full_2023.xlsx",
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2023/completo",
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2024-06-18.json"
-        )
-    */
+    //await Procedure.analizzaMensilitaMedico("320415", impostazioniServizi, 1, 2019, 12, 2019,true);
+    //await Procedure.verificaDecessiDaFileExcel("G:\\Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\IMPORTAZIONE MAGGIOLI\\TRACCIATI RICEVUTI EXCEL\\SIAD DITTE\\7 - LUGLIO\\ANTEA\\controllo\\sostituti.xlsx", impostazioniServizi, "cfOk",true,false);
 
-    /*    await Procedure.eseguiVerifichePeriodicheDecedutiAssistitiMedici(
-            impostazioniEsterni,
-            '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/ELENCO MEDICI COMPLETO/ELENCO-TUTTI-2024-09-18.xlsx',
-            distrettiByKeyword,
-            "31/08/2024",
-            "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/RECUPERI MORTI/RECUPERI PERIODICI/09-2024",
-        );*/
+
 
 
     /* await Procedure.getDifferenzeAssistitiNarTs(

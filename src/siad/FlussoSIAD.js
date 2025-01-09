@@ -687,7 +687,7 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(pathFilePIC, pathFileDitte, pathChiaviValideMinistero, anno, trimestre, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+    async generaFlussoRettificaScarti(anno, trimestre,pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
         let out = {
             errors: {
                 globals: [],
@@ -734,8 +734,12 @@ export class FlussoSIAD {
                 "mappaDatiMinistero": null,
                 "datiTracciatiDitte": {"T1": null, "T2": null, "T1byCf": {}, "T2byKey": {}},
                 "datiAster": null,
-                "fromTS": {}
+                "fromTS": {},
+                "fromPortalePic": {}
             };
+            if (portalePicFileJson) {
+                data.fromPortalePic = utils.leggiOggettoDaFileJSON(portalePicFileJson);
+            }
             const fileTracciato1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AA2");
             const fileTracciato2Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "AP2");
             const fileSoloT1Ministero = utils.getAllFilesRecursive(pathChiaviValideMinistero, ".xlsx", "ADIQLT01");
@@ -1666,7 +1670,7 @@ export class FlussoSIAD {
 
                 console.log(rigaTracciato1[1])
                 let codFiscale = allSostituti.hasOwnProperty(rigaTracciato1[1].trim().replaceAll(" ", "")) ? allSostituti[rigaTracciato1[1].trim().replaceAll(" ", "")] : rigaTracciato1[1].trim().replaceAll(" ", "");
-                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['data_nascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['data_nascita'], "DD/MM/YYYY") : null);
+                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['dataNascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataNascita'], "DD/MM/YYYY") : null);
                 let annoNascita = dataNascita ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
 
                 rigaT1[0] = ""; // tipo
