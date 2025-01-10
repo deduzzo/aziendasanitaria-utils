@@ -267,14 +267,14 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false, conteggioVoci = ["CM0020"]) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false, workingPath = null, conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
 
         process.setMaxListeners(0);
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
-        let medici = new Medici(impostazioniServizi, visible, null, true, Nar.PAGHE);
-        const workingPath = medici._nar.getWorkingPath();
+        let medici = new Medici(impostazioniServizi, visible, workingPath, true, Nar.PAGHE);
+        workingPath = medici._nar.getWorkingPath()
         let outFinal = [];
         let outDettaglioMese = [];
         do {
