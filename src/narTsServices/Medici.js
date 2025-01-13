@@ -81,7 +81,7 @@ export class Medici {
                         //await page.type("input[name='distrDescr']", ambito);
                         //await page.keyboard.press("Tab");
                         //timeout 1000 ms
-                        //await page.waitForTimeout(2000);
+                        //await utils.waitForTimeout(2000);
                         await page.type("input[name='cognome']", datiExtr['cognome']);
                         await page.type("input[name='nome']", datiExtr['nome']);
                         await page.click("button[name='BTN_CONFIRM']") // Click on button
@@ -119,39 +119,39 @@ export class Medici {
                     await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
                     //press tab and wait for 500 ms
                     await page.keyboard.press("Tab");
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     await page.focus("input[name='annoPagamentoDa@Filter']");
                     await page.keyboard.down('Control');
                     await page.keyboard.press('A');
                     await page.keyboard.up('Control');
                     await page.keyboard.press('Backspace');
                     await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
-                    await page.type("select[name='mesePagamentoDa@Filter']", (mesePagamentoDa === 1 ? "1 " : mesePagamentoDa.toString()));
+                    await page.select("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
                     await page.focus("input[name='annoPagamentoA@Filter']");
                     await page.keyboard.down('Control');
                     await page.keyboard.press('A');
                     await page.keyboard.up('Control');
                     await page.keyboard.press('Backspace');
                     await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
-                    await page.type("select[name='mesePagamentoA@Filter']", (mesePagamentoA === 1 ? "1 " : mesePagamentoA.toString()));
+                    await page.select("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
                     await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa ? annoRiferimentoDa.toString() : "");
                     if (meseRiferimentoDa)
-                        await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
+                        await page.select("select[name='meseRiferimentoDa@Filter']", meseRiferimentoDa.toString());
                     if (annoRiferimentoA)
                         await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
                     if (meseRiferimentoA)
-                        await page.type("select[name='meseRiferimentoA@Filter']", (meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
+                        await page.select("select[name='meseRiferimentoA@Filter']", meseRiferimentoA.toString());
                     await page.click("button[name='BTN_BUTTON_VISUALIZZA']");
                     //page wait for selector id=#thickbox
                     await page.waitForSelector("#thickbox");
                     await page.click("#thickbox");
                     await page.type("#matricola", matricola);
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     await page.keyboard.press("Tab");
                     //wait 400 ms
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     await page.waitForSelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(31) > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(2) > td:nth-child(1)");
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     let datiBusta = await page.evaluate(() => {
                         let out = {
                             datiInquadramento: {},
@@ -207,7 +207,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await page.waitForTimeout(200);
+                        await utils.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -221,7 +221,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await page.waitForTimeout(200);
+                        await utils.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -235,7 +235,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await page.waitForTimeout(200);
+                        await utils.waitForTimeout(200);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -248,7 +248,7 @@ export class Medici {
                     }
                     for (let i = 0; i < Object.keys(datiBusta.totali).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(10) > tbody > tr.riga_griglia > td:nth-child(" + (i + 1) + ")")
-                        await page.waitForTimeout(200);
+                        await utils.waitForTimeout(200);
                         await page.waitForSelector("#windowContent");
                         let datiDettagliCampo = await page.evaluate((i) => {
                             return {
@@ -317,12 +317,12 @@ export class Medici {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
                     await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
                     await page.keyboard.press("Tab");
-                    await page.waitForTimeout(500);
+                    await utils.waitForTimeout(500);
                     await page.waitForSelector("input[name='tipoLetturaRaggrCodice']");
                     await page.type("input[name='templateCodice']", "ME");
-                    await page.waitForTimeout(500);
+                    await utils.waitForTimeout(500);
                     await page.type("input[name='tipoLetturaRaggrCodice']", "ORDINAM_STAMPE_PREFINCATE");
-                    await page.waitForTimeout(500);
+                    await utils.waitForTimeout(500);
                     await page.click("input[name='generaRiepilogo@Filter']");
                     await page.click("input[name='totaleGenerale@Filter']");
                     await page.click("input[name='escludiVociAZero@Filter']");
@@ -337,7 +337,7 @@ export class Medici {
                     await page.keyboard.press('Backspace');
                     await page.type("input[name='dataDal@Filter']", "01/01/2000");
                     //press f4
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     await page.keyboard.press("F4");
                     await page.waitForSelector("input[name='annoPagamentoA@Filter']");
                     await page.focus("input[name='annoPagamentoA@Filter']");
@@ -353,16 +353,17 @@ export class Medici {
                     await page.keyboard.press('Backspace');
                     await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
 
-                    await page.type("select[name='mesePagamentoDa@Filter']", (mesePagamentoDa === 1 ? "1 " : mesePagamentoDa.toString()));
-                    await page.type("select[name='mesePagamentoA@Filter']", (mesePagamentoA === 1 ? "1 " : mesePagamentoA.toString()));
+                    // set selectedIndex = mesePagamentoDa to select[name='mesePagamentoDa@Filter']
+                    await page.select("select[name='mesePagamentoDa@Filter']",mesePagamentoDa.toString());
+                    await page.select("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
                     if (annoRiferimentoDa)
                         await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
                     if (meseRiferimentoDa)
-                        await page.type("select[name='meseRiferimentoDa@Filter']", (meseRiferimentoDa === 1 ? "1 " : meseRiferimentoDa.toString()));
+                        await page.select("select[name='meseRiferimentoDa@Filter']", meseRiferimentoDa.toString());
                     if (annoRiferimentoA)
                         await page.type("input[name='annoRiferimentoA@Filter']", annoRiferimentoA.toString());
                     if (meseRiferimentoA)
-                        await page.type("select[name='meseRiferimentoA@Filter']", (meseRiferimentoA === 1 ? "1 " : meseRiferimentoA.toString()));
+                        await page.select("select[name='meseRiferimentoA@Filter']", meseRiferimentoA.toString());
                     let download = this._nar.getDownloadPath();
                     const watcher = chokidar.watch(download, {
                         ignored: /(^|[\/\\])\..*|\.tmp$|\.crdownload$/,
@@ -381,7 +382,7 @@ export class Medici {
                     }
                     await page.click("button[name='BTN_CONFIRM']");
                     const file = await waitForPDF();
-                    await page.waitForTimeout(300);
+                    await utils.waitForTimeout(300);
                     if (file) {
                         // copy the file to the working path with filename
                         fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');

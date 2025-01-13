@@ -7,7 +7,7 @@ import fs from "fs";
 import {existsSync} from "fs";
 import moment from "moment";
 import * as Util from "util";
-import {utils as Utils} from "../Utils.js";
+import {utils, utils as Utils} from "../Utils.js";
 
 
 export class Nar {
@@ -107,10 +107,14 @@ export class Nar {
                             },
                         })
                     );
-                    this._browser = await puppeteer.launch({
+                    this._browser = await puppeteerExtra.launch({
                         headless: !this._visible,
                         defaultViewport: {width: 1920, height: 1080},
-                        args: ['--window-size=1920,1080']
+                        args: [
+                            '--window-size=1920,1080',
+                            '--ignore-certificate-errors',
+                            '--disable-web-security',
+                        ]
                     });
                     const page = (await this._browser.pages())[0];
                     await page.goto('https://nar.regione.sicilia.it/NAR/');
@@ -127,7 +131,8 @@ export class Nar {
                     await newPage.waitForSelector("select[name='ufficio@Controller']");
                     //await newPage.waitForSelector("#oCMenu_fill");
                     await newPage.type("select[name='ufficio@Controller']", (this._type === Nar.NAR ? "UffOpSce" : "UffPag"));
-                    await newPage.waitForTimeout(2000);
+                    // timeout 2000 ms not using pupeeteer timeout
+                    await utils.waitForTimeout(2000);
                     await newPage.click("input[name='BTN_CONFIRM']");
                     await newPage.waitForSelector("#oCMenubbar_0");
                     this._workingPage = newPage;

@@ -942,6 +942,10 @@ const trovaDataPicDaAttivita = (dataAttivita, array) => {
     };
 }
 
+const waitForTimeout = (ms) => {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -986,5 +990,6 @@ export const utils = {
     defaultJobConfig,
     getFinalConfigFromTemplate,
     meseNumero,
-    trovaDataPicDaAttivita
+    trovaDataPicDaAttivita,
+    waitForTimeout
 }

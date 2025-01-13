@@ -113,7 +113,7 @@ export class Assistiti {
                     await performTaskWithTimeout(async () => {
                         await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
                         await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
-                        await page.waitForTimeout(1000);
+                        await utils.waitForTimeout(1000);
                         await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
                         await page.waitForSelector("#inside");
                         // if page has selector "#inside > table > tbody > tr > td:nth-child(2) > a" then
@@ -139,11 +139,11 @@ export class Assistiti {
                                 // type tab key
                                 await page.keyboard.press('Tab');
                                 // wait for 200 ms
-                                await page.waitForTimeout(2000);
+                                await utils.waitForTimeout(2000);
                                 // click button name="BTN_CONFIRM"
                                 await page.click("button[name='BTN_CONFIRM']");
                                 // aspetta finchè la pagina non finisce il caricamento
-                                await page.waitForTimeout(3000);
+                                await utils.waitForTimeout(3000);
                                 console.log("#" + index + " Assistito " + cf + " riaperto");
                                 out.chiusi.push(cf);
                             }
@@ -210,7 +210,7 @@ export class Assistiti {
                         await performTaskWithTimeout(async () => {
                             await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
                             await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
-                            await page.waitForTimeout(1000);
+                            await utils.waitForTimeout(1000);
                             await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
                             await page.waitForSelector("#inside");
                             await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
@@ -242,13 +242,13 @@ export class Assistiti {
                                 // type tab
                                 await page.keyboard.press('Tab');
                                 // wait for 500 ms
-                                await page.waitForTimeout(1000);
+                                await utils.waitForTimeout(1000);
                                 await page.type("input[name='idTipoOpeRevoca_c']", "3");
                                 await page.keyboard.press('Tab');
-                                await page.waitForTimeout(1000);
+                                await utils.waitForTimeout(1000);
                                 await page.type("input[name='idMotivoRevoca_c']", "A08");
                                 await page.keyboard.press('Tab');
-                                await page.waitForTimeout(1000);
+                                await utils.waitForTimeout(1000);
                                 // click BTN_CONFIRM
                                 await page.click("button[name='BTN_CONFIRM']");
                                 // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
@@ -298,7 +298,7 @@ export class Assistiti {
                 try {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
                     await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
-                    await page.waitForTimeout(1000);
+                    await utils.waitForTimeout(1000);
                     await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
                     await page.waitForSelector("#inside");
                     await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");

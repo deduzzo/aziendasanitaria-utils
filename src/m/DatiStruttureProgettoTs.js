@@ -117,7 +117,7 @@ export class DatiStruttureProgettoTs {
                         for (let branca in out.out.totali_per_branca) {
                             await page.click("body > div:nth-child(5) > table:nth-child(9) > tbody > tr:nth-child(" + i++ + ") > td:nth-child(8) > a");
                             await page.waitForSelector('body > div:nth-child(5) > table:nth-child(13)');
-                            await page.waitForTimeout(200);
+                            await utils.waitForTimeout(200);
                             let numeroPrestazioniBranca = 0;
                             try {
                                 numeroPrestazioniBranca = await page.evaluate(() => {
