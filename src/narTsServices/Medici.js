@@ -1,5 +1,4 @@
 import pdf2html from "pdf2html";
-import fse from "fs-extra/lib/output-file/index.js";
 import ExcelJS from "exceljs";
 import path, {resolve} from "path";
 import {Nar} from "./Nar.js";
@@ -22,7 +21,7 @@ export class Medici {
     static COGNOME = "cognome";
     static DATA_FINE_RAPPORTO = "dataFineRapporto";
     static MEDICO_DI_BASE_NAR = "MDB";
-    static MEDICO_DI_BASE_FILE = "Medico di base";
+    static MEDICO_DI_BASE_FILE = "Medico di base";kok
     static PEDIATRA_FILE = "Pediatra di Libera Scelta";
 
     /**
@@ -41,7 +40,7 @@ export class Medici {
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
-    }
+    }kjìì
 
     /*async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};

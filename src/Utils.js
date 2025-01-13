@@ -928,9 +928,9 @@ const trovaDataPicDaAttivita = (dataAttivita, array) => {
     // Trova la data precedente e successiva
     for (let i = 0; i < dates.length; i++) {
         if (dates[i] <= dataAttivita) {
-            corrente = array[dates.indexOf(dates[i])];
+            corrente = dates[dates.indexOf(dates[i])];
         } else {
-            successiva = array[dates.indexOf(dates[i])];
+            successiva = dates[dates.indexOf(dates[i])];
             break;
         }
     }

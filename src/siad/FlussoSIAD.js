@@ -847,142 +847,188 @@ export class FlussoSIAD {
         const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
         const inizioTrimestre = moment().year(anno).quarter(trimestre).startOf('quarter');
         const ultimaPicAttivitaPerAssistito = {};
+        let mappingIdPicAperte = {};
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
             //x debug
-            //key = "2024-01-01_BRRNTN74M02F158I_8_1";
+            //key = "2024-02-23_GTTBTL30E67A638U_1_1";
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
-            const cf = splitted[1];
-            const tipoOperatore = parseInt(splitted[2]).toString();
-            const tipoPrestazione = parseInt(splitted[3]).toString();
+            if (!dataAttivita.isBefore(inizioTrimestre)) {
+                const cf = splitted[1];
+                const tipoOperatore = parseInt(splitted[2]).toString();
+                const tipoPrestazione = parseInt(splitted[3]).toString();
 
-            const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
-            //TODO: ha pic aperte aster?
-            let datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita) : null;
-            const dataUltimaErogazioneMinistero = datiPicAperteMinistero && data.mappaDatiMinistero.almenoUnaErogazione.hasOwnProperty(datiPicAperteMinistero.corrente) ? moment(data.mappaDatiMinistero.almenoUnaErogazione[datiPicAperteMinistero.corrente]["Ultima Data Erogazione\n"]) : null;
-            const picAssistitoAster = data.datiAster.T1byCf[cf];
-            const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
-            const picAssistitoDitte = data.datiTracciatiDitte.T1byCf[cf];
-            const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
-            const etaAssistito = datiAssistitoTs ? utils.ottieniEtaDaDataDiNascita(datiAssistitoTs.data_nascita, datiAssistitoTs.data_decesso) : null;
-            //const sovrapposte = data.mappaDatiMinistero.sovrapposte.hasOwnProperty(cf) ? data.mappaDatiMinistero.sovrapposte[cf] : null;
-            const pazienteGiaTrattato = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
-            //const idPicConAttivitaPerAssistito = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) ? data.mappaDatiMinistero.perCf[cf].almenoUnaErogazione : null;
-            //const id = regione.toString() + asp.toString() + splitted[0] + cf;
-            let picPortale = {
-                ...utils.trovaDataPicDaAttivita(dataAttivita.format("YYYY-MM-DD"), data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null),
-                tutte: data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null
-            };
-            let erogato = false;
+                if (!mappingIdPicAperte.hasOwnProperty(cf))
+                    mappingIdPicAperte[cf] = {ultimaMinistero: null, ministeroPortaleMap: {}};
+
+                const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
+                //TODO: ha pic aperte aster?
+                let datiPicAperteMinistero = haPicAperteMinistero ? utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita) : null;
+                const dataUltimaErogazioneMinistero = datiPicAperteMinistero && data.mappaDatiMinistero.almenoUnaErogazione.hasOwnProperty(datiPicAperteMinistero.corrente) ? moment(data.mappaDatiMinistero.almenoUnaErogazione[datiPicAperteMinistero.corrente]["Ultima Data Erogazione\n"]) : null;
+                const picAssistitoAster = data.datiAster.T1byCf[cf];
+                const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
+                const picAssistitoDitte = data.datiTracciatiDitte.T1byCf[cf];
+                const datiAssistitoTs = data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)
+                const etaAssistito = datiAssistitoTs ? utils.ottieniEtaDaDataDiNascita(datiAssistitoTs.data_nascita, datiAssistitoTs.data_decesso) : null;
+                //const sovrapposte = data.mappaDatiMinistero.sovrapposte.hasOwnProperty(cf) ? data.mappaDatiMinistero.sovrapposte[cf] : null;
+                const pazienteGiaTrattato = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
+                //const idPicConAttivitaPerAssistito = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) ? data.mappaDatiMinistero.perCf[cf].almenoUnaErogazione : null;
+                //const id = regione.toString() + asp.toString() + splitted[0] + cf;
+                let picPortale = {
+                    ...utils.trovaDataPicDaAttivita(dataAttivita.format("YYYY-MM-DD"), data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null),
+                    tutte: data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null
+                };
+                let erogato = false;
 
 
-            if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && dataUltimaErogazioneMinistero && dataUltimaErogazioneMinistero.isAfter(dataAttivita)) {
-                logger.info("Skip attività " + key + " in quanto precedente all'ultima valida erogazione ministero, quindi sicuramente già inviata");
-                ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
-            } else {
-                if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
-                    // abbiamo almeno una pic corrente e valida aperta nel ministero
-                    // verifichiamo se ci sono ulteriori pic aperte successive
-                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
-                        if (pazienteGiaTrattato) {
-                            if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
-                                out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
-                            out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
-                            logger.info("Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare");
-                        } else
-                            logger.info("Il paziente " + cf + " è già stato trattato, non lo inseriamo tra quelli da attenzionare");
-                    }
-                    // abbiamo una pic aperta in ministero
-                    // verifichiamo se è valida o se è da chiudere in quanto superata da un altra su Aster
-                    // in tal caso ne apriamo un altra
-                    if (datiPicAster) {
-                        const dataPicCorrenteAster = datiPicAster ? this.ottieniDatiFromIdPic(datiPicAster.corrente)?.dataInizio : null;
-                        const dataPicMinistero = datiPicAperteMinistero ? this.ottieniDatiFromIdPic(datiPicAperteMinistero.corrente)?.dataInizio : null;
-                        const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
+                if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && dataUltimaErogazioneMinistero && dataUltimaErogazioneMinistero.isAfter(dataAttivita)) {
+                    logger.info("Skip attività " + key + " in quanto precedente all'ultima valida erogazione ministero, quindi sicuramente già inviata");
+                    ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
+                    // aggiorna mapping
+                    mappingIdPicAperte[cf].ultimaMinistero = datiPicAperteMinistero.corrente;
+                    mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente
+                } else {
+                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
+                        // abbiamo almeno una pic corrente e valida aperta nel ministero
+                        // verifichiamo se ci sono ulteriori pic aperte successive
+                        if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
+                            if (pazienteGiaTrattato) {
+                                if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
+                                    out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
+                                out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
+                                logger.info("Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare");
+                            } else
+                                logger.info("Il paziente " + cf + " è già stato trattato, non lo inseriamo tra quelli da attenzionare");
+                        }
+                        // abbiamo una pic aperta in ministero
+                        // verifichiamo se è valida o se è da chiudere in quanto superata da un altra su Aster
+                        // in tal caso ne apriamo un altra
+                        if (datiPicAster) {
+                            const dataPicCorrenteAster = datiPicAster ? this.ottieniDatiFromIdPic(datiPicAster.corrente)?.dataInizio : null;
+                            const dataPicMinistero = datiPicAperteMinistero ? this.ottieniDatiFromIdPic(datiPicAperteMinistero.corrente)?.dataInizio : null;
+                            const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
 
-                        if (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster) ||
-                            dataPicMinistero !== dataPicCorrenteAster && dataPicCorrenteAster && dataPicCorrenteAster.isAfter(dataPicMinistero)) {
-                            logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura");
-                            datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
-                            delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
-                            datiPicAperteMinistero.corrente = null;
+                            if (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster) ||
+                                dataPicMinistero !== dataPicCorrenteAster && dataPicCorrenteAster && dataPicCorrenteAster.isAfter(dataPicMinistero)) {
+                                logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura");
+                                datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
+                                delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
+                                datiPicAperteMinistero.corrente = null;
+                            }
                         }
                     }
-                }
+                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) {
+                        // verifico se la pic corrente è coerente con il mapping
+                        if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente) {
+                            if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined)
+                                logger.info("L'attività " + key + " ha una pic corrente in ministero che non corrisponde più a quella su portale, procediamo alla chiusura e apertura di una nuova pic");
+                            else mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente;
 
-                // chiudo tutto quello aperto e precedente alla pic corrente
-                if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
-                    logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
-                    for (let i = 0; i < datiPicAperteMinistero.precedenti.length; i++) {
-                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                            out.T2,
-                            datiPicAperteMinistero.precedenti[i]);
-                        // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
-                        let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
-                        out.T2 = this.aggiungiConclusioneTracciato2FromId(
-                            out.T2,
-                            datiPicAperteMinistero.precedenti[i],
-                            dataConclusione);
-                        data.mappaDatiMinistero.perCf[cf].chiuse[datiPicAperteMinistero.precedenti[i]] = data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
-                        delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                        }
+
                     }
-                }
 
-                if (!datiPicAperteMinistero || !datiPicAperteMinistero.corrente) {
-                    // se non esiste una pic corrente, troviamola ed apriamola
+                    // chiudo tutto quello aperto e precedente alla pic corrente
+                    if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
+                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
+                        for (let i = 0; i < datiPicAperteMinistero.precedenti.length; i++) {
+                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                                out.T2,
+                                datiPicAperteMinistero.precedenti[i]);
+                            // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
+                            let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
+                            out.T2 = this.aggiungiConclusioneTracciato2FromId(
+                                out.T2,
+                                datiPicAperteMinistero.precedenti[i],
+                                dataConclusione);
+                            data.mappaDatiMinistero.perCf[cf].chiuse[datiPicAperteMinistero.precedenti[i]] = data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                            delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                        }
+                    }
 
-                    if (datiPicAster && (datiPicAster.corrente || datiPicAster.successive.length > 0 || datiPicAster.precedenti.length > 0)) {
-                        logger.info("L'attività " + key + " ha almeno una PIC valida su Aster, procediamo con l'apertura e l'invio dei tracciati 1 e 2");
-                        let selectedId = datiPicAster.corrente || datiPicAster.successive[0] || datiPicAster.precedenti[0];
+                    if (!datiPicAperteMinistero || !datiPicAperteMinistero.corrente) {
+                        // se non esiste una pic corrente, troviamola ed apriamola
 
-                        const t1ByAster = data.datiAster.T1[selectedId];
-                        let tempT1 = _.cloneDeep(defaultRigaT1);
-                        let tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
-                        tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, tipoPic)
-                        const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
-                        // aggiungo t1
-                        if (!out.T1.hasOwnProperty(idT1))
-                            out.T1[idT1] = tempT1;
-                        else
-                            out.errors.globals.push("Chiave duplicata " + idT1);
-                        if (!data.mappaDatiMinistero.perCf.hasOwnProperty(cf))
-                            data.mappaDatiMinistero.perCf[cf] = {aperte: {}, chiuse: {}, idAlmenoUnaErogazione: {}};
-                        data.mappaDatiMinistero.perCf[cf].aperte[idT1] =
-                            {
-                                "Anno Presa In Carico": 2024,
-                                "Codice Regione": 190,
-                                "Codice ASL": 205,
-                                "Id Record": idT1,
-                                "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
-                                "Data Conclusione": ""
+                        if (datiPicAster && (datiPicAster.corrente || datiPicAster.successive.length > 0 || datiPicAster.precedenti.length > 0)) {
+                            logger.info("L'attività " + key + " ha almeno una PIC valida su Aster, procediamo con l'apertura e l'invio dei tracciati 1 e 2");
+                            let selectedId = datiPicAster.corrente || datiPicAster.successive[0] || datiPicAster.precedenti[0];
+
+                            const t1ByAster = data.datiAster.T1[selectedId];
+                            let tempT1 = _.cloneDeep(defaultRigaT1);
+                            let tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
+                            tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, tipoPic)
+                            const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
+                            // aggiungo t1
+                            if (!out.T1.hasOwnProperty(idT1))
+                                out.T1[idT1] = tempT1;
+                            else
+                                out.errors.globals.push("Chiave duplicata " + idT1);
+                            if (!data.mappaDatiMinistero.perCf.hasOwnProperty(cf))
+                                data.mappaDatiMinistero.perCf[cf] = {aperte: {}, chiuse: {}, idAlmenoUnaErogazione: {}};
+                            data.mappaDatiMinistero.perCf[cf].aperte[idT1] =
+                                {
+                                    "Anno Presa In Carico": 2024,
+                                    "Codice Regione": 190,
+                                    "Codice ASL": 205,
+                                    "Id Record": idT1,
+                                    "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
+                                    "Data Conclusione": ""
+                                }
+                            data.mappaDatiMinistero.perCf[cf].idAlmenoUnaErogazione[idT1] =
+                                {
+                                    "Anno Presa In Carico": 2024,
+                                    "Codice Regione": 190,
+                                    "Codice ASL": 205,
+                                    "Id Record": idT1,
+                                    "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
+                                    "Ultima Data Rivalutazione ": "--        ",
+                                    "Ultima Data Erogazione\n": dataAttivita,
+                                    "Tipo Operatore": 1,
+                                    "Tipo Prestazione": 1,
+                                    "Data Inizio Sospensione": "--        ",
+                                    "Data Fine Sospensione": "",
+                                    "Data Conclusione": "--        "
+                                }
+                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                                out.T2,
+                                idT1);
+                            let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
+                                dataAttivita.format("YYYY-MM-DD"),
+                                tipoOperatore,
+                                tipoPrestazione);
+                            this.aggiungiErogazioniTracciato2FromId(
+                                out.T2,
+                                idT1,
+                                erogazioneTemp);
+                            if (!out.allCfTrattatiOk.tutti.hasOwnProperty(cf))
+                                out.allCfTrattatiOk.tutti[cf] = [];
+                            out.allCfTrattatiOk.tutti[cf].push(key);
+                            if (etaAssistito && etaAssistito >= 65) {
+                                if (!out.allCfTrattatiOk.over65.hasOwnProperty(cf))
+                                    out.allCfTrattatiOk.over65[cf] = [];
+                                out.allCfTrattatiOk.over65[cf].push(key);
                             }
-                        data.mappaDatiMinistero.perCf[cf].idAlmenoUnaErogazione[idT1] =
-                            {
-                                "Anno Presa In Carico": 2024,
-                                "Codice Regione": 190,
-                                "Codice ASL": 205,
-                                "Id Record": idT1,
-                                "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
-                                "Ultima Data Rivalutazione ": "--        ",
-                                "Ultima Data Erogazione\n": dataAttivita,
-                                "Tipo Operatore": 1,
-                                "Tipo Prestazione": 1,
-                                "Data Inizio Sospensione": "--        ",
-                                "Data Fine Sospensione": "",
-                                "Data Conclusione": "--        "
-                            }
+                            erogato = true;
+                            datiPicAperteMinistero = {
+                                corrente: idT1,
+                                precedenti: [],
+                                successive: []
+                            };
+                        }
+                    } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
+                        logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
                         this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
                             out.T2,
-                            idT1);
+                            datiPicAperteMinistero.corrente);
                         let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
                             dataAttivita.format("YYYY-MM-DD"),
                             tipoOperatore,
                             tipoPrestazione);
                         this.aggiungiErogazioniTracciato2FromId(
                             out.T2,
-                            idT1,
+                            datiPicAperteMinistero.corrente,
                             erogazioneTemp);
                         if (!out.allCfTrattatiOk.tutti.hasOwnProperty(cf))
                             out.allCfTrattatiOk.tutti[cf] = [];
@@ -992,72 +1038,50 @@ export class FlussoSIAD {
                                 out.allCfTrattatiOk.over65[cf] = [];
                             out.allCfTrattatiOk.over65[cf].push(key);
                         }
-                        erogato = true;
-                        datiPicAperteMinistero = {
-                            corrente: idT1,
-                            precedenti: [],
-                            successive: []
-                        };
-                    }
-                } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
-                    logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
-                    this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                        out.T2,
-                        datiPicAperteMinistero.corrente);
-                    let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
-                        dataAttivita.format("YYYY-MM-DD"),
-                        tipoOperatore,
-                        tipoPrestazione);
-                    this.aggiungiErogazioniTracciato2FromId(
-                        out.T2,
-                        datiPicAperteMinistero.corrente,
-                        erogazioneTemp);
-                    if (!out.allCfTrattatiOk.tutti.hasOwnProperty(cf))
-                        out.allCfTrattatiOk.tutti[cf] = [];
-                    out.allCfTrattatiOk.tutti[cf].push(key);
-                    if (etaAssistito && etaAssistito >= 65) {
-                        if (!out.allCfTrattatiOk.over65.hasOwnProperty(cf))
-                            out.allCfTrattatiOk.over65[cf] = [];
-                        out.allCfTrattatiOk.over65[cf].push(key);
-                    }
 
-                    data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente] = {
-                        "Anno Presa In Carico": 2024,
-                        "Codice Regione": 190,
-                        "Codice ASL": 205,
-                        "Id Record": datiPicAperteMinistero.corrente,
-                        "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
-                        "Data Conclusione": ""
-                    }
-                    if (data.datiMinistero.soloT1bycf.hasOwnProperty(cf) || data.datiMinistero.PicNoAccessibyCf.hasOwnProperty(cf)) {
-                        logger.info("L'attività " + key + " risultava mai trattata");
-                        data.datiMinistero.soloT1bycf = utils.removeKeyIfExist(data.datiMinistero.soloT1bycf, cf);
-                        data.datiMinistero.PicNoAccessibyCf = utils.removeKeyIfExist(data.datiMinistero.PicNoAccessibyCf, cf);
-                    }
-                    erogato = true;
-                } else if (picAssistitoDitte) {
-                    logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, da attenzionare");
-                    if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
-                        out.cfDaAttenzionare.nessunTracciato1[cf] = [];
-                    out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
-                } else {
-                    logger.info("Non abbiamo nessun T1 corrente valido " + (datiPicAster && datiPicAster.successive.length > 0 ? " ma abbiamo solo PIC successive su ASTER" : " e nessuno successivo"));
-                    if (datiPicAster && datiPicAster.successive.length > 0) {
-                        if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
-                            out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
-                        out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
-                    } else {
+                        data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente] = {
+                            "Anno Presa In Carico": 2024,
+                            "Codice Regione": 190,
+                            "Codice ASL": 205,
+                            "Id Record": datiPicAperteMinistero.corrente,
+                            "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
+                            "Data Conclusione": ""
+                        }
+                        if (data.datiMinistero.soloT1bycf.hasOwnProperty(cf) || data.datiMinistero.PicNoAccessibyCf.hasOwnProperty(cf)) {
+                            logger.info("L'attività " + key + " risultava mai trattata");
+                            data.datiMinistero.soloT1bycf = utils.removeKeyIfExist(data.datiMinistero.soloT1bycf, cf);
+                            data.datiMinistero.PicNoAccessibyCf = utils.removeKeyIfExist(data.datiMinistero.PicNoAccessibyCf, cf);
+                        }
+                        erogato = true;
+                    } else if (picAssistitoDitte) {
+                        logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, da attenzionare");
                         if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
                             out.cfDaAttenzionare.nessunTracciato1[cf] = [];
                         out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
+                    } else {
+                        logger.info("Non abbiamo nessun T1 corrente valido " + (datiPicAster && datiPicAster.successive.length > 0 ? " ma abbiamo solo PIC successive su ASTER" : " e nessuno successivo"));
+                        if (datiPicAster && datiPicAster.successive.length > 0) {
+                            if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
+                                out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
+                            out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
+                        } else {
+                            if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
+                                out.cfDaAttenzionare.nessunTracciato1[cf] = [];
+                            out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
+                        }
+                    }
+
+                    if (erogato) {
+                        logger.info("L'attività " + key + " è stata erogata con successo");
+                        ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
+                        // aggiorna mapping
+                        mappingIdPicAperte[cf].ultimaMinistero = datiPicAperteMinistero.corrente;
+                        mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente
                     }
                 }
-
-                if (erogato) {
-                    logger.info("L'attività " + key + " è stata erogata con successo");
-                    ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
-                }
             }
+            else
+                logger.info("Skip attività " + key + " in quanto precedente al trimestre in corso");
         }
         logger.end();
         return null;
