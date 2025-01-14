@@ -500,8 +500,83 @@ export class FlussoSIAD {
         }
     }
 
-    contaPrestazioni() {
+    creaMappaTracciati(fileT1, fileT2) {
+        if (!fileT1 || !fileT2)
+            throw new Error("File non validi");
+        let out = {data: {}, errors: [], duplicati: {}};
+        let xml_string = fs.readFileSync(fileT1, "utf8");
+        const parser = new xml2js.Parser({attrkey: "ATTR"});
+        console.log("file:" + fileT1);
+        parser.parseString(xml_string, (error, result) => {
+            if (error === null) {
+                let assistenze = result['FlsAssDom_1']['Assistenza'];
+                for (let i = 0; i < assistenze.length; i++) {
+                    let assistenza = assistenze[i];
+                    const id = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0].toUpperCase().trim();
+                    const cfFromId = id.substring(16, 32).toUpperCase().trim();
+                    const cuni = assistenza['Assistito'][0]['DatiAnagrafici'][0]['CUNI'][0].toUpperCase().trim();
+                    if (cuni !== cfFromId)
+                        out.errors.push({
+                            id: id,
+                            file: fileT1,
+                            msg: "Cf from id: " + cfFromId + " non corrispondente a CUNI " + cuni
+                        });
+                    else {
+                        if (!out.data.hasOwnProperty(cuni))
+                            out.data[cuni] = {};
+                        if (out.data[cuni].hasOwnProperty(id)) {
+                            out.errors.push({
+                                id: id,
+                                file: fileT1,
+                                msg: "Chiave duplicata"
+                            });
+                            if (!out.duplicati.hasOwnProperty(cuni))
+                                out.duplicati[cuni] = [out.data[id]];
+                            else
+                                out.duplicati[cuni].push(out.data[id]);
+                        } else {
+                            out.data[cuni][id] = {xmlT1: assistenza, prestazioni: {}, chiusure: []};
+                        }
+                    }
+                }
+            }
+        });
+        // t2
+        xml_string = fs.readFileSync(fileT2, "utf8");
+        console.log("file:" + fileT1);
+        parser.parseString(xml_string, (error, result) => {
+            if (error === null) {
+                let assistenze = result['FlsAssDom_2']['Assistenza'];
+                for (let i = 0; i < assistenze.length; i++) {
+                    let assistenza = assistenze[i];
+                    const id = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0].toUpperCase().trim();
+                    const cfFromId = id.substring(16, 32).toUpperCase().trim();
+                    const conclusione = assistenza['Eventi'][0]['Conclusione'] ? assistenza['Eventi'][0]['Conclusione'][0] : null;
+                    const erogazioni = assistenza['Eventi'][0]['Erogazione'] ? assistenza['Eventi'][0]['Erogazione'] : [];
+                    if (!out.data.hasOwnProperty(cfFromId))
+                        out.data[cfFromId] = {};
+                    if (!out.data[cfFromId].hasOwnProperty(id))
+                        out.data[cfFromId][id] = {xmlT1: null, prestazioni: {}, chiusure: []};
+                    for (let erogazione of erogazioni) {
+                        const idErog = erogazione['ATTR']['data'] + "-" + erogazione['TipoOperatore'][0] + "-" + erogazione['Prestazioni'][0]['TipoPrestazione'][0];
+                        if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
+                            out.errors.push({
+                                id: idErog,
+                                file: fileT2,
+                                msg: "Erogazione duplicata"
+                            });
+                        } else
+                            out.data[cfFromId][id].prestazioni[idErog] = erogazione;
+                    }
+                    if (conclusione)
+                        out.data[cfFromId][id].chiusure.push(conclusione);
+                }
+            }
+        });
+        return out;
+    }
 
+    contaPrestazioni() {
         let data = {};
         let dataOver65 = {};
         const parser = new xml2js.Parser({attrkey: "ATTR"});
@@ -687,14 +762,26 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(anno, trimestre, pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+    async generaFlussoRettificaScarti(anno, pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
         let out = {
             errors: {
                 globals: [],
                 t2ditte: []
             },
-            T1: {},
-            T2: {},
+            T1: {
+                1: {},
+                2: {},
+                3: {},
+                4: {},
+                AA: {},
+            },
+            T2: {
+                1: {},
+                2: {},
+                3: {},
+                4: {},
+                AA: {},
+            },
             cfDaAttenzionare: {
                 attivitaConPicSuccessiveAperte: {},
                 nessunTracciato1: {},
@@ -714,9 +801,9 @@ export class FlussoSIAD {
             ),
             defaultMeta: {service: 'user-service'},
             transports: [
-                new winston.transports.File({
-                    filename: utils.getWorkingPath() + path.sep + "logs.log",
-                }),
+                /*                new winston.transports.File({
+                                    filename: utils.getWorkingPath() + path.sep + "logs.log",
+                                }),*/
                 new winston.transports.Console()
             ]
         });
@@ -845,9 +932,10 @@ export class FlussoSIAD {
             }
         }
         const t2bykeyOrdered = Object.keys(data.datiTracciatiDitte.T2byKey).sort();
-        const inizioTrimestre = moment().year(anno).quarter(trimestre).startOf('quarter');
+        const inizioAnno = moment().year(anno).startOf('year');
         const ultimaPicAttivitaPerAssistito = {};
         let mappingIdPicAperte = {};
+        let index = 0;
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
@@ -855,10 +943,11 @@ export class FlussoSIAD {
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
-            if (!dataAttivita.isBefore(inizioTrimestre)) {
+            if (!dataAttivita.isBefore(inizioAnno)) {
                 const cf = splitted[1];
                 const tipoOperatore = parseInt(splitted[2]).toString();
                 const tipoPrestazione = parseInt(splitted[3]).toString();
+                const trimestreAttivita = dataAttivita.quarter();
 
                 if (!mappingIdPicAperte.hasOwnProperty(cf))
                     mappingIdPicAperte[cf] = {ultimaMinistero: null, ministeroPortaleMap: {}};
@@ -910,39 +999,56 @@ export class FlussoSIAD {
                             const dataPicMinistero = datiPicAperteMinistero ? this.ottieniDatiFromIdPic(datiPicAperteMinistero.corrente)?.dataInizio : null;
                             const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
 
-                            if (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster) ||
-                                dataPicMinistero !== dataPicCorrenteAster && dataPicCorrenteAster && dataPicCorrenteAster.isAfter(dataPicMinistero)) {
-                                logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura");
+
+                            const attivitaSuccessivaProssimaPicAster = (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster));
+                            const dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster = (dataPicMinistero && dataPicCorrenteAster && dataPicMinistero.format("DD/MM/YYYY") !== dataPicCorrenteAster.format("DD/MM/YYYY") && dataPicCorrenteAster.isAfter(dataPicMinistero) && dataPicCorrenteAster.diff(dataPicMinistero, 'days') > 15);
+                            const picDiversaSuPortale = ((datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) &&
+                                mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente &&
+                                mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined);
+                            if (attivitaSuccessivaProssimaPicAster || dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster || picDiversaSuPortale) {
+                                const motivazione = attivitaSuccessivaProssimaPicAster ? "Attività successiva a pic Aster" : (dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster ? "Differenza di un mese tra pic Aster e Ministero" : "Differenza tra pic su portale e ministero");
+                                logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura, motivazione " + motivazione);
                                 datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
                                 delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
                                 datiPicAperteMinistero.corrente = null;
                             }
                         }
                     }
-                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) {
-                        // verifico se la pic corrente è coerente con il mapping
-                        if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente) {
-                            if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined)
-                                logger.info("L'attività " + key + " ha una pic corrente in ministero che non corrisponde più a quella su portale, procediamo alla chiusura e apertura di una nuova pic");
-                            else mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente;
+                    /*                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) {
+                                            // verifico se la pic corrente è coerente con il mapping
+                                            if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente) {
+                                                if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined)
+                                                    logger.info("L'attività " + key + " ha una pic corrente in ministero che non corrisponde più a quella su portale, procediamo alla chiusura e apertura di una nuova pic");
+                                                else mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente;
 
-                        }
+                                            }
 
-                    }
+                                        }*/
 
                     // chiudo tutto quello aperto e precedente alla pic corrente
                     if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
                         logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
                         for (let i = 0; i < datiPicAperteMinistero.precedenti.length; i++) {
                             this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                                out.T2,
+                                out.T2.AA,
                                 datiPicAperteMinistero.precedenti[i]);
                             // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
                             let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
-                            out.T2 = this.aggiungiConclusioneTracciato2FromId(
-                                out.T2,
+                            out.T2.AA = this.aggiungiConclusioneTracciato2FromId(
+                                out.T2.AA,
                                 datiPicAperteMinistero.precedenti[i],
                                 dataConclusione);
+
+                            // PER TRIMESTRE
+                            let trimestre = moment(dataConclusione, "YYYY-MM-DD").quarter();
+                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                                out.T2[trimestre],
+                                datiPicAperteMinistero.precedenti[i]);
+                            out.T2[trimestre] = this.aggiungiConclusioneTracciato2FromId(
+                                out.T2[trimestre],
+                                datiPicAperteMinistero.precedenti[i],
+                                dataConclusione);
+
                             data.mappaDatiMinistero.perCf[cf].chiuse[datiPicAperteMinistero.precedenti[i]] = data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
                             delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
                         }
@@ -961,10 +1067,18 @@ export class FlussoSIAD {
                             tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, tipoPic)
                             const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
                             // aggiungo t1
-                            if (!out.T1.hasOwnProperty(idT1))
-                                out.T1[idT1] = tempT1;
+                            if (!out.T1.AA.hasOwnProperty(idT1))
+                                out.T1.AA[idT1] = tempT1;
                             else
                                 out.errors.globals.push("Chiave duplicata " + idT1);
+
+                            // PER TRIMESTRE
+                            let trimestreT1 = moment(dataAttivita.format("YYYY-MM-DD"), "YYYY-MM-DD").quarter();
+                            if (!out.T1[trimestreT1].hasOwnProperty(idT1))
+                                out.T1[trimestreT1][idT1] = tempT1;
+                            else
+                                out.errors.globals.push("Chiave duplicata " + idT1);
+
                             if (!data.mappaDatiMinistero.perCf.hasOwnProperty(cf))
                                 data.mappaDatiMinistero.perCf[cf] = {aperte: {}, chiuse: {}, idAlmenoUnaErogazione: {}};
                             data.mappaDatiMinistero.perCf[cf].aperte[idT1] =
@@ -992,16 +1106,27 @@ export class FlussoSIAD {
                                     "Data Conclusione": "--        "
                                 }
                             this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                                out.T2,
+                                out.T2.AA,
                                 idT1);
                             let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
                                 dataAttivita.format("YYYY-MM-DD"),
                                 tipoOperatore,
                                 tipoPrestazione);
                             this.aggiungiErogazioniTracciato2FromId(
-                                out.T2,
+                                out.T2.AA,
                                 idT1,
                                 erogazioneTemp);
+
+                            // PER TRIMESTRE
+                            let trimestre = moment(dataAttivita.format("YYYY-MM-DD"), "YYYY-MM-DD").quarter();
+                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                                out.T2[trimestre],
+                                idT1);
+                            this.aggiungiErogazioniTracciato2FromId(
+                                out.T2[trimestre],
+                                idT1,
+                                erogazioneTemp);
+
                             if (!out.allCfTrattatiOk.tutti.hasOwnProperty(cf))
                                 out.allCfTrattatiOk.tutti[cf] = [];
                             out.allCfTrattatiOk.tutti[cf].push(key);
@@ -1020,16 +1145,28 @@ export class FlussoSIAD {
                     } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
                         logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
                         this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                            out.T2,
+                            out.T2.AA,
                             datiPicAperteMinistero.corrente);
                         let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
                             dataAttivita.format("YYYY-MM-DD"),
                             tipoOperatore,
                             tipoPrestazione);
                         this.aggiungiErogazioniTracciato2FromId(
-                            out.T2,
+                            out.T2.AA,
                             datiPicAperteMinistero.corrente,
                             erogazioneTemp);
+
+                        // PER TRIMESTRE
+                        let trimestre = moment(dataAttivita.format("YYYY-MM-DD"), "YYYY-MM-DD").quarter();
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2[trimestre],
+                            datiPicAperteMinistero.corrente);
+                        this.aggiungiErogazioniTracciato2FromId(
+                            out.T2[trimestre],
+                            datiPicAperteMinistero.corrente,
+                            erogazioneTemp);
+
+
                         if (!out.allCfTrattatiOk.tutti.hasOwnProperty(cf))
                             out.allCfTrattatiOk.tutti[cf] = [];
                         out.allCfTrattatiOk.tutti[cf].push(key);
@@ -1079,19 +1216,37 @@ export class FlussoSIAD {
                         mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente
                     }
                 }
-            }
-            else
+            } else
                 logger.info("Skip attività " + key + " in quanto precedente al trimestre in corso");
+            /*            if (++index % 400000 === 0)
+                            break;*/
         }
+        for (const tracciato of ["T1", "T2"]) {
+            for (const trimestre of ["1", "2", "3", "4", "AA"]) {
+                let builder = new xml2js.Builder();
+                let Assistenza = [...Object.values(out[tracciato][trimestre])];
+                const checkFunction = `verificaPresenzaDiDatiMancanti${tracciato}`;
+                const verifica = this[checkFunction](Assistenza);
+                const t = {
+                    ["FlsAssDom_" + tracciato.substring(1)]: {
+                        $: {
+                            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                            "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+                            "xmlns": "http://flussi.mds.it/flsassdom_" + tracciato.substring(1)
+                        },
+                        Assistenza
+                    }
+                };
+                const xml = builder.buildObject(t);
+                fs.writeFileSync(folderOut + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_" + (tracciato === "T1" ? "AP2" : "AA2") + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
+                if (!verifica.ok)
+                    out.errors.globals = [...out.errors.globals, ...verifica.errors];
+            }
+        }
+        // write errors
+        fs.writeFileSync(folderOut + path.sep + "errors.json", JSON.stringify(out.errors, null, 2));
         logger.end();
         return null;
-    }
-
-    eliminaCfDaAttenzionareSeEsiste = (cf, cfDaAttenzionare) => {
-        if (cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
-            // rimuovi
-            delete cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf];
-        return cfDaAttenzionare;
     }
 
 
@@ -1404,7 +1559,7 @@ export class FlussoSIAD {
 
     verificaPresenzaDiDatiMancantiT2(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
         if (!ris)
-            ris = {ok: true, fullArray: oggetto, numeFile: id, errore: []};
+            ris = {ok: true, fullArray: oggetto, numeFile: id, errors: []};
         if (Array.isArray(oggetto)) {
             for (let dato of oggetto) {
                 ris = this.verificaPresenzaDiDatiMancantiT2(dato, dato.Eventi?.PresaInCarico?.Id_Rec ?? null, ris);
@@ -1415,7 +1570,7 @@ export class FlussoSIAD {
                     ris = this.verificaPresenzaDiDatiMancantiT2(oggetto[chiave], id, ris);
                 else if (oggetto[chiave] === datoDaVerificare) {
                     ris.ok = false;
-                    ris.errore.push({chiave: chiave, valore: oggetto[chiave], id: id});
+                    ris.errors.push({chiave: chiave, valore: oggetto[chiave], id: id});
                 }
             }
         }
@@ -1424,7 +1579,7 @@ export class FlussoSIAD {
 
     verificaPresenzaDiDatiMancantiT1(oggetto, id = null, ris = null, datoDaVerificare = "<OBB>") {
         if (!ris)
-            ris = {ok: true, fullArray: oggetto, numeFile: id, errore: []};
+            ris = {ok: true, fullArray: oggetto, numeFile: id, errors: []};
         if (Array.isArray(oggetto)) {
             for (let dato of oggetto) {
                 ris = this.verificaPresenzaDiDatiMancantiT1(dato, dato.Eventi.PresaInCarico.Id_Rec, ris);
@@ -1435,7 +1590,7 @@ export class FlussoSIAD {
                     ris = this.verificaPresenzaDiDatiMancantiT1(oggetto[chiave], id, ris);
                 else if (oggetto[chiave] === datoDaVerificare) {
                     ris.ok = false;
-                    ris.errore.push({chiave: chiave, valore: oggetto[chiave], id: id});
+                    ris.errors.push({chiave: chiave, valore: oggetto[chiave], id: id});
                 }
             }
         }

@@ -1,0 +1,177 @@
+import { Button, TextEdit, VerticalBox, ListView, HorizontalBox, LineEdit } from "std-widgets.slint";
+
+component ListItem inherits Rectangle {
+    callback clicked();
+    in property <string> text;
+    in-out property <bool> is-selected;
+    in property <bool> is-prestazione;
+    height: 35px;
+    background: is-selected ? #2a3f5466 : transparent;
+
+    ta := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+        width: 100%;
+        height: 100%;
+    }
+
+    Text {
+        text: root.text;
+        color: is-prestazione ? #ffa500 :
+               is-selected ? white :
+               white;
+        font-weight: 600;
+    }
+}
+
+export component MainWindow {
+    in-out property <string> cf_input;
+    in-out property <string> path_input;
+    in-out property <[string]> id_list;
+    in-out property <[string]> prestazioni_list;
+    in-out property <string> xml_content;
+    in-out property <int> selected-id: -1;
+    in-out property <int> selected-prestazione: -1;
+
+    callback cerca_paziente();
+    callback seleziona_id(int);
+    callback carica_dati_from_path();
+
+    width: 1200px;
+    height: 800px;
+
+    VerticalBox {
+        spacing: 20px;
+        padding: 20px;
+        alignment: start;
+
+        // Path Selection
+        HorizontalBox {
+            spacing: 10px;
+            alignment: start;
+
+            VerticalBox {
+                spacing: 5px;
+                Text {
+                    text: "Percorso";
+                    font-size: 16px;
+                    color: white;
+                }
+                HorizontalBox {
+                    spacing: 10px;
+                    LineEdit {
+                        text <=> root.path_input;
+                        width: 400px;
+                        height: 45px;
+                        font-size: 16px;
+                        read-only: true;
+                    }
+                    Button {
+                        text: "Carica..";
+                        width: 100px;
+                        height: 45px;
+                        clicked => {
+                            root.carica_dati_from_path();
+                        }
+                    }
+                }
+            }
+        }
+
+        // Existing Codice Fiscale section
+        VerticalBox {
+            spacing: 5px;
+            Text {
+                text: "Codice Fiscale";
+                font-size: 16px;
+                color: white;
+            }
+            HorizontalBox {
+                spacing: 10px;
+                LineEdit {
+                    text <=> root.cf_input;
+                    width: 400px;
+                    height: 45px;
+                    font-size: 16px;
+                }
+                Button {
+                    text: "Cerca";
+                    clicked => {
+                        root.cerca_paziente();
+                    }
+                    width: 100px;
+                    height: 45px;
+                }
+            }
+        }
+
+        // Main content
+        HorizontalBox {
+            spacing: 30px;
+
+            VerticalBox {
+                spacing: 10px;
+                width: 250px;
+                Text {
+                    text: "ID";
+                    font-size: 16px;
+                    color: white;
+                    horizontal-alignment: center;
+                }
+                ListView {
+                    height: 600px;
+                    for id[i] in root.id_list: ListItem {
+                        text: id;
+                        is-selected: i == root.selected-id;
+                        is-prestazione: false;
+                        clicked => {
+                            root.selected-id = i;
+                            root.seleziona_id(i);
+                        }
+                    }
+                }
+            }
+
+            VerticalBox {
+                spacing: 10px;
+                width: 350px;
+                Text {
+                    text: "Prestazioni";
+                    font-size: 16px;
+                    color: white;
+                    horizontal-alignment: center;
+                }
+                ListView {
+                    height: 600px;
+                    for prestazione[i] in root.prestazioni_list: ListItem {
+                        text: prestazione;
+                        is-selected: i == root.selected-prestazione;
+                        is-prestazione: true;
+                        clicked => {
+                            root.selected-prestazione = i;
+                        }
+                    }
+                }
+            }
+
+            VerticalBox {
+                spacing: 10px;
+                width: 500px;
+                Text {
+                    text: "Contenuto XML";
+                    font-size: 16px;
+                    color: white;
+                    horizontal-alignment: center;
+                }
+                TextEdit {
+                    text: root.xml_content;
+                    read-only: true;
+                    font-size: 14px;
+                    width: 100%;
+                    height: 600px;
+                }
+            }
+        }
+    }
+}
