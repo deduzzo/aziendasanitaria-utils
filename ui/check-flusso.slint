@@ -35,14 +35,15 @@ export component MainWindow {
     in-out property <int> selected-cf: -1;
     in-out property <int> selected-id: -1;
     in-out property <int> selected-prestazione: -1;
+    in-out property <bool> is-loading: false;
 
     callback carica_dati_from_path();
     callback filtra_cf();
     callback seleziona_cf(int);
     callback seleziona_id(int);
 
-    width: 1200px;
-    height: 800px;
+    min-width: 1400px;
+    min-height: 600px;
 
     VerticalBox {
         spacing: 20px;
@@ -68,12 +69,15 @@ export component MainWindow {
                         height: 45px;
                         font-size: 16px;
                         read-only: true;
+                        enabled: !root.is-loading;
                     }
                     Button {
-                        text: "Carica..";
+                        text: root.is-loading ? "Caricamento..." : "Carica..";
                         width: 100px;
                         height: 45px;
+                        enabled: !root.is-loading;
                         clicked => {
+                            root.is-loading = true;
                             root.carica_dati_from_path();
                         }
                     }
@@ -100,6 +104,7 @@ export component MainWindow {
                     placeholder-text: "Filtra...";
                     height: 35px;
                     font-size: 14px;
+                    enabled: !root.is-loading;
                     edited => {
                         root.filtra_cf();
                     }

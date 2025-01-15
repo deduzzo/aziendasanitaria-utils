@@ -15,91 +15,79 @@ async function main() {
 
         // Dati di prova ristrutturati
         let mockData = {data: {}, errors: [], duplicati: {}};
-        /* = {
-            "RSSMRA80A01H501U": {
-                "ID001": {
-                    prestazioni: [
-                        {
-                            nome: "Visita Cardiologica",
-                            data: "2024-01-15"
-                        },
-                        {
-                            nome: "ECG",
-                            data: "2024-01-16"
-                        }
-                    ],
-                    xml: '<prestazione>\n  <id>ID001</id>\n  <prestazioni>\n    <prestazione>\n      <tipo>Visita Cardiologica</tipo>\n      <data>2024-01-15</data>\n      <medico>Dr. Bianchi</medico>\n    </prestazione>\n    <prestazione>\n      <tipo>ECG</tipo>\n      <data>2024-01-16</data>\n      <medico>Dr. Bianchi</medico>\n    </prestazione>\n  </prestazioni>\n</prestazione>'
-                },
-                "ID002": {
-                    prestazioni: [
-                        {
-                            nome: "Visita Ortopedica",
-                            data: "2024-01-20"
-                        }
-                    ],
-                    xml: '<prestazione>\n  <id>ID002</id>\n  <prestazioni>\n    <prestazione>\n      <tipo>Visita Ortopedica</tipo>\n      <data>2024-01-20</data>\n      <medico>Dr. Verdi</medico>\n    </prestazione>\n  </prestazioni>\n</prestazione>'
-                }
-            }
-        };*/
 
-        let currentIdList = [];
+        let cfSelezionato = null;
         let currentCfList = [];
-        mainWindow.path_input = "/Users/deduzzo/flussi_sanitari_wp/20250113/test";
+        let id_list = [];
+        let prestazioni_list = [];
+        mainWindow.path_input = "C:\\Users\\roberto.dedomenico\\flussi_sanitari_wp\\20250115";
 
         // Gestione ricerca per codice fiscale
         mainWindow.filtra_cf = () => {
             const cf = mainWindow.cf_filter.toUpperCase();
             console.log("Cercando CF:", cf);
-            mainWindow.cf_list =
+            currentCfList = Object.keys(mockData.data).filter((key) => key.includes(cf)).sort();
+            mainWindow.cf_list = currentCfList;
+            console.log("CF trovati:", mainWindow.cf_list.length);
 
-            if (mockData.data[cf]) {
-                console.log("CF trovato");
-                currentIdList = Object.keys(mockData.data[cf]);
-                console.log("Lista ID:", currentIdList);
-                mainWindow.id_list = currentIdList;
-            } else {
-                console.log("CF non trovato");
-                currentIdList = [];
-                mainWindow.id_list = [];
-            }
             mainWindow.prestazioni_list = [];
             mainWindow.xml_content = "";
         };
 
         mainWindow.carica_dati_from_path = () => {
-            let struttureMessina = new StruttureDistrettiPerProvincia(distretti, comuniDistretti, struttureDistrettiMap)
+            let struttureMessina = new StruttureDistrettiPerProvincia(distretti, comuniDistretti, struttureDistrettiMap);
             let impostazioniServizi = new ImpostazioniServiziTerzi(configData);
-            const siad = new FlussiRegioneSicilia.FlussoSIAD(struttureMessina,impostazioniServizi);
-            const filesT1 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml","AA_SIAD_AP");
-            const filesT2 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml","AA_SIAD_AA");
+            const siad = new FlussiRegioneSicilia.FlussoSIAD(struttureMessina, impostazioniServizi);
+            const filesT1 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AP");
+            const filesT2 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AA");
+
             if (filesT1.length === 1 && filesT2.length === 1) {
-                mockData = siad.creaMappaTracciati(filesT1[0],filesT2[0]);
+                Promise.resolve()
+                    .then(() => siad.creaMappaTracciati(filesT1[0], filesT2[0]))
+                    .then((result) => {
+                        mockData = result;
+                        currentCfList = Object.keys(mockData.data).sort();
+                        mainWindow.cf_list = currentCfList;
+                        mainWindow.is_loading = false;  // Ripristina lo stato normale
+                    })
+                    .catch((error) => {
+                        console.error('Errore durante il caricamento:', error);
+                        mainWindow.is_loading = false;  // Ripristina lo stato anche in caso di errore
+                    });
+            } else {
+                mainWindow.is_loading = false;  // Ripristina lo stato se i file non sono validi
             }
-            mainWindow.cf_list = Object.keys(mockData.data).sort();
         };
 
-        // Gestione selezione ID
         mainWindow.seleziona_id = (index) => {
-            console.log("Indice selezionato:", index);
-            console.log("Lista ID corrente:", currentIdList);
+            console.log("ads");
+            const idSelezionato = id_list[index];
+            console.log("Lista ID corrente:", idSelezionato);
+            prestazioni_list = Object.keys(mockData.data[cfSelezionato][idSelezionato].prestazioni).sort();
+            mainWindow.prestazioni_list = prestazioni_list;
+            mainWindow.xml_content = JSON.stringify(mockData.data[cfSelezionato][idSelezionato].xmlT1);
+        }
 
-            if (index < 0 || index >= currentIdList.length) {
+        // Gestione selezione CF
+        mainWindow.seleziona_cf = (index) => {
+            console.log("Indice selezionato:", index);
+            console.log("Lista ID corrente:", currentCfList);
+
+            if (index < 0 || index >= currentCfList.length) {
                 console.log("Indice non valido");
                 return;
             }
 
-            const selectedId = currentIdList[index];
-            console.log("ID selezionato:", selectedId);
+            cfSelezionato = currentCfList[index];
+            console.log("ID selezionato:", cfSelezionato);
 
-
-            const cf = mainWindow.cf_input.toUpperCase();
-            if (mockData.data[cf][selectedId].prestazioni.length === 0) {
+            id_list = Object.keys(mockData.data[cfSelezionato]).sort();
+            if (id_list.length === 0) {
                 console.log("Dati non trovati per CF o ID");
                 return;
             }
 
-            const idData = Object.keys(mockData.data[cf][selectedId].prestazioni);
-            console.log("Dati trovati per ID:", selectedId);
+            console.log("Dati trovati per ID:", id_list.length);
 
 /*            // Formatta le prestazioni
             const prestazioniFormattate = idData.prestazioni.map(
@@ -107,10 +95,8 @@ async function main() {
             );*/
 
             // Aggiorna l'interfaccia
-            mainWindow.prestazioni_list = idData;
-            mainWindow.xml_content = JSON.stringify(mockData.data[cf][selectedId].xmlT1);
-
-            console.log("Prestazioni caricate:", idData.length);
+            mainWindow.id_list = id_list;
+            //mainWindow.xml_content = JSON.stringify(mockData.data[cf][selectedId].xmlT1);
         };
 
         mainWindow.show();
