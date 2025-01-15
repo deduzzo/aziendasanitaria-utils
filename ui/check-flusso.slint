@@ -26,17 +26,20 @@ component ListItem inherits Rectangle {
 }
 
 export component MainWindow {
-    in-out property <string> cf_input;
+    in-out property <string> cf_filter;
     in-out property <string> path_input;
+    in-out property <[string]> cf_list;
     in-out property <[string]> id_list;
     in-out property <[string]> prestazioni_list;
     in-out property <string> xml_content;
+    in-out property <int> selected-cf: -1;
     in-out property <int> selected-id: -1;
     in-out property <int> selected-prestazione: -1;
 
-    callback cerca_paziente();
-    callback seleziona_id(int);
     callback carica_dati_from_path();
+    callback filtra_cf();
+    callback seleziona_cf(int);
+    callback seleziona_id(int);
 
     width: 1200px;
     height: 800px;
@@ -50,7 +53,6 @@ export component MainWindow {
         HorizontalBox {
             spacing: 10px;
             alignment: start;
-
             VerticalBox {
                 spacing: 5px;
                 Text {
@@ -79,37 +81,44 @@ export component MainWindow {
             }
         }
 
-        // Existing Codice Fiscale section
-        VerticalBox {
-            spacing: 5px;
-            Text {
-                text: "Codice Fiscale";
-                font-size: 16px;
-                color: white;
-            }
-            HorizontalBox {
-                spacing: 10px;
-                LineEdit {
-                    text <=> root.cf_input;
-                    width: 400px;
-                    height: 45px;
-                    font-size: 16px;
-                }
-                Button {
-                    text: "Cerca";
-                    clicked => {
-                        root.cerca_paziente();
-                    }
-                    width: 100px;
-                    height: 45px;
-                }
-            }
-        }
-
         // Main content
         HorizontalBox {
             spacing: 30px;
 
+            // Codici Fiscali Column
+            VerticalBox {
+                spacing: 10px;
+                width: 250px;
+                Text {
+                    text: "Codici Fiscali";
+                    font-size: 16px;
+                    color: white;
+                    horizontal-alignment: center;
+                }
+                LineEdit {
+                    text <=> root.cf_filter;
+                    placeholder-text: "Filtra...";
+                    height: 35px;
+                    font-size: 14px;
+                    edited => {
+                        root.filtra_cf();
+                    }
+                }
+                ListView {
+                    height: 565px;
+                    for cf[i] in root.cf_list: ListItem {
+                        text: cf;
+                        is-selected: i == root.selected-cf;
+                        is-prestazione: false;
+                        clicked => {
+                            root.selected-cf = i;
+                            root.seleziona_cf(i);
+                        }
+                    }
+                }
+            }
+
+            // ID Column
             VerticalBox {
                 spacing: 10px;
                 width: 250px;
@@ -133,6 +142,7 @@ export component MainWindow {
                 }
             }
 
+            // Prestazioni Column
             VerticalBox {
                 spacing: 10px;
                 width: 350px;
@@ -155,6 +165,7 @@ export component MainWindow {
                 }
             }
 
+            // XML Content Column
             VerticalBox {
                 spacing: 10px;
                 width: 500px;

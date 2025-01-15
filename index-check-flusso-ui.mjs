@@ -43,12 +43,14 @@ async function main() {
         };*/
 
         let currentIdList = [];
+        let currentCfList = [];
         mainWindow.path_input = "/Users/deduzzo/flussi_sanitari_wp/20250113/test";
 
         // Gestione ricerca per codice fiscale
-        mainWindow.cerca_paziente = () => {
-            const cf = mainWindow.cf_input.toUpperCase();
+        mainWindow.filtra_cf = () => {
+            const cf = mainWindow.cf_filter.toUpperCase();
             console.log("Cercando CF:", cf);
+            mainWindow.cf_list =
 
             if (mockData.data[cf]) {
                 console.log("CF trovato");
@@ -73,6 +75,7 @@ async function main() {
             if (filesT1.length === 1 && filesT2.length === 1) {
                 mockData = siad.creaMappaTracciati(filesT1[0],filesT2[0]);
             }
+            mainWindow.cf_list = Object.keys(mockData.data).sort();
         };
 
         // Gestione selezione ID
