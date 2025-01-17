@@ -783,6 +783,7 @@ export class FlussoSIAD {
                 AA: {},
             },
             cfDaAttenzionare: {
+                allCf: {},
                 attivitaConPicSuccessiveAperte: {},
                 nessunTracciato1: {},
             },
@@ -801,9 +802,9 @@ export class FlussoSIAD {
             ),
             defaultMeta: {service: 'user-service'},
             transports: [
-                /*                new winston.transports.File({
-                                    filename: utils.getWorkingPath() + path.sep + "logs.log",
-                                }),*/
+                new winston.transports.File({
+                    filename: utils.getWorkingPath() + path.sep + "logs.log",
+                }),
                 new winston.transports.Console()
             ]
         });
@@ -910,12 +911,35 @@ export class FlussoSIAD {
 
             if (out.errors.globals.length === 0) {
                 let index = 0;
+                let cfNonValidi = {};
                 for (let t2row of data.datiTracciatiDitte.T2) {
                     const dataAttivita = moment(t2row[tracciato2Maggioli[10]], "DD/MM/YYYY");
                     const cf = t2row[tracciato2Maggioli[0]].trim();
-                    const tipoOperatore = typeof t2row[tracciato2Maggioli[11]] !== "number" ? (t2row[tracciato2Maggioli[11]] && t2row[tracciato2Maggioli[11]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[11]].toString().trim()) : null) : t2row[tracciato2Maggioli[11]];
-                    const tipoPrestazione = typeof t2row[tracciato2Maggioli[12]] !== "number" ? (t2row[tracciato2Maggioli[12]] && t2row[tracciato2Maggioli[12]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[12]].toString().trim()) : null) : t2row[tracciato2Maggioli[12]];
-                    if (dataAttivita.isValid() && Validator.codiceFiscale(cf).valid && tipoOperatore !== null && tipoPrestazione !== null) {
+                    let tipoOperatore = typeof t2row[tracciato2Maggioli[11]] !== "number" ? (t2row[tracciato2Maggioli[11]] && t2row[tracciato2Maggioli[11]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[11]].toString().trim()) : null) : t2row[tracciato2Maggioli[11]];
+                    let tipoPrestazione = typeof t2row[tracciato2Maggioli[12]] !== "number" ? (t2row[tracciato2Maggioli[12]] && t2row[tracciato2Maggioli[12]].toString().trim() !== "" ? parseInt(t2row[tracciato2Maggioli[12]].toString().trim()) : null) : t2row[tracciato2Maggioli[12]];
+                    let cfOk = Validator.codiceFiscale(cf).valid;
+                    let ok = true;
+                    if (!dataAttivita.isValid() || !cfOk || tipoOperatore == null || tipoPrestazione === null) {
+                        // cerchiamo di fixare i problemi
+                        if (!dataAttivita.isValid()) {
+                            ok = false;
+                        }
+                        if (!cfOk && ok) {
+                            cfNonValidi[cf] = cf;
+                            ok = false;
+                        }
+                        if (tipoOperatore === null && ok) {
+                                tipoOperatore = 99;
+                                t2row[tracciato2Maggioli[11]] = tipoOperatore;
+                                ok = true;
+                        }
+                        if (tipoPrestazione === null && ok) {
+                            tipoPrestazione = 1;
+                            t2row[tracciato2Maggioli[12]] = tipoPrestazione;
+                            ok = true;
+                        }
+                    }
+                    if (ok) {
                         const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
                         if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
                             data.datiTracciatiDitte.T2byKey[key] = t2row;
@@ -926,6 +950,7 @@ export class FlussoSIAD {
                     if (++index % 1000 === 0)
                         console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
                 }
+                await utils.scriviGrossoOggettoSuFileJSON(folderOut + path.sep + "cfNonValidi.json",Object.keys(cfNonValidi));
                 let allCfT2 = [...new Set(Object.keys(data.datiTracciatiDitte.T2byKey).map(key => key.split("_")[1]))];
                 data.fromTS = await Assistiti.verificaAssistitiParallels(this._impostazioniServizi, allCfT2, {numParallelsJobs: 20});
                 await utils.scriviOggettoMP(data, folderOut + path.sep + dbFile);
@@ -984,12 +1009,13 @@ export class FlussoSIAD {
                         // verifichiamo se ci sono ulteriori pic aperte successive
                         if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
                             if (pazienteGiaTrattato) {
+                                if (!out.cfDaAttenzionare.allCf.hasOwnProperty(cf))
+                                    out.cfDaAttenzionare.allCf[cf] = cf;
                                 if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
                                     out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
                                 out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
                                 logger.info("Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare");
-                            } else
-                                logger.info("Il paziente " + cf + " è già stato trattato, non lo inseriamo tra quelli da attenzionare");
+                            }
                         }
                         // abbiamo una pic aperta in ministero
                         // verifichiamo se è valida o se è da chiudere in quanto superata da un altra su Aster
@@ -1014,17 +1040,6 @@ export class FlussoSIAD {
                             }
                         }
                     }
-                    /*                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) {
-                                            // verifico se la pic corrente è coerente con il mapping
-                                            if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente) {
-                                                if (mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined)
-                                                    logger.info("L'attività " + key + " ha una pic corrente in ministero che non corrisponde più a quella su portale, procediamo alla chiusura e apertura di una nuova pic");
-                                                else mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente;
-
-                                            }
-
-                                        }*/
-
                     // chiudo tutto quello aperto e precedente alla pic corrente
                     if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
                         logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
@@ -1192,16 +1207,22 @@ export class FlussoSIAD {
                         erogato = true;
                     } else if (picAssistitoDitte) {
                         logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, da attenzionare");
+                        if (!out.cfDaAttenzionare.allCf.hasOwnProperty(cf))
+                            out.cfDaAttenzionare.allCf[cf] = cf;
                         if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
                             out.cfDaAttenzionare.nessunTracciato1[cf] = [];
                         out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
                     } else {
                         logger.info("Non abbiamo nessun T1 corrente valido " + (datiPicAster && datiPicAster.successive.length > 0 ? " ma abbiamo solo PIC successive su ASTER" : " e nessuno successivo"));
                         if (datiPicAster && datiPicAster.successive.length > 0) {
+                            if (!out.cfDaAttenzionare.allCf.hasOwnProperty(cf))
+                                out.cfDaAttenzionare.allCf[cf] = cf;
                             if (!out.cfDaAttenzionare.attivitaConPicSuccessiveAperte.hasOwnProperty(cf))
                                 out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf] = [];
                             out.cfDaAttenzionare.attivitaConPicSuccessiveAperte[cf].push(key);
                         } else {
+                            if (!out.cfDaAttenzionare.allCf.hasOwnProperty(cf))
+                                out.cfDaAttenzionare.allCf[cf] = cf;
                             if (!out.cfDaAttenzionare.nessunTracciato1.hasOwnProperty(cf))
                                 out.cfDaAttenzionare.nessunTracciato1[cf] = [];
                             out.cfDaAttenzionare.nessunTracciato1[cf].push(key);
@@ -1214,6 +1235,8 @@ export class FlussoSIAD {
                         // aggiorna mapping
                         mappingIdPicAperte[cf].ultimaMinistero = datiPicAperteMinistero.corrente;
                         mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente
+                        // remove from da attenzionare
+                        out.cfDaAttenzionare.allCf = utils.removeKeyIfExist(out.cfDaAttenzionare.allCf, cf);
                     }
                 }
             } else
@@ -1244,7 +1267,10 @@ export class FlussoSIAD {
             }
         }
         // write errors
-        fs.writeFileSync(folderOut + path.sep + "errors.json", JSON.stringify(out.errors, null, 2));
+        await utils.scriviOggettoSuFile(folderOut + path.sep + "errors.json", out.errors);
+        //fs.writeFileSync(folderOut + path.sep + "errors.json", JSON.stringify(out.errors, null, 2));
+        // write da attentzionare
+        await utils.scriviOggettoSuFile(folderOut + path.sep + "cfDaAttenzionare.json", Object.keys(out.cfDaAttenzionare.allCf));
         logger.end();
         return null;
     }

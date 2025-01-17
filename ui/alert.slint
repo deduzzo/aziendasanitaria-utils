@@ -1,0 +1,132 @@
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export component Alert inherits Rectangle {
+    callback close();
+    in property <string> message;
+    in property <bool> modalVisible;
+    in property <string> alert-type: "info";
+
+    pure function get-icon(tipo: string) -> string {
+        if (tipo == "warning") {
+            "⚠️"
+        } else if (tipo == "error") {
+            "❌"
+        } else if (tipo == "success") {
+            "✅"
+        } else {
+            "ℹ️"
+        }
+    }
+
+    pure function get-color(tipo: string) -> brush {
+        if (tipo == "warning") {
+            #FFA500
+        } else if (tipo == "error") {
+            #FF4444
+        } else if (tipo == "success") {
+            #44FF44
+        } else {
+            #4488FF
+        }
+    }
+
+    width: 100%;
+    height: 100%;
+    background: #00000099;
+    visible: modalVisible;
+
+    Rectangle {
+        width: 400px;
+        height: 200px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        border-width: 2px;
+        border-color: root.get-color(root.alert-type);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+
+        TouchArea {
+            width: 30px;
+            height: 30px;
+            x: parent.width - self.width - 10px;
+            y: 10px;
+            clicked => { close(); }
+
+            Rectangle {
+                width: 100%;
+                height: 100%;
+
+                Text {
+                    text: "×";
+                    color: white;
+                    font-size: 20px;
+                    font-weight: 600;
+                }
+
+                states [
+                    pressed when parent.pressed: {
+                        background: #ffffff33;
+                        border-radius: 4px;
+                    }
+                    hover when parent.has-hover: {
+                        background: #ffffff1a;
+                        border-radius: 4px;
+                    }
+                ]
+            }
+        }
+
+        VerticalBox {
+            padding: 20px;
+            spacing: 20px;
+            alignment: space-between;
+
+            HorizontalBox {
+                spacing: 15px;
+                alignment: start;
+
+                // Icona a sinistra
+                Rectangle {
+                    width: 40px;
+                    height: 40px;
+                    Text {
+                        text: root.get-icon(root.alert-type);
+                        font-size: 32px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Testo a destra
+                Text {
+                    text: message;
+                    color: white;
+                    font-size: 16px;
+                    wrap: word-wrap;
+                    vertical-alignment: center;
+                }
+            }
+
+            HorizontalBox {
+                alignment: center;
+                Button {
+                    text: "OK";
+                    width: 100px;
+                    height: 40px;
+                    clicked => {
+                        close();
+                    }
+                }
+            }
+        }
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => {
+            close();
+        }
+        z: -1;
+    }
+}
