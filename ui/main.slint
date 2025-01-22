@@ -8,18 +8,18 @@ struct PazienteData {
     sesso: string,
     dataNascita: string,
     comuneNascita: string,
-    indirizzo: string,
+    indirizzoResidenza: string,
     asp: string,
-    mmgCfTs: string,
-    mmgCognomeTs: string,
-    mmgNomeTs: string,
-    mmgDaTs: string,
-    tipoAssistitoSSN: string,
-    inizioAssistenzaSSN: string,
-    fineAssistenzaSSN: string,
-    motivazioneFineAssistenzaSSN: string,
-    numero_tessera: string,
-    data_decesso: string,
+    MMGCf: string,
+    MMGCognome: string,
+    MMGNome: string,
+    MMGDataScelta: string,
+    ssnTipoAssistito: string,
+    ssnInizioAssistenza: string,
+    ssnFineAssistenza: string,
+    ssnMotivazioneFineAssistenza: string,
+    ssnNumeroTessera: string,
+    dataDecesso: string,
 }
 
 component ReadOnlyLineEdit inherits LineEdit {
@@ -53,18 +53,18 @@ export component MainWindow {
         sesso: "",
         dataNascita: "",
         comuneNascita: "",
-        indirizzo: "",
+        indirizzoResidenza: "",
         asp: "",
-        mmgCfTs: "",
-        mmgCognomeTs: "",
-        mmgNomeTs: "",
-        mmgDaTs: "",
-        tipoAssistitoSSN: "",
-        inizioAssistenzaSSN: "",
-        fineAssistenzaSSN: "",
-        motivazioneFineAssistenzaSSN: "",
-        numero_tessera: "",
-        data_decesso: "",
+        MMGCf: "",
+        MMGCognome: "",
+        MMGNome: "",
+        MMGDataScelta: "",
+        ssnTipoAssistito: "",
+        ssnInizioAssistenza: "",
+        ssnFineAssistenza: "",
+        ssnMotivazioneFineAssistenza: "",
+        ssnNumeroTessera: "",
+        dataDecesso: "",
     };
     callback cerca_paziente();
     callback reset_cf_fields();
@@ -272,7 +272,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.indirizzo;
+                                    text: root.paziente_data.indirizzoResidenza;
                                 }
                             }
                         }
@@ -306,7 +306,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.numero_tessera;
+                                    text: root.paziente_data.ssnNumeroTessera;
                                 }
                             }
 
@@ -339,7 +339,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.mmgCfTs;
+                                    text: root.paziente_data.MMGCf;
                                 }
                             }
 
@@ -350,7 +350,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.mmgCognomeTs;
+                                    text: root.paziente_data.MMGCognome;
                                 }
                             }
 
@@ -361,7 +361,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.mmgNomeTs;
+                                    text: root.paziente_data.MMGNome;
                                 }
                             }
 
@@ -372,7 +372,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.mmgDaTs;
+                                    text: root.paziente_data.MMGDataScelta;
                                 }
                             }
                         }
@@ -386,7 +386,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.tipoAssistitoSSN;
+                                    text: root.paziente_data.ssnTipoAssistito;
                                 }
                             }
 
@@ -397,7 +397,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.inizioAssistenzaSSN;
+                                    text: root.paziente_data.ssnInizioAssistenza;
                                 }
                             }
 
@@ -408,7 +408,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.fineAssistenzaSSN;
+                                    text: root.paziente_data.ssnFineAssistenza;
                                 }
                             }
                         }
@@ -422,7 +422,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.motivazioneFineAssistenzaSSN;
+                                    text: root.paziente_data.ssnMotivazioneFineAssistenza;
                                 }
                             }
 
@@ -433,7 +433,7 @@ export component MainWindow {
                                 }
 
                                 ReadOnlyLineEdit {
-                                    text: root.paziente_data.data_decesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.data_decesso;
+                                    text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
                                 }
                             }
                         }
