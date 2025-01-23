@@ -1,8 +1,6 @@
 import * as slint from "slint-ui";
-import { createRequire } from 'module';
 import {ImpostazioniServiziTerzi} from "./src/config/ImpostazioniServiziTerzi.js";
-const require = createRequire(import.meta.url);
-const configData = require('./config/config.json');
+import configData from './config/config.json' assert { type: 'json' };
 import {Nar2} from "./src/narTsServices/Nar2.js";
 import {utils} from "./src/Utils.js";
 

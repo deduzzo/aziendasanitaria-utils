@@ -1,11 +1,9 @@
 import * as slint from "slint-ui";
-import {createRequire} from 'module';
 import {ImpostazioniServiziTerzi} from "./src/config/ImpostazioniServiziTerzi.js";
 import {flussiRegioneSicilia as FlussiRegioneSicilia} from "./index.js";
 import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPerProvincia.js";
 
-const require = createRequire(import.meta.url);
-const configData = require('./config/config.json');
+import configData from './config/config.json' assert { type: 'json' };
 import {struttureDistrettiMap, distretti, comuniDistretti} from "./src/config/sicilia/messina.js";
 import {utils} from "./src/Utils.js";
 import fs from "fs";
