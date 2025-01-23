@@ -15,13 +15,6 @@
     "flussi sanitari",
     "regione sicilia"
   ],
-  "np": {
-    "ignore": [
-      "ui/**",
-      "index-ui.js",
-      "index-check-flusso-ui.js"
-    ]
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\"",
     "run-private": "node ./private_example.js",

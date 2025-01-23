@@ -1,6 +1,4 @@
 export
 /data/
 private_example.js
-/ui/
-index-check-flusso-ui.mjs
-index-ui.mjs
+.vscode/*
