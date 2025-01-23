@@ -329,15 +329,18 @@ export class Medici {
                     await page.click("input[name='Anagrafica']");
                     await page.waitForSelector("input[name='matr@Filter']");
                     await page.type("input[name='matr@Filter']", matricola);
-
+                    await utils.waitForTimeout(500);
                     await page.focus("input[name='dataDal@Filter']");
-                    await page.keyboard.down('Control');
-                    await page.keyboard.press('A');
-                    await page.keyboard.up('Control');
-                    await page.keyboard.press('Backspace');
-                    await page.type("input[name='dataDal@Filter']", "01/01/2000");
+                    await utils.waitForTimeout(500);
+                    await page.$eval(
+                        "input[name='dataDal@Filter']",
+                        (element, newValue) => {
+                            element.value = newValue;
+                        },
+                        "01/01/2000"
+                    );
                     //press f4
-                    await utils.waitForTimeout(1000);
+                    await utils.waitForTimeout(500);
                     await page.keyboard.press("F4");
                     await page.waitForSelector("input[name='annoPagamentoA@Filter']");
                     await page.focus("input[name='annoPagamentoA@Filter']");
