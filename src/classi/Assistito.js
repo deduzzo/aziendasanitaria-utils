@@ -1,4 +1,7 @@
-import moment from "moment";
+import {utils} from "../Utils.js";
+import moment from "moment-timezone";
+
+moment.tz.setDefault('Europe/Rome');
 
 export const DATI = {
     CF: "cf",
@@ -34,6 +37,39 @@ export const DATI = {
     DATA_DECESSO: "dataDecesso"
 };
 
+export const tipoDati = {
+    [DATI.CF]: "string",
+    [DATI.CF_NORMALIZZATO]: "string",
+    [DATI.COGNOME]: "string",
+    [DATI.NOME]: "string",
+    [DATI.SESSO]: "string",
+    [DATI.DATA_NASCITA]: "date",
+    [DATI.COMUNE_NASCITA]: "string",
+    [DATI.COD_COMUNE_NASCITA]: "string",
+    [DATI.COD_ISTAT_COMUNE_NASCITA]: "string",
+    [DATI.PROVINCIA_NASCITA]: "string",
+    [DATI.INDIRIZZO_RESIDENZA]: "string",
+    [DATI.CAP_RESIDENZA]: "string",
+    [DATI.COD_COMUNE_RESIDENZA]: "string",
+    [DATI.COD_ISTAT_COMUNE_RESIDENZA]: "string",
+    [DATI.ASP]: "string",
+    [DATI.SSN_TIPO_ASSISTITO]: "string",
+    [DATI.SSN_INIZIO_ASSISTENZA]: "date",
+    [DATI.SSN_FINE_ASSISTENZA]: "date",
+    [DATI.SSN_MOTIVAZIONE_FINE_ASSISTENZA]: "string",
+    [DATI.SSN_NUMERO_TESSERA]: "string",
+    [DATI.MMG_ULTIMA_OPERAZIONE]: "string",
+    [DATI.MMG_ULTIMO_STATO]: "string",
+    [DATI.MMG_TIPO]: "string",
+    [DATI.MMG_COD_REG]: "string",
+    [DATI.MMG_NOME]: "string",
+    [DATI.MMG_COGNOME]: "string",
+    [DATI.MMG_CF]: "string",
+    [DATI.MMG_DATA_SCELTA]: "date",
+    [DATI.MMG_DATA_REVOCA]: "date",
+    [DATI.DATA_DECESSO]: "date"
+}
+
 // Funzione per creare un oggetto con tutte le costanti inizializzate a null
 const createEmptyState = () => {
     return {
@@ -62,7 +98,6 @@ const createEmptyState = () => {
         [DATI.MMG_ULTIMO_STATO]: null,
         [DATI.MMG_TIPO]: null,
         [DATI.MMG_COD_REG]: null,
-        [DATI.MMG_NOMINATIVO_COMPLETO]: null,
         [DATI.MMG_NOME]: null,
         [DATI.MMG_COGNOME]: null,
         [DATI.MMG_CF]: null,
@@ -87,11 +122,27 @@ export class Assistito {
     #erroreNar = null;
     #erroreNar2 = null;
     #erroreTs = null;
+    #dateToUnix = false;
+    #replaceNullWithEmptyString = false;
 
-    constructor() {
+    /**
+     * Costruttore della classe Assistito.
+     *
+     * @param {Object} config Configurazione iniziale
+     * @param {boolean} [config.dateToUnix=false] Converte le date in formato Unix
+     * @param {boolean} [config.replaceNullWithEmptyString=false] Sostituisce i valori null con stringhe vuote
+     */
+    constructor(config = {}) {
+        const {
+            dateToUnix = false,
+            replaceNullWithEmptyString = false
+        } = config;
         this.#dataFromNar = createEmptyState();
         this.#dataFromNar2 = createEmptyState();
         this.#dataFromTs = createEmptyState();
+        this.#dateToUnix = dateToUnix;
+        this.#replaceNullWithEmptyString = replaceNullWithEmptyString;
+
     }
 
     // Metodo helper per validare le chiavi
@@ -109,6 +160,8 @@ export class Assistito {
 
     setNar(key, value) {
         if (this.#validateKey(key)) {
+            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
+                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromNar[key] = value;
         }
     }
@@ -121,6 +174,8 @@ export class Assistito {
 
     setNar2(key, value) {
         if (this.#validateKey(key)) {
+            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
+                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromNar2[key] = value;
         }
     }
@@ -132,6 +187,8 @@ export class Assistito {
 
     setTs(key, value) {
         if (this.#validateKey(key)) {
+            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
+                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromTs[key] = value;
         }
     }
@@ -165,7 +222,7 @@ export class Assistito {
         const getValue = (data) => {
             const value = data[campo];
             // Controlla se il valore è una stringa vuota o null/undefined
-            return value === '' || value === null || value === undefined ? null : value;
+            return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) ? null : value;
         };
 
         return getValue(this.#dataFromTs) ??
@@ -301,24 +358,31 @@ export class Assistito {
         return !this.dataDecesso;
     }
 
+
     eta(atDate = null) {
         // using moments and consider the date of death if present
+        const dataNascita = this.#dateToUnix ? moment.unix(this.dataNascita) : moment(this.dataNascita, "DD/MM/YYYY");
+        const dataDecesso = this.#dateToUnix ? moment.unix(this.dataDecesso) : moment(this.dataDecesso, "DD/MM/YYYY");
+        const dataRiferimento = atDate ? (this.#dateToUnix ? moment.unix(atDate) : moment(atDate, "DD/MM/YYYY")) : moment();
+
         if (this.dataDecesso || atDate) {
-            return moment(atDate ?? this.dataDecesso, "DD/MM/YYYY").diff(moment(this.dataNascita, "DD/MM/YYYY"), 'years');
+            return dataRiferimento.diff(dataNascita, 'years');
         } else {
-            return moment().diff(moment(this.dataNascita, "DD/MM/YYYY"), 'years');
+            return moment().diff(dataNascita, 'years');
         }
     }
 
+
     dati() {
-        return {
+        let out = {
             ...Object.values(DATI).reduce((acc, key) => {
                 acc[key] = this.#getDatoConFallback(key);
                 return acc;
             }, {}),
             inVita: this.inVita,
             eta: this.eta()
-        };
+        }
+        return this.#replaceNullWithEmptyString ? utils.replaceNullWithEmptyString(out) : out;
     }
 
     get okNar() {

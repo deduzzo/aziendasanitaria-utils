@@ -178,10 +178,26 @@ export class Nar2 {
         return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, null, params);
     }
 
-    async getDatiAssistitoCompleti(cf, assistito = null, sogei = true, nar2 = true) {
-        if (!assistito) {
-            assistito = new Assistito();
-        }
+    /**
+     * Ottiene i dati completi di un assistito dal codice fiscale.
+     *
+     * @param {string} cf Codice fiscale dell'assistito
+     * @param {Object} [config={}] Opzioni di configurazione
+     * @param {boolean} [config.dateToUnix=false] Converte date in formato Unix
+     * @param {Assistito} [config.assistito] Oggetto Assistito da aggiornare
+     * @param {boolean} [config.sogei=true] Recupera dati da Sogei
+     * @param {boolean} [config.nar2=true] Recupera dati da Nar2
+     * @returns {Assistito} Oggetto Assistito aggiornato
+     */
+    async getDatiAssistitoCompleti(cf, config = {}) {
+        let {
+            dateToUnix = false,
+            replaceNullWithEmptyString = false,
+            assistito = new Assistito({dateToUnix,replaceNullWithEmptyString}),
+            sogei = true,
+            nar2 = true,
+        } = config;
+
 
         if (sogei && nar2) {
             await Promise.all([

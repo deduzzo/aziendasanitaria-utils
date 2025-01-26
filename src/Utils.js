@@ -1,7 +1,7 @@
 import path from "path";
 import * as nodemailer from "nodemailer";
 import fs from 'fs-extra'
-import moment from "moment/moment.js";
+import moment from "moment-timezone";
 import puppeteer from 'puppeteer';
 import emlFormat from "eml-format";
 import MsgReader from '@freiraum/msgreader';
@@ -19,6 +19,8 @@ import zlib from 'zlib';
 import archiver from 'archiver';
 import unzipper from 'unzipper';
 import _ from "lodash";
+
+moment.tz.setDefault('Europe/Rome');
 
 const mesi = {
     "01": "Gennaio",
@@ -946,6 +948,40 @@ const waitForTimeout = (ms) => {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Converte una data (stringa `DD/MM/YYYY`) in un timestamp Unix (secondi).
+ * @param {string} dateStr - La data in formato "gg/mm/aaaa", es. "03/01/1986".
+ * @param {string} timeZone - Il fuso orario di riferimento (es. "Europe/Rome" o "UTC").
+ * @returns {number} Il timestamp in secondi (UTC).
+ */
+function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
+    // Esempio: '03/01/1986'
+    // Parse come "DD/MM/YYYY" nel timezone specificato
+    const m = moment.tz(dateStr, 'DD/MM/YYYY', timeZone);
+
+    // Se vuoi forzare l’orario a mezzanotte (nel caso la stringa non contenga orario)
+    // puoi fare: m.startOf('day');
+
+    // Ottieni il timestamp in secondi
+    return m.unix();
+}
+
+/**
+ * Converte un timestamp Unix (secondi) in una stringa "DD/MM/YYYY" (o altro formato),
+ * forzando un certo fuso orario.
+ *
+ * @param {number} unixSeconds - Il timestamp Unix in secondi.
+ * @param {string} timeZone - Il fuso orario di riferimento (ad es. 'Europe/Rome' o 'UTC').
+ * @param {string} format - Il formato di output (default: 'DD/MM/YYYY').
+ * @returns {string} Data formattata.
+ */
+function convertFromUnixSeconds(unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') {
+    // Crea un oggetto Moment a partire da unixSeconds (che sono secondi).
+    // Poi imposta il fuso orario desiderato.
+    // Infine formatta la data.
+    return moment.unix(unixSeconds).tz(timeZone).format(format);
+}
+
 
 export const utils = {
     getAllFilesRecursive,
@@ -991,5 +1027,7 @@ export const utils = {
     getFinalConfigFromTemplate,
     meseNumero,
     trovaDataPicDaAttivita,
-    waitForTimeout
+    waitForTimeout,
+    convertToUnixSeconds,
+    convertFromUnixSeconds
 }

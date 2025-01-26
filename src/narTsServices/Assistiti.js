@@ -573,9 +573,7 @@ export class Assistiti {
             for (let codiceFiscale of codiciFiscali) {
                 let datiAssistito = await this._nar2.getDatiAssistitoCompleti(
                     codiceFiscale,
-                    null,
-                    finalConfig.sogei,
-                    finalConfig.nar2
+                    { sogei: finalConfig.sogei, nar2: finalConfig.nar2 }
                 );
 
                 if (finalConfig.verbose && (datiAssistito.deceduto || !datiAssistito.ok))
