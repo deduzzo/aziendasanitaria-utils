@@ -7,7 +7,6 @@ import knex from "knex";
 import fs from "fs";
 import sqlite3 from 'sqlite3';
 import {Nar} from "./narTsServices/Nar.js";
-import * as util from "node:util";
 
 
 class Procedure {
@@ -686,6 +685,20 @@ class Procedure {
                     await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "errori.json", errori);
             }
         }
+    }
+
+    static async creaAnagraficaFromMediciTS(impostazioniServizi, pathExcelMedici, distretti, workingPath = null, visibile = true, numParallelsJobs = 1) {
+        if (workingPath == null)
+            workingPath = await Utils.getWorkingPath();
+
+        let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
+            impostazioniServizi,
+            pathExcelMedici,
+            Object.keys(distretti),
+            workingPath);
+
+        let out = await this.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visibile);
+        console.log("ciao");
     }
 
 

@@ -113,7 +113,7 @@ export class Medici {
             try {
                 let page = await this._nar.getWorkingPage();
                 if (page) {
-                    page.setDefaultTimeout(5000);
+                    page.setDefaultTimeout(15000);
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
                     await page.waitForSelector("input[name='codTipoLettura']");
                     await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
