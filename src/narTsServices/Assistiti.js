@@ -18,7 +18,7 @@ import cliProgress from 'cli-progress';
 const defaultConfig = {
     includiIndirizzo: true,
     numParallelsJobs: 10,
-    visible: false,
+    visibile: false,
     legacy: false,
     datiMedicoNar: null,
     dateSceltaCfMap: null,
@@ -33,13 +33,13 @@ export class Assistiti {
     /**
      *
      * @param {Config} configurazioneServiziTerzi
-     * @param visible
+     * @param visibile
      */
-    constructor(configurazioneServiziTerzi, visible = false) {
+    constructor(configurazioneServiziTerzi, visibile = false) {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
-        this._nar = new Nar(this._impostazioni, visible);
+        this._nar = new Nar(this._impostazioni, visibile);
         this._ts = new Ts(this._impostazioni);
-        this._nar2 = new Nar2(this._impostazioni, visible);
+        this._nar2 = new Nar2(this._impostazioni, visibile);
         this.retryTimeout = 5;
     }
 
@@ -81,7 +81,7 @@ export class Assistiti {
         return datiUtenti;
     }
 
-    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1, visible = false) {
+    async apriMMGAssistiti(codNarMMG, allCfAssistiti, index = 1, visibile = false) {
         // set _maxListeners 20
         EventEmitter.defaultMaxListeners = 20;
         // Funzione per eseguire un task con timeout
@@ -104,7 +104,7 @@ export class Assistiti {
         let out = {chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
 
         await this._nar.doLogout();
-        let page = await this._nar.getWorkingPage(visible);
+        let page = await this._nar.getWorkingPage(visibile);
         console.log("$#" + index + " " + " TOTALI: " + allCfAssistiti.length)
         if (page) {
             while (out.currentIndex < allCfAssistiti.length) {
@@ -561,6 +561,25 @@ export class Assistiti {
     }
 
 
+    /**
+    * Verifica gli assistiti in vita utilizzando Nar2.
+    *
+    * @param {Array<string>} codiciFiscali - Lista dei codici fiscali degli assistiti.
+    * @param {Object} [config=defaultConfig] - Configurazione opzionale.
+    * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
+    * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+    * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+    * @param {boolean} [config.verbose=false] - Se mostrare messaggi dettagliati.
+    * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
+    * @param {Object} [config.datiMedicoNar=null] - Dati del medico Nar.
+    * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta.
+    * @param {boolean} [config.sogei=true] - Se utilizzare Sogei.
+    * @param {boolean} [config.nar2=true] - Se utilizzare Nar2.
+    * @param {boolean} [config.salvaFile=true] - Se salvare il file.
+    * @param {number} [config.index=1] - Indice del job.
+    * @param {Object} [config.callback={fn: null, params: {}}] - Callback per il salvataggio dei dati.
+    * @returns {Promise<Object>} - Risultato della verifica.
+    */
     async verificaAssititiInVitaNar2(codiciFiscali, config = utils.defaultJobConfig) {
 
         const finalConfig = utils.getFinalConfigFromTemplate(config);
@@ -591,6 +610,11 @@ export class Assistiti {
                     out.out.vivi[codiceFiscale] = cleanData;
                 }
 
+                if (datiAssistito.ok && config.callback.fn) {
+                        config.callback.params = {codiceFiscale: codiceFiscale, dati: datiAssistito.dati({dateToUnix:true})};
+                        await config.callback.fn(config.callback.params);
+                }
+
                 if (i % 10 === 0 && i > 0) {
                     console.log("#" + finalConfig.index + " - " + i + "/" + codiciFiscali.length +
                         " " + (i / codiciFiscali.length * 100).toFixed(2) + "% " +
@@ -613,13 +637,14 @@ export class Assistiti {
      * @param {Object} [config={}] - Configurazione opzionale.
      * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
      * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
-     * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
      * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
      * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
      * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
      * @param {boolean} [config.sogei=true] - Se utilizzare SOGEI.
      * @param {boolean} [config.nar2=false] - Se utilizzare NAR2.
      * @param {boolean} [config.salfaFile=true] - Se salvare eventuali file
+     * @param {function} [config.callback] - Callback per il salvataggio dei dati.
      * @returns {Promise<Object>} - Risultato della verifica.
      */
     static async verificaAssistitiParallels(configImpostazioniServizi, codiciFiscali, config = {}) {
@@ -638,7 +663,7 @@ export class Assistiti {
 
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi, finalConfig.visible);
+            let assistitiTemp = new Assistiti(configImpostazioniServizi, finalConfig.visibile);
             if (finalConfig.legacy) {
                 promises.push(
                     assistitiTemp.verificaAssititiInVita(
@@ -646,7 +671,7 @@ export class Assistiti {
                         null,
                         finalConfig.includiIndirizzo,
                         i + 1,
-                        finalConfig.visible,
+                        finalConfig.visibile,
                         finalConfig.datiMedicoNar,
                         finalConfig.dateSceltaCfMap
                     )
@@ -660,7 +685,8 @@ export class Assistiti {
                             dateSceltaCfMap: finalConfig.dateSceltaCfMap,
                             sogei: finalConfig.sogei,
                             nar2: finalConfig.nar2,
-                            index: i + 1
+                            index: i + 1,
+                            callback: finalConfig.callback
                         }
                     )
                 );
@@ -681,7 +707,7 @@ export class Assistiti {
         return out;
     }
 
-    static async verificaDatiAssistitiNarParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visible = false) {
+    static async verificaDatiAssistitiNarParallels(configImpostazioniServizi, codiciFiscali, includiIndirizzo = false, numParallelsJobs = 10, visibile = false) {
         EventEmitter.defaultMaxListeners = 100;
         let out = {error: false, out: {dati: [], nonTrovati: [], storicoMMG: {}}}
         let jobs = [];
@@ -692,7 +718,7 @@ export class Assistiti {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let assistitiTemp = new Assistiti(configImpostazioniServizi, visible);
+            let assistitiTemp = new Assistiti(configImpostazioniServizi, visibile);
             promises.push(assistitiTemp.verificaDatiAssititoDaNar(jobs[i], true, i + 1));
         }
         let results = await Promise.all(promises);
@@ -890,7 +916,7 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiPrestazioni = true, visible = false) {
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiPrestazioni = true, visibile = false) {
         EventEmitter.defaultMaxListeners = 200;
         let out = {error: false, out: Object.assign({}, protocolli)};
         let protocolliMancanti = {}
@@ -920,7 +946,7 @@ export class Assistiti {
                 let assistitiTemp = new Assistiti(configImpostazioniServizi);
                 let result = null;
                 try {
-                    result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visible);
+                    result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visibile);
                 } catch (e) {
                     console.log("[" + index + "] errore elaborazione job:" + job);
                     result = {error: true, out: "errore elaborazione job:" + job};
@@ -994,7 +1020,31 @@ export class Assistiti {
     }
 
 
-    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, outPath = "elaborazioni", numParallelsJobs = 10, visibile = false, nomeFile = "assistitiNar.json") {
+    /**
+     * Verifica gli assistiti in vita in parallelo.
+     *
+     * @param {Object} impostazioniServizi - Configurazione dei servizi.
+     * @param {string} pathJob - Percorso del job.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {string} [config.outPath="elaborazioni"] - Percorso di output.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     * @param {string} [config.nomeFile="assistitiNar.json"] - Nome del file degli assistiti.
+     * @param {function} [config.callback] - Callback da richiamare quando viene recuperato un nuovo assistito
+     * @returns {Promise<Object>} - Risultato della verifica.
+     */
+    static async verificaAssititiInVitaParallelsJobs(impostazioniServizi, pathJob, config = {}) {
+        let {
+            outPath = "elaborazioni",
+            numParallelsJobs = 10,
+            visibile = false,
+            nomeFile = "assistitiNar.json",
+            callback = {
+                fn: null,
+                params: {}
+            }
+        } = config;
+
         EventEmitter.defaultMaxListeners = 100;
 
         // Stato globale del progresso
@@ -1015,7 +1065,11 @@ export class Assistiti {
                 for (let cf of datiAssititi[codMedico])
                     assistitiCfArray.push(cf.cf);
 
-            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, {numParallelsJobs});
+            let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, {
+                numParallelsJobs: numParallelsJobs,
+                visibile: visibile,
+                callback: callback
+            });
 
             const updateJobStatus = async (ris) => {
                 await utils.scriviEComprimiFile(pathJob + path.sep + outPath + path.sep + codMedico + ".json", {

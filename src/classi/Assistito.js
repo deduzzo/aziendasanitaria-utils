@@ -373,15 +373,32 @@ export class Assistito {
     }
 
 
-    dati() {
+    /**
+     * Restituisce un oggetto con i dati dell'assistito, includendo l'età e lo stato di vita.
+     *
+     * @param {Object} [options={}] - Opzioni per la generazione dei dati.
+     * @param {boolean} [options.dateToUnix=this.#dateToUnix] - Se true, converte le date in formato Unix.
+     * @returns {Object} Oggetto contenente i dati dell'assistito.
+     */
+    dati(options = {}) {
+        const { dateToUnix = this.#dateToUnix } = options;
+
         let out = {
             ...Object.values(DATI).reduce((acc, key) => {
-                acc[key] = this.#getDatoConFallback(key);
+                let value = this.#getDatoConFallback(key);
+
+                // Converti le date in Unix se richiesto
+                if (dateToUnix && tipoDati[key] === "date" && value && value !== "") {
+                    value = utils.convertToUnixSeconds(value, 'Europe/Rome');
+                }
+
+                acc[key] = value;
                 return acc;
             }, {}),
             inVita: this.inVita,
             eta: this.eta()
         }
+
         return this.#replaceNullWithEmptyString ? utils.replaceNullWithEmptyString(out) : out;
     }
 

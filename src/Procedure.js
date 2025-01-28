@@ -70,7 +70,31 @@ class Procedure {
         return assistiti;
     }
 
-    static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath = null, parallels = 20, visibile = false, nomeFile = "assistitiTs.json",) {
+
+    /**
+     * Ottiene gli assistiti dal sistema TS.
+     *
+     * @param {Object} impostazioniServizi - Impostazioni dei servizi.
+     * @param {Object} codToCfDistrettoMap - Mappa dei codici regionali ai codici fiscali e distretti.
+     * @param {{workingPath: null, parallels: number, visibile: boolean}} [config={}] - Configurazione opzionale.
+     * @param {string} [config.workingPath=null] - Percorso di lavoro.
+     * @param {string} [config.nomeFile="assistitiTS.json"] - Nome del file.
+     * @param {number} [config.parallels=20] - Numero di job paralleli.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     * @param {Object} [config.callback={fn: null, params: {}}] - Callback.
+     */
+    static async getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, config = {}) {
+        let {
+            workingPath = null,
+            nomeFile = "assistitiTS.json",
+            parallels = 20,
+            visibile = false,
+            callback = {
+                fn: null,
+                params: {}
+            }
+        } = config;
+
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
@@ -82,7 +106,11 @@ class Procedure {
     static async #getDifferenzeAssistitiNarTs(mediciPerDistretto, codToCfDistrettoMap, pathAssistitiPdfNar, impostazioniServizi, distretti, workingPath = null, soloAttivi = false, parallels = 20, visibile = false) {
 
         await Procedure.getAssistitiFileFromNar(impostazioniServizi, pathAssistitiPdfNar, codToCfDistrettoMap, distretti, workingPath);
-        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, parallels, visibile);
+        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, {
+            workingPath: workingPath,
+            parallels: parallels,
+            visibile: visibile
+        });
 
         // per codice regionale
         let assistitiNar = await Utils.leggiOggettoDaFileJSON(workingPath + path.sep + "assistitiNar.json");
@@ -266,18 +294,18 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visible = false, workingPath = null, conteggioVoci = ["CM0020"]) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, workingPath = null, conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
 
         process.setMaxListeners(0);
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
-        let medici = new Medici(impostazioniServizi, visible, workingPath, true, Nar.PAGHE);
+        let medici = new Medici(impostazioniServizi, visibile, workingPath, true, Nar.PAGHE);
         workingPath = medici._nar.getWorkingPath()
         let outFinal = [];
         let outDettaglioMese = [];
         do {
-            let out = await medici.stampaCedolino(matricola, visible, da.month() + 1, da.year(), da.month() + 1, da.year());
+            let out = await medici.stampaCedolino(matricola, visibile, da.month() + 1, da.year(), da.month() + 1, da.year());
             let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), da.month() + 1, da.year());
             const bustakey = da.year().toString() + "-" + (da.month() + 1).toString().padStart(2, '0');
             let outData = {};
@@ -373,7 +401,7 @@ class Procedure {
         return 0;
     }
 
-    static async riapriAssistitiMMG(impostazioniServizi, pathExcelMedici, distretti, workingPath = null, visible = false, numParallelsJob = 4, nomeFilePdfAssistiti = "assistiti.pdf") {
+    static async riapriAssistitiMMG(impostazioniServizi, pathExcelMedici, distretti, workingPath = null, visibile = false, numParallelsJob = 4, nomeFilePdfAssistiti = "assistiti.pdf") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         let medici = new Medici(impostazioniServizi);
@@ -392,10 +420,10 @@ class Procedure {
             //filp array
             //allAssititi = allAssititi.reverse();
             while (i < numParallelsJob) {
-                let assistiti = new Assistiti(impostazioniServizi, visible);
+                let assistiti = new Assistiti(impostazioniServizi, visibile);
                 let slice = allAssititi.slice(i * numPerJob, (i + 1) * numPerJob);
                 //await assistiti.apriMMGAssistiti(codNar, allAssistiti[codNar].assistiti);
-                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1, visible));
+                allJobs.push(assistiti.apriMMGAssistiti(codNar, slice, i + 1, visibile));
                 i++;
             }
             let results = await Promise.all(allJobs);
@@ -404,7 +432,7 @@ class Procedure {
     }
 
 
-    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visible = false) {
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visibile = false) {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -422,12 +450,16 @@ class Procedure {
             workingPath,
             cartellaElaborazione,
             numParallelsJobs,
-            visible);
+            visibile);
 
 
         await medici.creaElenchiDeceduti(codToCfDistrettoMap, workingPath, distretti, dataQuote);
 
-        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visible);
+        await Procedure.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, {
+            workingPath: workingPath,
+            parallels: numParallelsJobs,
+            visibile: visibile
+        });
 
         await Procedure.#getDifferenzeAssistitiNarTs(
             mediciPerDistretto,
@@ -480,7 +512,7 @@ class Procedure {
      * @param {Object} [config={}] - Configurazione opzionale.
      * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
      * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
-     * @param {boolean} [config.visible=false] - Se rendere visibile il processo.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
      * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
      * @param {Object} [config.datiMedicoNar=null] - Dati del medico NAR.
      * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta CF.
@@ -524,7 +556,7 @@ class Procedure {
         await Utils.scriviOggettoSuNuovoFileExcel(folterPath + path.sep + "allMorti.xlsx", allMorti);
     }
 
-    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, reverse = false, numParallelsJobs = 30, visible = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
+    static async creaDatabaseAssistitiNarTs(impostazioniServizi, pathExcelMedici, distretti, connData, workingPath = null, reverse = false, numParallelsJobs = 30, visibile = false, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioniDB") {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -599,7 +631,7 @@ class Procedure {
                     let allCodiciFiscali = {};
                     for (let assistito of assistitiNar[codNar].assistiti)
                         allCodiciFiscali[assistito.codiceFiscale] = assistito.data_scelta;
-                    let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visible, codToCfDistrettoMap[codNar], allCodiciFiscali);
+                    let assistitits = await Assistiti.verificaAssistitiParallels(impostazioniServizi, Object.keys(allCodiciFiscali), true, numParallelsJobs, visibile, codToCfDistrettoMap[codNar], allCodiciFiscali);
                     if (!fs.existsSync(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json"))
                         await Utils.scriviOggettoSuFile(workingPath + path.sep + "TsJsonData" + path.sep + "assistiti_" + codNar + ".json", assistitits);
                 }
@@ -694,11 +726,12 @@ class Procedure {
      * @param {Object} impostazioniServizi - Impostazioni dei servizi.
      * @param {string} pathExcelMedici - Percorso del file Excel dei medici.
      * @param {Object} distretti - Distretti.
-     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {{workingPath: string, visibile: boolean, numParallelsJobs: number, callback: {fn: updateDb, params: {}}}} [config={}] - Configurazione opzionale.
      * @param {string} [config.workingPath=null] - Percorso di lavoro.
      * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
      * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
      * @param {string} [config.fileName="assistitiTS.json"] - Nome del file.
+     * @param {Function} [config.callback=null] - Callback da richiamare al momento di aver trovato un nuovo assistito
      */
     static async creaAnagraficaFromMediciTS(impostazioniServizi, pathExcelMedici, distretti, config = {}) {
         // workingPath = null, visibile = false, numParallelsJobs = 10
@@ -706,7 +739,11 @@ class Procedure {
             workingPath = null,
             visibile = false,
             numParallelsJobs = 10,
-            fileName = "assistitiTS.json"
+            fileName = "assistitiTS.json",
+            callback = {
+                fn: null,
+                params: {}
+            }
         } = config;
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
@@ -718,12 +755,25 @@ class Procedure {
             workingPath);
         // if not exist workingPath + path.sep + fileName
         if (!fs.existsSync(workingPath + path.sep + fileName))
-            await this.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visibile, fileName);
-        await Assistiti.verificaAssititiInVitaParallelsJobs(impostazioniServizi, workingPath, "elaborazioni", numParallelsJobs / 2, visibile, fileName);
+            await this.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap,
+                {
+                    workingPath: workingPath,
+                    parallels: numParallelsJobs,
+                    visibile: visibile,
+                    nomeFile: fileName,
+                }
+            );
+        await Assistiti.verificaAssititiInVitaParallelsJobs(impostazioniServizi, workingPath, {
+            outPath: "elaborazioni",
+            numParallelsJobs: numParallelsJobs / 2,
+            visibile: visibile,
+            nomeFile: fileName,
+            callback: callback
+        });
     }
 
 
-    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visible = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visibile = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
         let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
         let basePath = path.dirname(pathDeceduti);
         if (!fs.existsSync(basePath + path.sep + fileName)) {
@@ -738,7 +788,7 @@ class Procedure {
         let count = allCfs.length;
         let numPerJob = Math.ceil(count / numParallelsJobs);
         while (i < numParallelsJobs) {
-            let assistiti = new Assistiti(impostazioniServizi, visible);
+            let assistiti = new Assistiti(impostazioniServizi, visibile);
             let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
             allJobs.push(assistiti.chiudiAssistitiDeceduti(slice, i + 1));
             i++;

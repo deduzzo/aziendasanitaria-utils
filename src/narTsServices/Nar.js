@@ -14,16 +14,16 @@ export class Nar {
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
-     * @param visible
+     * @param visibile
      * @param workingPath string
      * @param batchProcess
      */
-    constructor(impostazioni,visible = false, workingPath = null,batchProcess = false,type = Nar.NAR) {
+    constructor(impostazioni,visibile = false, workingPath = null,batchProcess = false,type = Nar.NAR) {
         this._impostazioni = impostazioni;
         this._browser = null;
         this._logged = false;
         this._workingPage = null;
-        this._visible = visible;
+        this._visibile = visibile;
         this._type = type;
         this._retry = 5;
         // working path for download,a temporary folder so temp dir
@@ -60,9 +60,9 @@ export class Nar {
         this._batchProcess = value;
     }
 
-    async getWorkingPage(visible = null) {
-        if (visible !== null)
-            this._visible = visible;
+    async getWorkingPage(visibile = null) {
+        if (visibile !== null)
+            this._visibile = visibile;
         if (!this._logged)
             await this.doLogin();
         if (!this._logged)
@@ -108,7 +108,7 @@ export class Nar {
                         })
                     );
                     this._browser = await puppeteerExtra.launch({
-                        headless: !this._visible,
+                        headless: !this._visibile,
                         defaultViewport: {width: 1920, height: 1080},
                         args: [
                             '--window-size=1920,1080',

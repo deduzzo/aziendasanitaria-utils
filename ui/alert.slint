@@ -3,7 +3,7 @@ import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 export component Alert inherits Rectangle {
     callback close();
     in property <string> message;
-    in property <bool> modalVisible;
+    in property <bool> modalvisibile;
     in property <string> alert-type: "info";
 
     pure function get-icon(tipo: string) -> string {
@@ -33,7 +33,7 @@ export component Alert inherits Rectangle {
     width: 100%;
     height: 100%;
     background: #00000099;
-    visible: modalVisible;
+    visibile: modalvisibile;
 
     Rectangle {
         width: 400px;

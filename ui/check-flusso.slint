@@ -37,7 +37,7 @@ export component MainWindow {
     in-out property <bool> is-loading: false;
     // ALERT
     in-out property <string> alert-type: "info";
-    in-out property <bool> alert-visible: false;
+    in-out property <bool> alert-visibile: false;
     in-out property <string> alert-message: "";
 
     // STATISTICHE FLUSSO XML
@@ -345,8 +345,8 @@ export component MainWindow {
     }
 
     Alert {
-        visible: root.alert-visible;
-        modalVisible: root.alert-visible;
+        visibile: root.alert-visibile;
+        modalvisibile: root.alert-visibile;
         message: root.alert-message;
         alert-type: root.alert-type;
         close => {

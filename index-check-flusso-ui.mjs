@@ -35,7 +35,7 @@ async function main() {
         const showAlert = (message, type = "info") => {
             mainWindow.alert_type = type;  // Usa la notazione con bracket per accedere alla property con trattino
             mainWindow.alert_message = message;
-            mainWindow.alert_visible = true;
+            mainWindow.alert_visibile = true;
         }
 
 /*        // STATISTICHE FLUSSO XML
@@ -102,7 +102,7 @@ async function main() {
         }
 
         mainWindow.close_alert = () => {
-            mainWindow.alert_visible = false;
+            mainWindow.alert_visibile = false;
         };
 
         // Gestione ricerca per codice fiscale

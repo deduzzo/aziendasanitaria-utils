@@ -28,18 +28,18 @@ export class Medici {
     /**
      *
      * @param {ImpostazioniServiziTerzi} impostazioni
-     * @param visible
+     * @param visibile
      * @param workingPath
      * @param batchProcess
      * @param narType
      */
 
 
-    constructor(impostazioni, visible = false, workingPath = null, batchProcess = false, narType = Nar.NAR) {
+    constructor(impostazioni, visibile = false, workingPath = null, batchProcess = false, narType = Nar.NAR) {
         this._impostazioni = impostazioni;
-        this._nar = new Nar(this._impostazioni, visible, workingPath, batchProcess, narType);
+        this._nar = new Nar(this._impostazioni, visibile, workingPath, batchProcess, narType);
         this._ts = new Ts(this._impostazioni);
-        this._visible = visible;
+        this._visibile = visibile;
         this._retry = 20;
     }
 
@@ -306,7 +306,7 @@ export class Medici {
         return out;
     }
 
-    async stampaCedolino(matricola, visible = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
+    async stampaCedolino(matricola, visibile = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = null;
         if (!this._nar._batchProcess || this._nar.type !== Nar.PAGHE) {
             await this._nar.doLogout();
@@ -470,7 +470,7 @@ export class Medici {
     }
 
     async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap, index = 1) {
-        let page = await this._ts.getWorkingPage(this._visible);
+        let page = await this._ts.getWorkingPage(this._visibile);
         page.setDefaultTimeout(60000);
         let datiAssistiti = {};
         if (page) {
@@ -489,7 +489,7 @@ export class Medici {
                         // wait for page load
                         // Attendiamo che il selettore #mef sia presente E che sia visibile
                         await page.waitForSelector("#mef", {
-                            visible: true,
+                            visibile: true,
                             timeout: 30000  // timeout di 30 secondi
                         });
                         const error = await page.$("body > div:nth-child(12) > div > fieldset > p:nth-child(2)");
@@ -506,7 +506,7 @@ export class Medici {
                             await page.click("#menu_voci > ol > li:nth-child(1) > a");
                             // Attendiamo che il selettore #mef sia presente E che sia visibile
                             await page.waitForSelector("#mef", {
-                                visible: true,
+                                visibile: true,
                                 timeout: 30000  // timeout di 30 secondi
                             });
                             // if page contains selector "body > div:nth-child(12) > div"
@@ -548,7 +548,17 @@ export class Medici {
         }
     }
 
-    static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap, impostazioni, numParallelsJobs = 20, visible = false) {
+    static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap, impostazioni, config = {}) {
+        //numParallelsJobs = 20, visibile = false
+        let {
+            numParallelsJobs = 20,
+            visibile = false,
+            callback = {
+                fn: null,
+                params: {}
+            }
+        } = config;
+
         EventEmitter.defaultMaxListeners = 40;
         let out = {};
         let jobs = [];
@@ -559,8 +569,8 @@ export class Medici {
         }
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
-            let mediciTemp = new Medici(impostazioni, visible);
-            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], codToCfDistrettoMap, i));
+            let mediciTemp = new Medici(impostazioni, visibile);
+            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], codToCfDistrettoMap, i, callback));
             console.log("job " + i + " " + jobs[i].length + " medici");
         }
         let results = await Promise.all(promises);

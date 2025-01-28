@@ -19,6 +19,7 @@ import zlib from 'zlib';
 import archiver from 'archiver';
 import unzipper from 'unzipper';
 import _ from "lodash";
+import crypto from "crypto";
 
 moment.tz.setDefault('Europe/Rome');
 
@@ -55,7 +56,7 @@ const meseNumero = {
 const defaultJobConfig = {
     includiIndirizzo: true,
     numParallelsJobs: 10,
-    visible: false,
+    visibile: false,
     verbose: true,
     legacy: false,
     datiMedicoNar: null,
@@ -64,6 +65,10 @@ const defaultJobConfig = {
     nar2: true,
     salvaFile: true,
     index: 1,
+    callback: {
+        fn: null,
+        params: {}
+    }
 };
 
 const getFinalConfigFromTemplate = (config, template = defaultJobConfig) => {
@@ -981,6 +986,10 @@ function convertFromUnixSeconds(unixSeconds, timeZone = 'Europe/Rome', format = 
     // Infine formatta la data.
     return moment.unix(unixSeconds).tz(timeZone).format(format);
 }
+
+const calcolaMD5daStringa = (str) => {
+    return crypto.createHash('md5').update(str).digest('hex');
+};
 
 
 export const utils = {
