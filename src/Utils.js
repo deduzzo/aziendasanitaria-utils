@@ -1038,5 +1038,6 @@ export const utils = {
     trovaDataPicDaAttivita,
     waitForTimeout,
     convertToUnixSeconds,
-    convertFromUnixSeconds
+    convertFromUnixSeconds,
+    calcolaMD5daStringa
 }
