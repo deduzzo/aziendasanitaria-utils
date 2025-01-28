@@ -21,7 +21,8 @@ export class Medici {
     static COGNOME = "cognome";
     static DATA_FINE_RAPPORTO = "dataFineRapporto";
     static MEDICO_DI_BASE_NAR = "MDB";
-    static MEDICO_DI_BASE_FILE = "Medico di base";kok
+    static MEDICO_DI_BASE_FILE = "Medico di base";
+    kok
     static PEDIATRA_FILE = "Pediatra di Libera Scelta";
 
     /**
@@ -40,7 +41,9 @@ export class Medici {
         this._ts = new Ts(this._impostazioni);
         this._visible = visible;
         this._retry = 20;
-    }kjìì
+    }
+
+    kjìì
 
     /*async getPffAssistitiMedici(datiMedici) {
         let out = {error: false, data: {}};
@@ -357,7 +360,7 @@ export class Medici {
                     await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
 
                     // set selectedIndex = mesePagamentoDa to select[name='mesePagamentoDa@Filter']
-                    await page.select("select[name='mesePagamentoDa@Filter']",mesePagamentoDa.toString());
+                    await page.select("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
                     await page.select("select[name='mesePagamentoA@Filter']", mesePagamentoA.toString());
                     if (annoRiferimentoDa)
                         await page.type("input[name='annoRiferimentoDa@Filter']", annoRiferimentoDa.toString());
@@ -468,47 +471,78 @@ export class Medici {
 
     async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap, index = 1) {
         let page = await this._ts.getWorkingPage(this._visible);
-        page.setDefaultTimeout(600000);
+        page.setDefaultTimeout(60000);
         let datiAssistiti = {};
         if (page) {
             for (let codRegionale of codRegMedici) {
-                let cfMedico = codToCfDistrettoMap[codRegionale].cf;
-                await page.goto("https://sistemats4.sanita.finanze.it/simossHome/servizi.jsp", {waitUntil: 'networkidle2'});
-                await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
-                await page.waitForSelector("input[name='codiceFiscale']");
-                await page.type("input[name='codiceFiscale']", cfMedico);
-                await page.click("#go");
-                await page.waitForSelector("#mef");
-                const error = await page.$("body > div:nth-child(12) > div > fieldset > p:nth-child(2)");
-                if (!error) {
-                    await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
-                    await page.click("#menu_voci > ol > li:nth-child(1) > a");
-                    await page.waitForSelector("#mef");
-                    // if page contains selector "body > div:nth-child(12) > div"
-                    let dati = await page.evaluate(() => {
+                let retry = 5;
+                while (retry > 0) {
+                    try {
+                        let cfMedico = codToCfDistrettoMap[codRegionale].cf;
 
-                        const pulisci = (str) => {
-                            return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
-                        }
+                        console.log("[" + index + "]" + " elaborando: " + cfMedico);
+                        await page.goto("https://sistemats4.sanita.finanze.it/simossHome/servizi.jsp", {waitUntil: 'networkidle2'});
+                        await page.goto("https://sistemats4.sanita.finanze.it/simossHome/traceAuditing.do?p=U4", {waitUntil: 'networkidle2'});
+                        await page.waitForSelector("input[name='codiceFiscale']");
+                        await page.type("input[name='codiceFiscale']", cfMedico);
+                        await page.click("#go");
+                        // wait for page load
+                        // Attendiamo che il selettore #mef sia presente E che sia visibile
+                        await page.waitForSelector("#mef", {
+                            visible: true,
+                            timeout: 30000  // timeout di 30 secondi
+                        });
+                        const error = await page.$("body > div:nth-child(12) > div > fieldset > p:nth-child(2)");
+                        // error is also if "document.querySelector('body > div:nth-child(12) > div > fieldset').innerHTML" contains "Nessun risultato trovato"
+                        const error2 = await page.evaluate(() => {
+                            const error = document.querySelector('body > div:nth-child(12) > div > fieldset');
+                            if (error)
+                                return error.innerHTML.toLowerCase().includes("nessun risultato")
+                            else
+                                return false;
+                        });
+                        if (!error && !error2) {
+                            await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
+                            await page.click("#menu_voci > ol > li:nth-child(1) > a");
+                            // Attendiamo che il selettore #mef sia presente E che sia visibile
+                            await page.waitForSelector("#mef", {
+                                visible: true,
+                                timeout: 30000  // timeout di 30 secondi
+                            });
+                            // if page contains selector "body > div:nth-child(12) > div"
+                            let dati = await page.evaluate(() => {
 
-                        let out = [];
-                        let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
-                        for (let allElement of allElements) {
-                            if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
-                                let cf = pulisci(allElement.children[2].textContent);
-                                out.push({
-                                    cf: cf,
-                                    cognome: pulisci(allElement.children[0].textContent),
-                                    nome: pulisci(allElement.children[1].textContent),
-                                });
-                            }
-                        }
-                        return out;
-                    });
-                    console.log("[" + index + "]" + " " + cfMedico + " cod regionale " + codRegionale + " " + Object.keys(dati).length + " assistiti");
-                    datiAssistiti[codRegionale] = dati;
-                } else
-                    datiAssistiti[codRegionale] = null;
+                                const pulisci = (str) => {
+                                    return str.replaceAll("\n", "").replaceAll("\t", "").replaceAll("\r", "").trim();
+                                }
+
+                                let out = [];
+                                let allElements = document.querySelectorAll(".tabellaContenitoreTitoli50");
+                                for (let allElement of allElements) {
+                                    if (allElement && allElement.hasChildNodes() && allElement.children.length > 2 && pulisci(allElement.children[0].textContent) !== "Cognome") {
+                                        let cf = pulisci(allElement.children[2].textContent);
+                                        out.push({
+                                            cf: cf,
+                                            cognome: pulisci(allElement.children[0].textContent),
+                                            nome: pulisci(allElement.children[1].textContent),
+                                        });
+                                    }
+                                }
+                                return out;
+                            });
+                            console.log("[" + index + "]" + " " + cfMedico + " cod regionale " + codRegionale + " " + Object.keys(dati).length + " assistiti");
+                            datiAssistiti[codRegionale] = dati;
+                            break;
+                        } else
+                            datiAssistiti[codRegionale] = null;
+                    } catch (ex) {
+                        console.log("[" + index + "]" + " errore, ritento tentativo " + retry);
+                        retry--;
+                    }
+                    if (retry === 0)
+                        datiAssistiti[codRegionale] = null;
+                }
+
             }
             return datiAssistiti;
         }

@@ -687,7 +687,27 @@ class Procedure {
         }
     }
 
-    static async creaAnagraficaFromMediciTS(impostazioniServizi, pathExcelMedici, distretti, workingPath = null, visibile = true, numParallelsJobs = 1) {
+
+    /**
+     * Crea l'anagrafica a partire dai medici TS.
+     *
+     * @param {Object} impostazioniServizi - Impostazioni dei servizi.
+     * @param {string} pathExcelMedici - Percorso del file Excel dei medici.
+     * @param {Object} distretti - Distretti.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {string} [config.workingPath=null] - Percorso di lavoro.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {string} [config.fileName="assistitiTS.json"] - Nome del file.
+     */
+    static async creaAnagraficaFromMediciTS(impostazioniServizi, pathExcelMedici, distretti, config = {}) {
+        // workingPath = null, visibile = false, numParallelsJobs = 10
+        let {
+            workingPath = null,
+            visibile = false,
+            numParallelsJobs = 10,
+            fileName = "assistitiTS.json"
+        } = config;
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
 
@@ -696,9 +716,10 @@ class Procedure {
             pathExcelMedici,
             Object.keys(distretti),
             workingPath);
-
-        let out = await this.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visibile);
-        console.log("ciao");
+        // if not exist workingPath + path.sep + fileName
+        if (!fs.existsSync(workingPath + path.sep + fileName))
+            await this.getAssistitiFromTs(impostazioniServizi, codToCfDistrettoMap, workingPath, numParallelsJobs, visibile, fileName);
+        await Assistiti.verificaAssititiInVitaParallelsJobs(impostazioniServizi, workingPath, "elaborazioni", numParallelsJobs / 2, visibile, fileName);
     }
 
 

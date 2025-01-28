@@ -560,6 +560,7 @@ export class Assistiti {
         return out;
     }
 
+
     async verificaAssititiInVitaNar2(codiciFiscali, config = utils.defaultJobConfig) {
 
         const finalConfig = utils.getFinalConfigFromTemplate(config);
@@ -573,7 +574,7 @@ export class Assistiti {
             for (let codiceFiscale of codiciFiscali) {
                 let datiAssistito = await this._nar2.getDatiAssistitoCompleti(
                     codiceFiscale,
-                    { sogei: finalConfig.sogei, nar2: finalConfig.nar2 }
+                    {sogei: finalConfig.sogei, nar2: finalConfig.nar2}
                 );
 
                 if (finalConfig.verbose && (datiAssistito.deceduto || !datiAssistito.ok))
@@ -1006,12 +1007,13 @@ export class Assistiti {
         }
 
         const processJob = async (codMedico, index) => {
-            ;
-
             let assistitiCfArray = [];
-            for (let cf of datiAssititi[codMedico].assistiti) {
-                assistitiCfArray.push(cf.codiceFiscale);
-            }
+            if (datiAssititi[codMedico].hasOwnProperty("assistiti"))
+                for (let cf of datiAssititi[codMedico].assistiti)
+                    assistitiCfArray.push(cf.codiceFiscale);
+            else
+                for (let cf of datiAssititi[codMedico])
+                    assistitiCfArray.push(cf.cf);
 
             let ris = await Assistiti.verificaAssistitiParallels(impostazioniServizi, assistitiCfArray, {numParallelsJobs});
 
@@ -1073,11 +1075,15 @@ export class Assistiti {
 
         if (!fs.existsSync(pathJob + path.sep + "jobstatus.json")) {
             let dati = {}
+            let totaleGlobale = 0;
             for (let codiceMedico of Object.keys(datiAssititi)) {
-                dati[codiceMedico] = {
-                    totale: Object.values(datiAssititi[codiceMedico].assistiti).length,
-                    completo: false
-                };
+                if (datiAssititi[codiceMedico]) {
+                    dati[codiceMedico] = {
+                        totale: Object.values(datiAssititi[codiceMedico].hasOwnProperty("assistiti") ? datiAssititi[codiceMedico].assistiti : datiAssititi[codiceMedico]).length,
+                        completo: false
+                    };
+                    totaleGlobale += dati[codiceMedico].totale;
+                }
             }
             await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", dati);
         }
