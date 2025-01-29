@@ -103,7 +103,7 @@ export class Medici {
     }*/
 
 
-    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
+    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, cumulativo,annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
         let out = null;
         let retry = this._retry;
         do {
@@ -116,7 +116,7 @@ export class Medici {
             try {
                 let page = await this._nar.getWorkingPage();
                 if (page) {
-                    page.setDefaultTimeout(15000);
+                    page.setDefaultTimeout(120000);
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000062");
                     await page.waitForSelector("input[name='codTipoLettura']");
                     await page.type("input[name='codTipoLettura']", "TL_VIS_CEDOLINO");
@@ -210,7 +210,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.voci).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(7) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await utils.waitForTimeout(200);
+                        await utils.waitForTimeout(cumulativo ? 400 : 1000);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -224,7 +224,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteMedico).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(8) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await utils.waitForTimeout(200);
+                        await utils.waitForTimeout(cumulativo ? 400 : 1000);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -238,7 +238,7 @@ export class Medici {
                     for (let i = 0; i < Object.keys(datiBusta.trattenuteEnte).length; i++) {
                         await page.click("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(34) > tbody > tr > td.scheda > table:nth-child(1) > tbody > tr:nth-child(1) > td > table > tbody > tr:nth-child(3) > td > table:nth-child(9) > tbody > tr:nth-child(" + (i + 3) + ") > td:nth-child(1)")
                         await page.waitForSelector("#windowContent");
-                        await utils.waitForTimeout(200);
+                        await utils.waitForTimeout(cumulativo ? 400 : 1000);
                         let datiDettagliCampo = await page.evaluate(() => {
                             return {
                                 splitted: document.querySelector("#window").innerText.split("\n"),
@@ -306,7 +306,7 @@ export class Medici {
         return out;
     }
 
-    async stampaCedolino(matricola, visibile = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
+    async stampaCedolino(matricola, visibile = false, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, cumulativo, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null) {
         let out = null;
         if (!this._nar._batchProcess || this._nar.type !== Nar.PAGHE) {
             await this._nar.doLogout();
