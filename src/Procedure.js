@@ -769,7 +769,7 @@ class Procedure {
             );
         await Assistiti.verificaAssititiInVitaParallelsJobs(impostazioniServizi, workingPath, {
             outPath: "elaborazioni",
-            numParallelsJobs: numParallelsJobs / 2,
+            numParallelsJobs: numParallelsJobs,
             visibile: visibile,
             nomeFile: fileName,
             callback: callback
