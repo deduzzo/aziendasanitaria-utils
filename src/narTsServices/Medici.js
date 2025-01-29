@@ -548,15 +548,21 @@ export class Medici {
         }
     }
 
+    /**
+     * Ottiene l'elenco degli assistiti da TS in parallelo.
+     *
+     * @param {Array} codRegionali - Codici regionali dei medici.
+     * @param {Object} codToCfDistrettoMap - Mappa dei codici regionali ai codici fiscali dei distretti.
+     * @param {Object} impostazioni - Impostazioni dei servizi.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {number} [config.numParallelsJobs=20] - Numero di job paralleli.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     */
     static async getElencoAssistitiFromTsParallels(codRegionali, codToCfDistrettoMap, impostazioni, config = {}) {
         //numParallelsJobs = 20, visibile = false
         let {
             numParallelsJobs = 20,
             visibile = false,
-            callback = {
-                fn: null,
-                params: {}
-            }
         } = config;
 
         EventEmitter.defaultMaxListeners = 40;
@@ -570,7 +576,7 @@ export class Medici {
         let promises = [];
         for (let i = 0; i < jobs.length; i++) {
             let mediciTemp = new Medici(impostazioni, visibile);
-            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], codToCfDistrettoMap, i, callback));
+            promises.push(mediciTemp.getAssistitiDaTs(jobs[i], codToCfDistrettoMap, i));
             console.log("job " + i + " " + jobs[i].length + " medici");
         }
         let results = await Promise.all(promises);

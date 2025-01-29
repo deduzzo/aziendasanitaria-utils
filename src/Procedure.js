@@ -98,7 +98,11 @@ class Procedure {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
-            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), codToCfDistrettoMap, impostazioniServizi, parallels, visibile);
+            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap),codToCfDistrettoMap, impostazioniServizi,
+                {
+                    numParallelsJobs: parallels,
+                    visibile: visibile
+                });
             await Utils.scriviOggettoSuFile(workingPath + path.sep + nomeFile, temp);
         }
     }
