@@ -50,6 +50,9 @@ export class Nar2 {
                     Nar2.#token = out.data.accessToken;
                     return Nar2.#token;
                 } catch (e) {
+                    console.log("Token non valido ,attendo 1 secondo e riprovo");
+                    // timeout 1000ms
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                     if (i === this._maxRetry - 1) {
                         throw new Error("Errore durante l'ottenimento del token");
                     }
