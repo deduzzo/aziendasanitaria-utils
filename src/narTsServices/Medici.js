@@ -471,7 +471,7 @@ export class Medici {
 
     async getAssistitiDaTs(codRegMedici, codToCfDistrettoMap, index = 1) {
         let page = await this._ts.getWorkingPage(this._visibile);
-        page.setDefaultTimeout(60000);
+        page.setDefaultTimeout(5000);
         let datiAssistiti = {};
         if (page) {
             for (let codRegionale of codRegMedici) {
