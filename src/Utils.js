@@ -20,6 +20,7 @@ import archiver from 'archiver';
 import unzipper from 'unzipper';
 import _ from "lodash";
 import crypto from "crypto";
+import AdmZip from 'adm-zip';
 
 moment.tz.setDefault('Europe/Rome');
 
@@ -77,7 +78,7 @@ const getFinalConfigFromTemplate = (config, template = defaultJobConfig) => {
         outConfig[key] = config[key];
     }
 
-    const validKeys = [... Object.keys(template)];
+    const validKeys = [...Object.keys(template)];
     const invalidKeys = Object.keys(config).filter(key => !validKeys.includes(key));
 
     if (invalidKeys.length > 0)
@@ -714,38 +715,33 @@ const leggiOggettoDaFileJSON = async (filename) => {
  */
 const scriviEComprimiFile = async (filename, data) => {
     try {
-        // if file exist, delete it
-        if (fs.existsSync(filename)) {
-            await fs.promises.unlink(filename);
-        }
-        // Prima scriviamo il file normale usando la funzione esistente
+        // Scriviamo prima il file
         await scriviOggettoSuFile(filename, data);
 
-        // Creiamo il nome del file zip se non specificato
+        // Creiamo il nome del file zip
         const outputZipFile = filename.replace(/\.[^/.]+$/, '') + '.zip';
 
-        // Creiamo uno stream di scrittura per il file ZIP
-        const output = fs.createWriteStream(outputZipFile);
-        const archive = archiver('zip', {
-            zlib: { level: 9 } // Massima compressione
+        // Creiamo una nuova istanza di AdmZip
+        const zip = new AdmZip();
+
+        // Aggiungiamo il file allo zip
+        zip.addLocalFile(filename);
+
+        // Scriviamo il file zip
+        await new Promise((resolve, reject) => {
+            zip.writeZip(outputZipFile, (error) => {
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve();
+                }
+            });
         });
-
-        // Gestiamo gli eventi dello stream
-        archive.on('error', (err) => {
-            throw err;
-        });
-
-        // Pipe dell'archivio sullo stream di scrittura
-        archive.pipe(output);
-
-        // Aggiungiamo il file all'archivio
-        archive.file(filename, { name: path.basename(filename) });
-
-        // Finalizziamo l'archivio
-        await archive.finalize();
 
         // Eliminiamo il file originale
         await fs.promises.unlink(filename);
+
+        console.log('Compressione completata con successo');
 
     } catch (error) {
         console.error('Errore durante la compressione:', error);
@@ -767,11 +763,11 @@ const decomprimiELeggiFile = async (zipFilename) => {
 
         // Creiamo una directory temporanea per l'estrazione
         const tempDir = path.join(path.dirname(zipFilename), 'temp_extract');
-        await fs.promises.mkdir(tempDir, { recursive: true });
+        await fs.promises.mkdir(tempDir, {recursive: true});
 
         // Estraiamo il contenuto del ZIP
         await fs.createReadStream(zipFilename)
-            .pipe(unzipper.Extract({ path: tempDir }))
+            .pipe(unzipper.Extract({path: tempDir}))
             .promise();
 
         // Troviamo il primo file nella directory temporanea
@@ -785,7 +781,7 @@ const decomprimiELeggiFile = async (zipFilename) => {
         const content = await fs.promises.readFile(extractedFilePath, 'utf8');
 
         // Puliamo la directory temporanea
-        await fs.promises.rm(tempDir, { recursive: true });
+        await fs.promises.rm(tempDir, {recursive: true});
 
         // Parsifichiamo il JSON
         return JSON.parse(content, (key, value) => {
@@ -858,10 +854,10 @@ const removeKeyIfExist = (obj, key) => {
     return obj;
 }
 
-const ottieniEtaDaDataDiNascita = (dataNascita,eventualeDataDecesso = null) => {
+const ottieniEtaDaDataDiNascita = (dataNascita, eventualeDataDecesso = null) => {
     if (moment(dataNascita, 'DD/MM/YYYY').isValid()) {
         let eta = moment().diff(moment(dataNascita, 'DD/MM/YYYY'), 'years');
-        if(eventualeDataDecesso && moment(eventualeDataDecesso, 'DD/MM/YYYY').isValid())
+        if (eventualeDataDecesso && moment(eventualeDataDecesso, 'DD/MM/YYYY').isValid())
             eta = moment(eventualeDataDecesso, 'DD/MM/YYYY').diff(moment(dataNascita, 'DD/MM/YYYY'), 'years');
         return eta;
     } else {
@@ -876,7 +872,7 @@ const trovaPICfromData = (ids, data) => {
 
     let selectedID = -1;
     for (let i = 0; i < sortedIds.length; i++) {
-        const dateOfid = moment(sortedIds[i].substring(6, 16),"YYYY-MM-DD");
+        const dateOfid = moment(sortedIds[i].substring(6, 16), "YYYY-MM-DD");
         if (dateOfid <= data) {
             selectedID = i;
         } else {
@@ -914,17 +910,17 @@ const trovaDataPicDaAttivita = (dataAttivita, array) => {
     const keys = Object.keys(array);
     let kysOk = [];
     for (let key of keys) {
-       const obj = array[key];
-       const fine = moment(obj.fine, "YYYY-MM-DD");
-       const fineReale = moment(obj.fine_reale, "YYYY-MM-DD");
-       const inizio = moment(obj.inizio, "YYYY-MM-DD");
-       const durataTeorica = fine.diff(inizio, 'days');
-       const durataReale = fineReale.diff(inizio, 'days');
-       // se la durata reale è superiore alla metà di quella teorica
-         if (durataReale > durataTeorica / 3)
-              kysOk.push(key);
-            else
-                scartate++;
+        const obj = array[key];
+        const fine = moment(obj.fine, "YYYY-MM-DD");
+        const fineReale = moment(obj.fine_reale, "YYYY-MM-DD");
+        const inizio = moment(obj.inizio, "YYYY-MM-DD");
+        const durataTeorica = fine.diff(inizio, 'days');
+        const durataReale = fineReale.diff(inizio, 'days');
+        // se la durata reale è superiore alla metà di quella teorica
+        if (durataReale > durataTeorica / 3)
+            kysOk.push(key);
+        else
+            scartate++;
     }
 
     // Estrai le date dall'inizio di ogni stringa (primi 10 caratteri)
@@ -945,7 +941,7 @@ const trovaDataPicDaAttivita = (dataAttivita, array) => {
             break;
         }
     }
-    if (scartate >0)
+    if (scartate > 0)
         console.log("Scartate: " + scartate);
     return {
         corrente,

@@ -1168,7 +1168,7 @@ export class Assistiti {
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
         }
 
-        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo);
+        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo );
         completati = Object.keys(jobStatus).length - jobsDaElaborare.length;
         showInfo();
         await taskPool(numParallelsJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
