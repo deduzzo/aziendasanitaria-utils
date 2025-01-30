@@ -298,7 +298,7 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, cumulativo= true, workingPath = null, conteggioVoci = ["CM0020"]) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, singoloCedolino= false, workingPath = null, conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
 
         process.setMaxListeners(0);
@@ -309,8 +309,8 @@ class Procedure {
         let outFinal = [];
         let outDettaglioMese = [];
         do {
-            let out = await medici.stampaCedolino(matricola, visibile, da.month() + 1, da.year(), !cumulativo ? (da.month() + 1) : (a.month() + 1), !cumulativo ? da.year() : a.year(),cumulativo);
-            let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), !cumulativo ? (da.month() + 1) : (a.month() + 1), !cumulativo ? da.year() : a.year(),cumulativo);
+            let out = await medici.stampaCedolino(matricola, visibile, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(),singoloCedolino);
+            let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(),singoloCedolino);
             const bustakey = da.year().toString() + "-" + (da.month() + 1).toString().padStart(2, '0');
             let outData = {};
             for (let conteggioVoce of conteggioVoci) {
@@ -344,7 +344,7 @@ class Procedure {
             }
             outFinal.push(outData);
             da = da.add(1, "month");
-        } while (da.isSameOrBefore(a) && cumulativo);
+        } while (da.isSameOrBefore(a) && !singoloCedolino);
         await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
         await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_dettaglio-report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", Object.values(outDettaglioMese));
     }
