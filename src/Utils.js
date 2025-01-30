@@ -714,6 +714,10 @@ const leggiOggettoDaFileJSON = async (filename) => {
  */
 const scriviEComprimiFile = async (filename, data) => {
     try {
+        // if file exist, delete it
+        if (fs.existsSync(filename)) {
+            await fs.promises.unlink(filename);
+        }
         // Prima scriviamo il file normale usando la funzione esistente
         await scriviOggettoSuFile(filename, data);
 
