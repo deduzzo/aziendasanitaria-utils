@@ -776,6 +776,25 @@ class Procedure {
         });
     }
 
+    static async creaFileJsonAssistitiCompletoDaFilesZip(pathFiles,nomeFileFinale = "assistiti.db" )
+    {
+        let allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
+        let out = {};
+        let i =0;
+        for (let zipFile of allZipFilesInFolder) {
+            let data = await utils.decomprimiELeggiFile(zipFile);
+            console.log("File " + zipFile);
+            if (Object.keys(data.vivi).length > 0)
+                out = {...out, ...data.vivi, ...data.morti};
+            console.log("Progresso " + i + " di " + allZipFilesInFolder.length + " totale assistiti: " + Object.keys(out).length);
+            i++;
+        }
+        console.log("Creazione file dati..")
+        await utils.scriviOggettoMP(out, pathFiles + path.sep + nomeFileFinale);
+        console.log("File dati creato");
+    }
+
+
 
     static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visibile = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
         let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};

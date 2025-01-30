@@ -4,7 +4,6 @@ import {utils as Utils, utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
-
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
@@ -12,7 +11,7 @@ import {ImpostazioniServiziTerzi} from "../config/ImpostazioniServiziTerzi.js";
 import {Document, Packer, Table, TableRow, TableCell, Paragraph, TextRun} from "docx";
 import moment from "moment";
 import {Nar2} from "./Nar2.js";
-import cliProgress from 'cli-progress';
+
 
 // Configurazione di default
 const defaultConfig = {
@@ -1132,8 +1131,11 @@ export class Assistiti {
             let totaleGlobale = 0;
             for (let codiceMedico of Object.keys(datiAssititi)) {
                 if (datiAssititi[codiceMedico]) {
+                    let cfAssistitiMap  = {};
+                    for (let cf of datiAssititi[codiceMedico].hasOwnProperty("assistiti") ? datiAssititi[codiceMedico].assistiti : datiAssititi[codiceMedico])
+                        cfAssistitiMap[cf.cf] = cf;
                     dati[codiceMedico] = {
-                        totale: Object.values(datiAssititi[codiceMedico].hasOwnProperty("assistiti") ? datiAssititi[codiceMedico].assistiti : datiAssititi[codiceMedico]).length,
+                        totale: Object.keys(cfAssistitiMap).length,
                         completo: false
                     };
                     totaleGlobale += dati[codiceMedico].totale;
@@ -1148,7 +1150,7 @@ export class Assistiti {
         for (let codiceMedico in jobStatus) {
             let modifica = false;
 
-            if (jobStatus[codiceMedico].hasOwnProperty("ok") && jobStatus[codiceMedico].nonTrovati > jobStatus[codiceMedico].totale * 0.1) {
+            if (jobStatus[codiceMedico].hasOwnProperty("ok") && !jobStatus[codiceMedico].ok) {
                 jobStatus[codiceMedico].completo = false;
                 _.unset(jobStatus[codiceMedico], "nonTrovati");
                 _.unset(jobStatus[codiceMedico], "elaborati");
@@ -1168,7 +1170,7 @@ export class Assistiti {
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
         }
 
-        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo );
+        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo || (jobStatus[el].hasOwnProperty("ok") && !jobStatus[el].ok) );
         completati = Object.keys(jobStatus).length - jobsDaElaborare.length;
         showInfo();
         await taskPool(numParallelsJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));
