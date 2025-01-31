@@ -122,25 +122,21 @@ export class Assistito {
     #erroreNar = null;
     #erroreNar2 = null;
     #erroreTs = null;
-    #dateToUnix = false;
     #replaceNullWithEmptyString = false;
 
     /**
      * Costruttore della classe Assistito.
      *
      * @param {Object} config Configurazione iniziale
-     * @param {boolean} [config.dateToUnix=false] Converte le date in formato Unix
      * @param {boolean} [config.replaceNullWithEmptyString=false] Sostituisce i valori null con stringhe vuote
      */
     constructor(config = {}) {
         const {
-            dateToUnix = false,
             replaceNullWithEmptyString = false
         } = config;
         this.#dataFromNar = createEmptyState();
         this.#dataFromNar2 = createEmptyState();
         this.#dataFromTs = createEmptyState();
-        this.#dateToUnix = dateToUnix;
         this.#replaceNullWithEmptyString = replaceNullWithEmptyString;
 
     }
@@ -160,8 +156,6 @@ export class Assistito {
 
     setNar(key, value) {
         if (this.#validateKey(key)) {
-            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
-                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromNar[key] = value;
         }
     }
@@ -174,8 +168,6 @@ export class Assistito {
 
     setNar2(key, value) {
         if (this.#validateKey(key)) {
-            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
-                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromNar2[key] = value;
         }
     }
@@ -187,8 +179,6 @@ export class Assistito {
 
     setTs(key, value) {
         if (this.#validateKey(key)) {
-            if (this.#dateToUnix && tipoDati[key] === "date" && value && value !== "")
-                value = utils.convertToUnixSeconds(value, 'Europe/Rome');
             this.#dataFromTs[key] = value;
         }
     }
@@ -381,7 +371,7 @@ export class Assistito {
      * @returns {Object} Oggetto contenente i dati dell'assistito.
      */
     dati(options = {}) {
-        const { dateToUnix = this.#dateToUnix } = options;
+        const { dateToUnix = false } = options;
 
         let out = {
             ...Object.values(DATI).reduce((acc, key) => {
