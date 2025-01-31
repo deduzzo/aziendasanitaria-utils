@@ -212,7 +212,7 @@ export class Assistito {
         const getValue = (data) => {
             const value = data[campo];
             // Controlla se il valore è una stringa vuota o null/undefined
-            return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) ? null : value;
+    return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
         };
 
         return getValue(this.#dataFromTs) ??
