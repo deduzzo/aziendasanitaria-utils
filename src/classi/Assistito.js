@@ -351,9 +351,9 @@ export class Assistito {
 
     eta(atDate = null) {
         // using moments and consider the date of death if present
-        const dataNascita = this.#dateToUnix ? moment.unix(this.dataNascita) : moment(this.dataNascita, "DD/MM/YYYY");
-        const dataDecesso = this.#dateToUnix ? moment.unix(this.dataDecesso) : moment(this.dataDecesso, "DD/MM/YYYY");
-        const dataRiferimento = atDate ? (this.#dateToUnix ? moment.unix(atDate) : moment(atDate, "DD/MM/YYYY")) : moment();
+        const dataNascita =  moment(this.dataNascita, "DD/MM/YYYY");
+        const dataDecesso = moment(this.dataDecesso, "DD/MM/YYYY");
+        const dataRiferimento = atDate ? moment(atDate, "DD/MM/YYYY") : moment();
 
         if (this.dataDecesso || atDate) {
             return dataRiferimento.diff(dataNascita, 'years');
