@@ -212,7 +212,7 @@ export class Assistito {
         const getValue = (data) => {
             const value = data[campo];
             // Controlla se il valore è una stringa vuota o null/undefined
-    return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
+            return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
         };
 
         return getValue(this.#dataFromTs) ??
@@ -351,7 +351,7 @@ export class Assistito {
 
     eta(atDate = null) {
         // using moments and consider the date of death if present
-        const dataNascita =  moment(this.dataNascita, "DD/MM/YYYY");
+        const dataNascita = moment(this.dataNascita, "DD/MM/YYYY");
         const dataDecesso = moment(this.dataDecesso, "DD/MM/YYYY");
         const dataRiferimento = atDate ? moment(atDate, "DD/MM/YYYY") : moment();
 
@@ -368,14 +368,18 @@ export class Assistito {
      *
      * @param {Object} [options={}] - Opzioni per la generazione dei dati.
      * @param {boolean} [options.dateToUnix=this.#dateToUnix] - Se true, converte le date in formato Unix.
+     * @param {Object} [options.fromAssistitoObject=null] - Oggetto contenente i dati dell'assistito da inizializzare
      * @returns {Object} Oggetto contenente i dati dell'assistito.
      */
     dati(options = {}) {
-        const { dateToUnix = false } = options;
+        const {
+            dateToUnix = false,
+            fromAssistitoObject = null,
+        } = options;
 
         let out = {
             ...Object.values(DATI).reduce((acc, key) => {
-                let value = this.#getDatoConFallback(key);
+                let value = (fromAssistitoObject && Object.keys(fromAssistitoObject).length>0) ? fromAssistitoObject[key] : this.#getDatoConFallback(key);
 
                 // Converti le date in Unix se richiesto
                 if (dateToUnix && tipoDati[key] === "date" && value && value !== "") {
