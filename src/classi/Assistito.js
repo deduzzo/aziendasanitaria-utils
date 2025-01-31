@@ -209,16 +209,16 @@ export class Assistito {
     }
 
     #getDatoConFallback(campo) {
-        const getValue = (data) => {
-            const value = data[campo];
-            // Controlla se il valore è una stringa vuota o null/undefined
-            return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
-        };
-
-        return getValue(this.#dataFromTs) ??
-            getValue(this.#dataFromNar2) ??
-            getValue(this.#dataFromNar);
+        return this.#getCorrectValue(this.#dataFromTs,campo) ??
+            this.#getCorrectValue(this.#dataFromNar2,campo) ??
+            this.#getCorrectValue(this.#dataFromNar,campo);
     }
+
+    #getCorrectValue = (data,campo) => {
+        const value = data[campo];
+        // Controlla se il valore è una stringa vuota o null/undefined
+        return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
+    };
 
     get cf() {
         return this.#getDatoConFallback(DATI.CF);
@@ -379,7 +379,7 @@ export class Assistito {
 
         let out = {
             ...Object.values(DATI).reduce((acc, key) => {
-                let value = (fromAssistitoObject && Object.keys(fromAssistitoObject).length>0) ? fromAssistitoObject[key] : this.#getDatoConFallback(key);
+                let value = (fromAssistitoObject && Object.keys(fromAssistitoObject).length>0) ? this.#getCorrectValue(fromAssistitoObject,key) : this.#getDatoConFallback(key);
 
                 // Converti le date in Unix se richiesto
                 if (dateToUnix && tipoDati[key] === "date" && value && value !== "") {
