@@ -3,7 +3,7 @@
   "engines": {
     "node": ">=14.0.0"
   },
-  "version": "1.2.12",
+  "version": "1.2.13",
   "repository": "deduzzo/aziendasanitaria-utils",
   "description": "Un utility per gestire i flussi sanitari Siciliani e non solo..",
   "main": "index.js",
