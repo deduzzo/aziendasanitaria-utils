@@ -209,12 +209,12 @@ export class Assistito {
     }
 
     #getDatoConFallback(campo) {
-        return this.#getCorrectValue(this.#dataFromTs,campo) ??
-            this.#getCorrectValue(this.#dataFromNar2,campo) ??
-            this.#getCorrectValue(this.#dataFromNar,campo);
+        return this.#getCorrectValue(this.#dataFromTs, campo) ??
+            this.#getCorrectValue(this.#dataFromNar2, campo) ??
+            this.#getCorrectValue(this.#dataFromNar, campo);
     }
 
-    #getCorrectValue = (data,campo) => {
+    #getCorrectValue = (data, campo) => {
         const value = data[campo];
         // Controlla se il valore è una stringa vuota o null/undefined
         return value === '' || value === null || value === undefined || (typeof value === 'number' && isNaN(value)) || (tipoDati[campo] === "date" && typeof value === "string" && value.toLowerCase().includes("illimi")) ? null : value;
@@ -353,13 +353,9 @@ export class Assistito {
         // using moments and consider the date of death if present
         const dataNascita = moment(this.dataNascita, "DD/MM/YYYY");
         const dataDecesso = moment(this.dataDecesso, "DD/MM/YYYY");
-        const dataRiferimento = atDate ? moment(atDate, "DD/MM/YYYY") : moment();
+        const dataRiferimento = atDate ? moment(atDate, "DD/MM/YYYY") : (this.dataDecesso ? dataDecesso : moment());
 
-        if (this.dataDecesso || atDate) {
-            return dataRiferimento.diff(dataNascita, 'years');
-        } else {
-            return moment().diff(dataNascita, 'years');
-        }
+        return dataRiferimento.diff(dataNascita, 'years');
     }
 
 
@@ -379,7 +375,7 @@ export class Assistito {
 
         let out = {
             ...Object.values(DATI).reduce((acc, key) => {
-                let value = (fromAssistitoObject && Object.keys(fromAssistitoObject).length>0) ? this.#getCorrectValue(fromAssistitoObject,key) : this.#getDatoConFallback(key);
+                let value = (fromAssistitoObject && Object.keys(fromAssistitoObject).length > 0) ? this.#getCorrectValue(fromAssistitoObject, key) : this.#getDatoConFallback(key);
 
                 // Converti le date in Unix se richiesto
                 if (dateToUnix && tipoDati[key] === "date" && value && value !== "") {
@@ -390,8 +386,8 @@ export class Assistito {
                 return acc;
             }, {}),
             inVita: this.inVita,
-            eta: this.eta()
         }
+        out.eta = this.eta();
 
         return this.#replaceNullWithEmptyString ? utils.replaceNullWithEmptyString(out) : out;
     }
