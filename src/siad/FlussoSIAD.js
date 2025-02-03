@@ -1467,7 +1467,7 @@ export class FlussoSIAD {
             rigaDestinazione.Erogatore.AppartenenzaRete = 1;
             rigaDestinazione.Erogatore.TipoRete = 1;
             rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            rigaDestinazione.Eventi.CurePalliative = 1;
+            rigaDestinazione.Eventi.Valutazione.CurePalliative = 1;
             rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
                 SegnoSintomoClinico: datoObbligatorio,
                 UtilStrumentoIdentBisognoCP: datoObbligatorio,
@@ -1592,7 +1592,7 @@ export class FlussoSIAD {
             riga.Erogatore.AppartenenzaRete = 1;
             riga.Erogatore.TipoRete = 1;
             riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            riga.Eventi.CurePalliative = 1;
+            riga.Eventi.Valutazione.CurePalliative = 1;
             riga.Valutazione.ValutazioneUCPDOM = {
                 SegnoSintomoClinico: datoObbligatorio,
                 UtilStrumentoIdentBisognoCP: datoObbligatorio,
@@ -1653,7 +1653,7 @@ export class FlussoSIAD {
 
     generaNuovaErogazioneT2FromData(data, tipoOperatore, tipoPrestazione, tipoAccesso = "1", numAccessi = "1", numPrestazione = "1") {
         let erogazione = _.cloneDeep(defaultErogazioneRigaT2);
-        erogazione.$ = {tipoAccesso: tipoAccesso.toString(), numAccessi: numAccessi.toString(), data: data};
+        erogazione.$ = {TipoAccesso: tipoAccesso.toString(), numAccessi: numAccessi.toString(), data: data};
         erogazione.TipoOperatore = tipoOperatore;
         erogazione.Prestazioni.TipoPrestazione = tipoPrestazione.toString();
         erogazione.Prestazioni.numPrestazione = numPrestazione.toString();
