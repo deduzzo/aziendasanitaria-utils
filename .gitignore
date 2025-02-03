@@ -21,3 +21,4 @@ package-lock.json
 # all js files that start with private_
 private_*.js
 /spid/testkey/
+/.vscode/

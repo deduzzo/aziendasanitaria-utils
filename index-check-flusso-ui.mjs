@@ -3,12 +3,14 @@ import {ImpostazioniServiziTerzi} from "./src/config/ImpostazioniServiziTerzi.js
 import {flussiRegioneSicilia as FlussiRegioneSicilia} from "./index.js";
 import {StruttureDistrettiPerProvincia} from "./src/config/StruttureDistrettiPerProvincia.js";
 
-import configData from './config/config.json' assert { type: 'json' };
+import configData from './config/config.json' with { type: 'json' };
 import {struttureDistrettiMap, distretti, comuniDistretti} from "./src/config/sicilia/messina.js";
 import {utils} from "./src/Utils.js";
 import fs from "fs";
 import path from "path";
 import moment from "moment";
+import {Assistiti} from "./src/narTsServices/Assistiti.js";
+import config from "./src/config.js";
 
 
 const dbFile = "siad.mpdb";
@@ -55,11 +57,12 @@ async function main() {
             in-out property <int> tot-over65: 0;
             in-out property <int> tot-pic: 0;
             in-out property <int> tot-attivita: 0;*/
-        const aggiornaStatistiche = () => {
+        const aggiornaStatistiche = async () => {
             allData = {tutti: {}, over65: {}, pic: {}, attivita: {}};
             const allCfMinistero = Object.keys(ministeroData.mappaDatiMinistero.allCfTrattati);
             const allCfXml = Object.keys(xmlData.data);
             const allAltri = Object.keys(altri);
+            const daTrovareSuTs = [];
             let allTotali = {};
             for (let cf of [...allCfMinistero, ...allCfXml, ...allAltri]) {
                 allTotali[cf] = cf;
@@ -68,20 +71,26 @@ async function main() {
                 allData.tutti[cf] = cf;
                 const vivo = ministeroData.fromTS.out.vivi.hasOwnProperty(cf) ? ministeroData.fromTS.out.vivi[cf] : null;
                 const morto = ministeroData.fromTS.out.morti.hasOwnProperty(cf) ? ministeroData.fromTS.out.morti[cf] : null;
-                const altro = altri.hasOwnProperty(cf) ? altri[cf] : null;
                 let eta = null;
                 if (vivo)
-                    eta = moment().diff(moment(vivo.dataNascita, "DD/MM/YYYY"), 'years');
+                    eta = vivo.eta;
                 else if (morto)
-                    eta = moment(morto.dataNascita,"DD/MM/YYYY").diff(moment(morto.dataDecesso, "DD/MM/YYYY"), 'years');
-                else if (altro)
-                    eta = moment().diff(moment(altro), 'years');
-                else
-                    eta = utils.getAgeFromCF(cf);
+                    eta = morto.eta;
+                else {
+                    daTrovareSuTs.push(cf);
+                }
                 if (eta >= 65) {
                     allData.over65[cf] = cf;
                 }
             }
+            // cerchiamo su ts
+   /*         const impostazioniEsterni = new ImpostazioniServiziTerzi(config);
+            let datiAltri = await Assistiti.verificaAssistitiParallels(impostazioniEsterni, daTrovareSuTs);
+            for (let ass of datiAltri.vivi) {
+                if (ass.eta >= 65) {
+                    allData.over65[ass.cf] = ass.cf;
+                }
+            }*/
 
 
 
@@ -96,7 +105,7 @@ async function main() {
             mainWindow.min_attivita = 0;
 
             mainWindow.tot_assistiti = Object.keys(allData.tutti).length;
-            mainWindow.tot_over65 =Object.keys(allData.over65).length;
+            mainWindow.tot_over65 = Object.keys(allData.over65).length;
             mainWindow.tot_pic = 0;
             mainWindow.tot_attivita = 0;
         }
@@ -125,6 +134,7 @@ async function main() {
             const filesT2 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AA");
             const fileAltri = fs.existsSync(mainWindow.path_input + path.sep + "altri.xlsx") ?
                 await utils.getObjectFromFileExcel(mainWindow.path_input + path.sep + "altri.xlsx") : [];
+            const daAttenzionare = await utils.leggiOggettoDaFileJSON(mainWindow.path_input + path.sep + "cfDaAttenzionare.json");
 
             if (fs.existsSync(mainWindow.path_input) && fs.existsSync(mainWindow.path_input + path.sep + dbFile)) {
                 ministeroData = await utils.leggiOggettoMP(mainWindow.path_input + path.sep + dbFile);
@@ -134,13 +144,18 @@ async function main() {
                     altri[riga.cf] = riga.data_nascita;
                 }
             }
+            if (daAttenzionare.length > 0) {
+                for (let riga of daAttenzionare) {
+                    altri[riga] = riga;
+                }
+            }
             if (filesT1.length === 1 && filesT2.length === 1) {
                 let result = siad.creaMappaTracciati(filesT1[0], filesT2[0]);
                 xmlData = result;
                 currentCfList = Object.keys(xmlData.data).sort();
                 mainWindow.cf_list = currentCfList;
                 mainWindow.is_loading = false;  // Ripristina lo stato normale
-                aggiornaStatistiche();
+                await aggiornaStatistiche();
             } else {
                 showAlert("Errore: i file T1 e T2 non sono presenti o non sono univoci", "error");
                 mainWindow.is_loading = false;  // Ripristina lo stato se i file non sono validi
