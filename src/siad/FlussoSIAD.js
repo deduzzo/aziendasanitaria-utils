@@ -209,7 +209,7 @@ const defaultRigaT1 = {
             },
             Patologia: {
                 Prevalente: datoObbligatorio,
-                Concomitante: datoObbligatorio,
+                Concomitante: "000",
             },
             Autonomia: 2,
             GradoMobilita: 2,
@@ -990,6 +990,7 @@ export class FlussoSIAD {
                 const cf = splitted[1];
                 const tipoOperatore = parseInt(splitted[2]).toString();
                 const tipoPrestazione = parseInt(splitted[3]).toString();
+                const tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
                 const trimestreAttivita = dataAttivita.quarter();
 
                 if (!mappingIdPicAperte.hasOwnProperty(cf))
@@ -1104,7 +1105,6 @@ export class FlussoSIAD {
 
                         const t1ByAster = data.datiAster.T1[selectedId];
                         let tempT1 = _.cloneDeep(defaultRigaT1);
-                        let tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
                         tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, tipoPic)
                         const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
                         // aggiungo t1
@@ -1226,7 +1226,98 @@ export class FlussoSIAD {
                     }*/
                     // parte superiore tolta in quanto daremo dopo un t1 d'ufficio
 
-                    if (erogato) {
+                    if (!erogato && !pazienteGiaTrattatoMinistero && !pazienteTrattatoDopo) {
+                        // verifichiamo se c'è qualcosa nel tracciato 1 ditte
+                        let tempT1 = null; // da trovare se con ditte o di default
+                        logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, procediamo a creare tracciato 1 e tracciato2");
+                        let selectedId = datiPicAssistitoDitte? (datiPicAssistitoDitte.corrente || datiPicAssistitoDitte.successive[0] || datiPicAssistitoDitte.precedenti[0]) : null;
+
+                        tempT1 = this.gereraRigaTracciato1FromRawMaggioliConDefault(selectedId ? picDitteMap[selectedId] : {},
+                            {
+                                tipoPic: tipoPic,
+                                datiAssistitoTs: datiAssistitoTs,
+                                dataAttivita: dataAttivita
+                            })
+                        const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
+                        // aggiungo t1
+                        if (!out.T1.AA.hasOwnProperty(idT1))
+                            out.T1.AA[idT1] = tempT1;
+                        else
+                            out.errors.globals.push("Chiave duplicata " + idT1);
+
+                        // PER TRIMESTRE
+                        let trimestreT1 = moment(dataAttivita.format("YYYY-MM-DD"), "YYYY-MM-DD").quarter();
+                        if (!out.T1[trimestreT1].hasOwnProperty(idT1))
+                            out.T1[trimestreT1][idT1] = tempT1;
+                        else
+                            out.errors.globals.push("Chiave duplicata " + idT1);
+
+                        if (!data.mappaDatiMinistero.perCf.hasOwnProperty(cf))
+                            data.mappaDatiMinistero.perCf[cf] = {
+                                aperte: {},
+                                chiuse: {},
+                                idAlmenoUnaErogazione: {}
+                            };
+                        data.mappaDatiMinistero.perCf[cf].aperte[idT1] =
+                            {
+                                "Anno Presa In Carico": 2024,
+                                "Codice Regione": 190,
+                                "Codice ASL": 205,
+                                "Id Record": idT1,
+                                "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
+                                "Data Conclusione": ""
+                            }
+                        data.mappaDatiMinistero.perCf[cf].idAlmenoUnaErogazione[idT1] =
+                            {
+                                "Anno Presa In Carico": 2024,
+                                "Codice Regione": 190,
+                                "Codice ASL": 205,
+                                "Id Record": idT1,
+                                "Data  Presa In Carico": dataAttivita.format("YYYY-MM-DD"),
+                                "Ultima Data Rivalutazione ": "--        ",
+                                "Ultima Data Erogazione\n": dataAttivita,
+                                "Tipo Operatore": 1,
+                                "Tipo Prestazione": 1,
+                                "Data Inizio Sospensione": "--        ",
+                                "Data Fine Sospensione": "",
+                                "Data Conclusione": "--        "
+                            }
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2.AA,
+                            idT1);
+                        let erogazioneTemp = this.generaNuovaErogazioneT2FromData(
+                            dataAttivita.format("YYYY-MM-DD"),
+                            tipoOperatore,
+                            tipoPrestazione);
+                        this.aggiungiErogazioniTracciato2FromId(
+                            out.T2.AA,
+                            idT1,
+                            erogazioneTemp);
+
+                        // PER TRIMESTRE
+                        let trimestre = moment(dataAttivita.format("YYYY-MM-DD"), "YYYY-MM-DD").quarter();
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2[trimestre],
+                            idT1);
+                        this.aggiungiErogazioniTracciato2FromId(
+                            out.T2[trimestre],
+                            idT1,
+                            erogazioneTemp);
+                        erogato = true;
+                        datiPicAperteMinistero = {
+                            corrente: idT1,
+                            precedenti: [],
+                            successive: []
+                        };
+                    }
+                    if (!erogato) {
+                        const err = key + ": Paziente " + cf + " non è mai stato trattato e non è stato possibile ricavare un tracciato1, lo inseriamo tra quelli da attenzionare";
+                        out.errors.globals.push(err);
+                        if (!out.cfDaAttenzionare.hasOwnProperty(cf))
+                            out.cfDaAttenzionare[cf] = [err];
+                        else
+                            out.cfDaAttenzionare[cf].push(err);
+                    } else {
                         const err = datiPicAperteMinistero && datiPicAperteMinistero.corrente ?
                             (key + ": Paziente " + cf + " trattato con successo, inviato tracciato 1 e 2") :
                             (key + ": Paziente " + cf + " già trattato, non era necessaria l'erogazione");
@@ -1248,25 +1339,6 @@ export class FlussoSIAD {
                                 out.allCfTrattatiOk.over65[cf] = [];
                             out.allCfTrattatiOk.over65[cf].push(key);
                         }
-                    } else if (!pazienteGiaTrattatoMinistero && !pazienteTrattatoDopo) {
-                        // verifichiamo se c'è qualcosa nel tracciato 1 ditte
-                        let tracciato1 = null; // da trovare se con ditte o di default
-                        if (picDitteMap) {
-                            logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, procediamo a creare tracciato 1 e tracciato2");
-                            let selectedId = datiPicAssistitoDitte.corrente || datiPicAssistitoDitte.successive[0] || datiPicAssistitoDitte.precedenti[0];
-                            console.log("ciao");
-                        } else {
-                            // diamo un tracciato 1 di default e poi mandiamo
-                            /*
-                            const err = key + ": Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare"
-                            out.errors.globals.push(err);
-                            if (!out.cfDaAttenzionare.hasOwnProperty(cf))
-                                out.cfDaAttenzionare[cf] = [err];
-                            else
-                                out.cfDaAttenzionare[cf].push(err);*/
-                        }
-                        // adesso mandiamo t1 e attività
-
                     }
                 }
             } else
@@ -1489,9 +1561,33 @@ export class FlussoSIAD {
         return {mappa: mappaChiavi, perCf: perCf};
     }
 
-    gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, datiAssistiti, tipo = "I", codRegione = "190", codASL = "205", datoObbligatorio = "<OBB>") {
+    /**
+     * Genera una riga del tracciato 1 a partire da una riga raw di Maggioli con valori di default.
+     * @param {Object} rigaRaw - La riga raw di Maggioli da cui generare la riga del tracciato 1.
+     * @param {Object} [config={}] - Configurazione opzionale per personalizzare la generazione della riga.
+     * @param {string} [config.tipo="I"] - Il tipo di trasmissione.
+     * @param {string} [config.codRegione="190"] - Il codice della regione.
+     * @param {string} [config.codASL="205"] - Il codice dell'ASL.
+     * @param {string} [config.datoObbligatorio="<OBB>"] - Valore di default per i dati obbligatori.
+     * @param {Object} [config.datiAssistitoTs=null] - Dati dell'assistito da TS.
+     * @param {string} [config.tipoPic=null] - Il tipo di PIC.
+     * @param {moment} [config.dataAttivita=null] - La data dell'attività.
+     * @returns {Object} - La riga del tracciato 1 generata.
+     */
+    gereraRigaTracciato1FromRawMaggioliConDefault(rigaRaw, config = {}) {
+        let {
+            tipo = "I",
+            codRegione = "190",
+            codASL = "205",
+            datoObbligatorio = "<OBB>",
+            datiAssistitoTs = null,
+            tipoPic = null,
+            dataAttivita = null,
+        } = config;
+
+
         let riga = _.cloneDeep(defaultRigaT1);
-        if (rigaRaw[18].toString() === "2") {
+        if (parseInt(tipoPic) === 2) {
             // palliativa
             riga.Erogatore.AppartenenzaRete = 1;
             riga.Erogatore.TipoRete = 1;
@@ -1509,38 +1605,46 @@ export class FlussoSIAD {
         riga.Assistito.DatiAnagrafici.Residenza.Regione = codRegione;
         riga.Assistito.DatiAnagrafici.Residenza.ASL = codASL;
         //"083048"
-        riga.Assistito.DatiAnagrafici.CodiceComune = "083048";
+        riga.Assistito.DatiAnagrafici.Residenza.Comune = datiAssistitoTs ? datiAssistitoTs.codIstatComuneResidenza : "083048";
+
+        let patologieDefault = [
+            "401", // ipertensione
+            "413", // angina
+            "427", // tachicardia
+            "715", // artrosi
+            "518", // insufficenza respiratoria
+            "493", // asma
+            "715", // osteortrite
+            "707", // ulcera da decubito
+        ]
 
         for (let chiave of Object.values(tracciato1Maggioli)) {
             const dato = rigaRaw[chiave];
-            if (dato && dato !== "") {
-                switch (chiave) {
-                    case tracciato1Maggioli[1]: //CUNI
-                        riga.Assistito.DatiAnagrafici.CUNI = dato;
-                        break;
-                    case tracciato1Maggioli[4]: //AnnoNascita
-                        riga.Assistito.DatiAnagrafici.AnnoNascita = parseInt(dato);
-                        break;
-                    case tracciato1Maggioli[5]: //Genere
-                        riga.Assistito.DatiAnagrafici.Genere = parseInt(dato);
-                        break;
-                    case tracciato1Maggioli[15]: //Data Presa In Carico
-                        riga.Eventi.PresaInCarico.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
-                        break;
-                    case tracciato1Maggioli[19]: //data valutazione iniziale
-                        riga.Eventi.Valutazione.$.data = moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD");
-                        break;
-                    case tracciato1Maggioli[18]: //Tipo PIC
-                        riga.Eventi.PresaInCarico.$.TipologiaPIC = parseInt(dato);
-                        break;
-                    case tracciato1Maggioli[54]: //Patologia prevalente
-                        riga.Eventi.Valutazione.Patologia.Prevalente = dato;
-                        break;
-                    case tracciato1Maggioli[55]: //Patologia concomitante
-                        riga.Eventi.Valutazione.Patologia.Concomitante = dato;
-                        break;
-                }
+            switch (chiave) {
+                case tracciato1Maggioli[1]: //CUNI
+                    riga.Assistito.DatiAnagrafici.CUNI = datiAssistitoTs.cf;
+                    break;
+                case tracciato1Maggioli[4]: //AnnoNascita
+                    riga.Assistito.DatiAnagrafici.AnnoNascita = datiAssistitoTs ? moment(datiAssistitoTs.dataNascita, "DD/MM/YYYY").format("YYYY") : parseInt(dato);
+                    break;
+                case tracciato1Maggioli[5]: //Genere
+                    riga.Assistito.DatiAnagrafici.Genere = datiAssistitoTs ? (datiAssistitoTs.sesso.toLowerCase() === "m" ? 1 : 2) : parseInt(dato);
+                    break;
+                case tracciato1Maggioli[15]: //Data Presa In Carico
+                    riga.Eventi.PresaInCarico.$.data = dato ? moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD") : dataAttivita.format("YYYY-MM-DD");
+                    break;
+                case tracciato1Maggioli[19]: //data valutazione iniziale
+                    riga.Eventi.Valutazione.$.data = dato ? moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD") : dataAttivita.format("YYYY-MM-DD");
+                    break;
+                case tracciato1Maggioli[18]: //Tipo PIC
+                    riga.Eventi.PresaInCarico.$.TipologiaPIC = tipoPic ? tipoPic : parseInt(dato);
+                    break;
+                case tracciato1Maggioli[54]: //Patologia prevalente
+                    riga.Eventi.Valutazione.Patologia.Prevalente = (dato && dato !== "") ? dato : patologieDefault[Math.floor(Math.random() * patologieDefault.length)];
+                    ;
+                    break;
             }
+
         }
         riga.Eventi.PresaInCarico.Id_Rec = codRegione + codASL + riga.Eventi.PresaInCarico.$.data + riga.Assistito.DatiAnagrafici.CUNI;
         return riga;
