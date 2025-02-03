@@ -1363,7 +1363,7 @@ export class FlussoSIAD {
                     }
                 };
                 const xml = builder.buildObject(t);
-                fs.writeFileSync(folderOut + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_" + (tracciato === "T1" ? "AP2" : "AA2") + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
+                fs.writeFileSync(folderOut + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_" + (tracciato === "T1" ? "AA2" : "AP2") + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
                 if (!verifica.ok)
                     out.errors.globals = [...out.errors.globals, ...verifica.errors];
             }
