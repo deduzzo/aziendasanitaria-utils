@@ -771,7 +771,6 @@ export class FlussoSIAD {
         let out = {
             errors: {
                 globals: [],
-                t2ditte: []
             },
             T1: {
                 1: {},
@@ -988,6 +987,7 @@ export class FlussoSIAD {
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno)) {
                 const cf = splitted[1];
+                const datiAssistitoTs = data.fromTS.out ? (data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)) : null;
                 const tipoOperatore = parseInt(splitted[2]).toString();
                 const tipoPrestazione = parseInt(splitted[3]).toString();
                 const tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
@@ -1006,7 +1006,6 @@ export class FlussoSIAD {
                 const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
                 const picDitteMap = this.picDitteToKeyMap(data.datiTracciatiDitte.T1byCf[cf]);
                 const datiPicAssistitoDitte = picDitteMap ? utils.trovaPICfromData(Object.keys(picDitteMap), dataAttivita) : null;
-                const datiAssistitoTs = data.fromTS.out ? (data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)) : null;
                 const etaAssistito = datiAssistitoTs ? datiAssistitoTs.eta : utils.getAgeFromCF(cf);
                 const pazienteTrattatoDopo = out.allCfTrattatiOk.tutti.hasOwnProperty(cf);
                 let picPortale = {
@@ -1105,7 +1104,7 @@ export class FlussoSIAD {
 
                         const t1ByAster = data.datiAster.T1[selectedId];
                         let tempT1 = _.cloneDeep(defaultRigaT1);
-                        tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, tipoPic)
+                        tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, {tipoPic: tipoPic, datiAssistitoTs: datiAssistitoTs })
                         const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
                         // aggiungo t1
                         if (!out.T1.AA.hasOwnProperty(idT1))
@@ -1230,7 +1229,7 @@ export class FlussoSIAD {
                         // verifichiamo se c'è qualcosa nel tracciato 1 ditte
                         let tempT1 = null; // da trovare se con ditte o di default
                         logger.info("L'attività " + key + " non ha pic valide in ministero o su Aster, ma ha pic su Ditte, procediamo a creare tracciato 1 e tracciato2");
-                        let selectedId = datiPicAssistitoDitte? (datiPicAssistitoDitte.corrente || datiPicAssistitoDitte.successive[0] || datiPicAssistitoDitte.precedenti[0]) : null;
+                        let selectedId = datiPicAssistitoDitte ? (datiPicAssistitoDitte.corrente || datiPicAssistitoDitte.successive[0] || datiPicAssistitoDitte.precedenti[0]) : null;
 
                         tempT1 = this.gereraRigaTracciato1FromRawMaggioliConDefault(selectedId ? picDitteMap[selectedId] : {},
                             {
@@ -1364,8 +1363,7 @@ export class FlussoSIAD {
                 };
                 const xml = builder.buildObject(t);
                 fs.writeFileSync(folderOut + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_" + (tracciato === "T1" ? "AA2" : "AP2") + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
-                if (!verifica.ok)
-                    out.errors.globals = [...out.errors.globals, ...verifica.errors];
+                out.errors[tracciato + "_" + trimestre] = {stato: verifica.ok,errori: verifica.errors};
             }
         }
         // write errors
@@ -1391,27 +1389,38 @@ export class FlussoSIAD {
     }
 
 
+
     /**
-     * Copia i dati da una riga sorgente T1 di Aster su una riga di destinazione con valori di default.
-     * @param {Object} rigaSorgente - La riga sorgente da cui copiare i dati.
-     * @param {Object} rigaDestinazione - La riga di destinazione su cui copiare i dati.
+     * Copia i dati da una riga sorgente di T1 Aster su una riga di destinazione predefinita.
+     *
+     * @param {Object} rigaSorgente - La riga sorgente contenente i dati da copiare.
+     * @param {Object} rigaDestinazione - La riga di destinazione dove i dati verranno copiati.
      * @param {Object} dataPic - La data di presa in carico.
-     * @param {string} [tipoPic="1"] - Il tipo di presa in carico (default: "1").
-     * @param {string} [trasmissione="I"] - Il tipo di trasmissione (default: "I").
-     * @returns {Object} - La riga di destinazione con i dati copiati.
+     * @param {Object} [config={}] - Configurazione opzionale per la copia dei dati.
+     * @param {string} [config.tipoPic] - Tipo di presa in carico.
+     * @param {Object} [config.datiAssistitoTs] - Dati dell'assistito dal sistema TS.
+     * @param {boolean} [config.flag1] - Flag opzionale 1.
+     * @param {boolean} [config.flag2] - Flag opzionale 2.
+     * @param {boolean} [config.flag3] - Flag opzionale 3.
+     * @returns {Object} La riga di destinazione aggiornata con i dati copiati.
      */
-    copiaT1AsterSuRigaDefault = (rigaSorgente, rigaDestinazione, dataPic, tipoPic = "1", trasmissione = "I") => {
+    copiaT1AsterSuRigaDefault = (rigaSorgente, rigaDestinazione, dataPic, config = {}) => {
+        const {
+            tipoPic = "1",
+            trasmissione = "I",
+            datiAssistitoTs = null
+        } = config;
         rigaDestinazione.Trasmissione.$.tipo = trasmissione;
-        rigaDestinazione.Assistito.DatiAnagrafici.CUNI = rigaSorgente.Assistito[0].DatiAnagrafici[0].CUNI[0];
-        rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
-        rigaDestinazione.Assistito.DatiAnagrafici.Genere = rigaSorgente.Assistito[0].DatiAnagrafici[0].Genere[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.CUNI = datiAssistitoTs ? datiAssistitoTs.cf : rigaSorgente.Assistito[0].DatiAnagrafici[0].CUNI[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = datiAssistitoTs ? moment(datiAssistitoTs.dataNascita,"DD/MM/YYYY").format("YYYY") : rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Genere = datiAssistitoTs ? (datiAssistitoTs.sesso.toLowerCase() === "m" ? 1 : 2) : rigaSorgente.Assistito[0].DatiAnagrafici[0].Genere[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Cittadinanza = rigaSorgente.Assistito[0].DatiAnagrafici[0].Cittadinanza[0];
         rigaDestinazione.Assistito.DatiAnagrafici.StatoCivile = rigaSorgente.Assistito[0].DatiAnagrafici[0].StatoCivile[0];
         if (rigaSorgente.Assistito[0].DatiAnagrafici[0].hasOwnProperty("ResponsabilitaGenitoriale"))
             rigaDestinazione.Assistito.DatiAnagrafici.ResponsabilitaGenitoriale = rigaSorgente.Assistito[0].DatiAnagrafici[0].ResponsabilitaGenitoriale[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Regione = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Regione[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Residenza.ASL = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].ASL[0];
-        rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Comune = rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Comune[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.Residenza.Comune = datiAssistitoTs && datiAssistitoTs.codIstatComuneResidenza ? datiAssistitoTs.codIstatComuneResidenza : rigaSorgente.Assistito[0].DatiAnagrafici[0].Residenza[0].Comune[0];
         rigaDestinazione.Conviventi.NucleoFamiliare = rigaSorgente.Conviventi[0].NucleoFamiliare[0];
         rigaDestinazione.Conviventi.AssistenteNonFamiliare = rigaSorgente.Conviventi[0].AssistenteNonFamiliare[0];
         rigaDestinazione.Erogatore.CodiceRegione = rigaSorgente.Erogatore[0].CodiceRegione[0];
@@ -1467,12 +1476,12 @@ export class FlussoSIAD {
             rigaDestinazione.Erogatore.AppartenenzaRete = 1;
             rigaDestinazione.Erogatore.TipoRete = 1;
             rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            rigaDestinazione.Eventi.Valutazione.CurePalliative = 1;
-            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
+            //rigaDestinazione.Eventi.Valutazione.CurePalliative = 1;
+/*            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
                 SegnoSintomoClinico: datoObbligatorio,
                 UtilStrumentoIdentBisognoCP: datoObbligatorio,
                 UtilStrumentoValMultid: datoObbligatorio
-            }
+            }*/
         }
         return rigaDestinazione;
     }
@@ -1592,12 +1601,12 @@ export class FlussoSIAD {
             riga.Erogatore.AppartenenzaRete = 1;
             riga.Erogatore.TipoRete = 1;
             riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            riga.Eventi.Valutazione.CurePalliative = 1;
-            riga.Valutazione.ValutazioneUCPDOM = {
+            //riga.Eventi.Valutazione.CurePalliative = 1;
+/*            riga.Valutazione.ValutazioneUCPDOM = {
                 SegnoSintomoClinico: datoObbligatorio,
                 UtilStrumentoIdentBisognoCP: datoObbligatorio,
                 UtilStrumentoValMultid: datoObbligatorio
-            }
+            }*/
         }
         riga.Erogatore.CodiceASL = codASL;
         riga.Erogatore.CodiceRegione = codRegione;
@@ -1605,7 +1614,7 @@ export class FlussoSIAD {
         riga.Assistito.DatiAnagrafici.Residenza.Regione = codRegione;
         riga.Assistito.DatiAnagrafici.Residenza.ASL = codASL;
         //"083048"
-        riga.Assistito.DatiAnagrafici.Residenza.Comune = datiAssistitoTs ? datiAssistitoTs.codIstatComuneResidenza : "083048";
+        riga.Assistito.DatiAnagrafici.Residenza.Comune = datiAssistitoTs && datiAssistitoTs.codIstatComuneResidenza ? datiAssistitoTs.codIstatComuneResidenza : "083048";
 
         let patologieDefault = [
             "401", // ipertensione
@@ -2243,7 +2252,7 @@ export class FlussoSIAD {
                 rigaT1[7] = "9";
                 rigaT1[8] = "190";
                 rigaT1[9] = "205";
-                rigaT1[10] = datiAssitito.codIstatComuneNascita ?? "083048";
+                rigaT1[10] = datiAssitito.codIstatComuneResidenza ?? "083048";
                 rigaT1[11] = "1";
                 rigaT1[12] = "2";
                 rigaT1[13] = "190";
