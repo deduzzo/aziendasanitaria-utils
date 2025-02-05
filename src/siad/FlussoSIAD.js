@@ -581,6 +581,72 @@ export class FlussoSIAD {
         return out;
     }
 
+    async statisticheFLS21(pathData, pathFileDatiTs = null) {
+        let data = {
+            allChiaviCasiTrattati: {},
+            statsT1: {totali: 0, anziani: 0, palliativa: 0},
+            statsT2: {totali: 0, anziani: 0, palliativa: 0},
+        };
+        const parser = new xml2js.Parser({attrkey: "ATTR"});
+
+        const fileDatiTs = await pathFileDatiTs ? await utils.leggiOggettoMP(pathFileDatiTs) : null;
+
+        let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
+        let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
+
+        filesT1.forEach(file => {
+            let xml_string = fs.readFileSync(file, "utf8");
+            console.log("T1 file:" + file)
+            parser.parseString(xml_string, function (error, result) {
+                if (error === null) {
+                    let assistenze = result['FlsAssDom_1']['Assistenza'];
+                    for (let i = 0; i < assistenze.length; i++) {
+                        const chiavePic = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
+                        console.log(chiavePic)
+                        const cf = assistenze[i]['Assistito'][0]['DatiAnagrafici'][0]['CUNI'][0];
+                        const presenteSuTs = fileDatiTs.out.vivi.hasOwnProperty(cf) || fileDatiTs.out.morti.hasOwnProperty(cf);
+                        const vivo = presenteSuTs ? fileDatiTs.out.vivi.hasOwnProperty(cf) : null;
+                        const datiTs = presenteSuTs ? (vivo ? fileDatiTs.out.vivi[cf] : fileDatiTs.out.morti[cf]) : null;
+                        const eta = datiTs ? datiTs.eta : utils.getAgeFromCF(cf);
+                        const anziano = eta >= 65;
+                        const palliativa = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['ATTR']['TipologiaPIC'] === "2";
+
+                        // aggiorna stats
+                        let objTemp = {palliativa: false, anziano: false};
+                        data.statsT1.totali++;
+                        if (palliativa) {
+                            data.statsT1.palliativa++;
+                            objTemp.palliativa = true;
+                        } else if (anziano) {
+                            data.statsT1.anziani++;
+                            objTemp.anziano = true;
+                        }
+                        data.allChiaviCasiTrattati[chiavePic] = objTemp;
+                    }
+                }
+            });
+        });
+
+        filesT2.forEach(file => {
+            let xml_string = fs.readFileSync(file, "utf8");
+            console.log("T2 file:" + file)
+            parser.parseString(xml_string, function (error, result) {
+                if (error === null) {
+                    let assistenze = result['FlsAssDom_2']['Assistenza'];
+                    for (let i = 0; i < assistenze.length; i++) {
+                        const idPresaPic = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
+                        const stats = data.allChiaviCasiTrattati[idPresaPic];
+                        for (let erogazione of assistenze[i]['Eventi'][0]['Erogazione']) {
+                            console.log("asd")
+                        }
+
+                    }
+                }
+            });
+        });
+
+    }
+
     contaPrestazioni() {
         let data = {};
         let dataOver65 = {};
@@ -1104,7 +1170,10 @@ export class FlussoSIAD {
 
                         const t1ByAster = data.datiAster.T1[selectedId];
                         let tempT1 = _.cloneDeep(defaultRigaT1);
-                        tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, {tipoPic: tipoPic, datiAssistitoTs: datiAssistitoTs })
+                        tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, {
+                            tipoPic: tipoPic,
+                            datiAssistitoTs: datiAssistitoTs
+                        })
                         const idT1 = tempT1.Eventi.PresaInCarico.Id_Rec;
                         // aggiungo t1
                         if (!out.T1.AA.hasOwnProperty(idT1))
@@ -1363,7 +1432,7 @@ export class FlussoSIAD {
                 };
                 const xml = builder.buildObject(t);
                 fs.writeFileSync(folderOut + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_" + (tracciato === "T1" ? "AA2" : "AP2") + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
-                out.errors[tracciato + "_" + trimestre] = {stato: verifica.ok,errori: verifica.errors};
+                out.errors[tracciato + "_" + trimestre] = {stato: verifica.ok, errori: verifica.errors};
             }
         }
         // write errors
@@ -1389,7 +1458,6 @@ export class FlussoSIAD {
     }
 
 
-
     /**
      * Copia i dati da una riga sorgente di T1 Aster su una riga di destinazione predefinita.
      *
@@ -1412,7 +1480,7 @@ export class FlussoSIAD {
         } = config;
         rigaDestinazione.Trasmissione.$.tipo = trasmissione;
         rigaDestinazione.Assistito.DatiAnagrafici.CUNI = datiAssistitoTs ? datiAssistitoTs.cf : rigaSorgente.Assistito[0].DatiAnagrafici[0].CUNI[0];
-        rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = datiAssistitoTs ? moment(datiAssistitoTs.dataNascita,"DD/MM/YYYY").format("YYYY") : rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
+        rigaDestinazione.Assistito.DatiAnagrafici.AnnoNascita = datiAssistitoTs ? moment(datiAssistitoTs.dataNascita, "DD/MM/YYYY").format("YYYY") : rigaSorgente.Assistito[0].DatiAnagrafici[0].AnnoNascita[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Genere = datiAssistitoTs ? (datiAssistitoTs.sesso.toLowerCase() === "m" ? 1 : 2) : rigaSorgente.Assistito[0].DatiAnagrafici[0].Genere[0];
         rigaDestinazione.Assistito.DatiAnagrafici.Cittadinanza = rigaSorgente.Assistito[0].DatiAnagrafici[0].Cittadinanza[0];
         rigaDestinazione.Assistito.DatiAnagrafici.StatoCivile = rigaSorgente.Assistito[0].DatiAnagrafici[0].StatoCivile[0];
@@ -1477,11 +1545,11 @@ export class FlussoSIAD {
             rigaDestinazione.Erogatore.TipoRete = 1;
             rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
             //rigaDestinazione.Eventi.Valutazione.CurePalliative = 1;
-/*            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
-                SegnoSintomoClinico: datoObbligatorio,
-                UtilStrumentoIdentBisognoCP: datoObbligatorio,
-                UtilStrumentoValMultid: datoObbligatorio
-            }*/
+            /*            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
+                            SegnoSintomoClinico: datoObbligatorio,
+                            UtilStrumentoIdentBisognoCP: datoObbligatorio,
+                            UtilStrumentoValMultid: datoObbligatorio
+                        }*/
         }
         return rigaDestinazione;
     }
@@ -1602,11 +1670,11 @@ export class FlussoSIAD {
             riga.Erogatore.TipoRete = 1;
             riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
             //riga.Eventi.Valutazione.CurePalliative = 1;
-/*            riga.Valutazione.ValutazioneUCPDOM = {
-                SegnoSintomoClinico: datoObbligatorio,
-                UtilStrumentoIdentBisognoCP: datoObbligatorio,
-                UtilStrumentoValMultid: datoObbligatorio
-            }*/
+            /*            riga.Valutazione.ValutazioneUCPDOM = {
+                            SegnoSintomoClinico: datoObbligatorio,
+                            UtilStrumentoIdentBisognoCP: datoObbligatorio,
+                            UtilStrumentoValMultid: datoObbligatorio
+                        }*/
         }
         riga.Erogatore.CodiceASL = codASL;
         riga.Erogatore.CodiceRegione = codRegione;
