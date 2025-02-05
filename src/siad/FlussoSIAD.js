@@ -1013,7 +1013,7 @@ export class FlussoSIAD {
                         }
                     }
                     if (ok) {
-                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
+                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione + "_"+ tipoPic;
                         if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
                             data.datiTracciatiDitte.T2byKey[key] = t2row;
                         else
@@ -1042,6 +1042,10 @@ export class FlussoSIAD {
         let cfNonValidiTs = {};
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
+        // PER CREARE IL FLUSSO PULITO
+        data.mappaDatiMinistero.perCf = {};
+        data.mappaDatiMinistero.allCfTrattati.perCf = {};
+
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
@@ -1056,22 +1060,24 @@ export class FlussoSIAD {
                 const datiAssistitoTs = data.fromTS.out ? (data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)) : null;
                 const tipoOperatore = parseInt(splitted[2]).toString();
                 const tipoPrestazione = parseInt(splitted[3]).toString();
-                const tipoPic = (tipoPrestazione > 21 && tipoPrestazione < 29) ? "2" : "1";
                 const trimestreAttivita = dataAttivita.quarter();
 
                 if (!mappingIdPicAperte.hasOwnProperty(cf))
                     mappingIdPicAperte[cf] = {ultimaMinistero: null, ministeroPortaleMap: {}};
 
                 const haPicAperteMinistero = data.mappaDatiMinistero.perCf.hasOwnProperty(cf) && Object.keys(data.mappaDatiMinistero.perCf[cf].aperte).length > 0;
-                const pazienteGiaTrattatoMinistero = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
+                let pazienteGiaTrattatoMinistero = data.mappaDatiMinistero.allCfTrattati.hasOwnProperty(cf);
                 let datiPicAperteMinistero = data.mappaDatiMinistero.perCf[cf] ?
                     utils.trovaPICfromData(Object.keys(data.mappaDatiMinistero.perCf[cf].aperte), dataAttivita) :
                     null;
+
                 const dataUltimaErogazioneMinistero = data.mappaDatiMinistero.perCf[cf] ? moment(data.mappaDatiMinistero.perCf[cf].ultimaErogazione, "DD/MM/YYYY") : null;
                 const picAssistitoAster = data.datiAster.T1byCf[cf];
                 const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
                 const picDitteMap = this.picDitteToKeyMap(data.datiTracciatiDitte.T1byCf[cf]);
                 const datiPicAssistitoDitte = picDitteMap ? utils.trovaPICfromData(Object.keys(picDitteMap), dataAttivita) : null;
+                const isPalliativaFromT1Ditte =datiPicAssistitoDitte && datiPicAssistitoDitte.corrente ? (parseInt(picDitteMap[datiPicAssistitoDitte.corrente][tracciato1Maggioli[18]]) === 2 ? true: false) : null;
+                const tipoPic = isPalliativaFromT1Ditte ? "2" : "1";
                 const etaAssistito = datiAssistitoTs ? datiAssistitoTs.eta : utils.getAgeFromCF(cf);
                 const pazienteTrattatoDopo = out.allCfTrattatiOk.tutti.hasOwnProperty(cf);
                 let picPortale = {
