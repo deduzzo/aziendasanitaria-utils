@@ -96,6 +96,10 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
     //let res = await flussoSiad.generaMappaPICT1("/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/DATI ASTER//PER MESE//");
 
 
+
+    await flussoSiad.statisticheFLS21('/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/anno ignorando maggioli pseudo completo (da correggere per eventuali scarti)',
+    )
+    process.exit(0);
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
     let res = await flussoSiad.generaFlussoRettificaScarti(
         2024,

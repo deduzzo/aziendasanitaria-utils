@@ -581,15 +581,18 @@ export class FlussoSIAD {
         return out;
     }
 
-    async statisticheFLS21(pathData, pathFileDatiTs = null) {
+    async statisticheFLS21(pathData, pathFileDatiTs = "datiTS.mpdb") {
         let data = {
             allChiaviCasiTrattati: {},
             statsT1: {totali: 0, anziani: 0, palliativa: 0},
-            statsT2: {totali: 0, anziani: 0, palliativa: 0},
+            statsT2: {
+                totali: { totali: 0, anziani: 0, palliativa: 0 },
+                perTipoOperatore: {},
+            }
         };
         const parser = new xml2js.Parser({attrkey: "ATTR"});
 
-        const fileDatiTs = await pathFileDatiTs ? await utils.leggiOggettoMP(pathFileDatiTs) : null;
+        let fileDatiTs = fs.existsSync(pathData + path.sep + pathFileDatiTs) ? await utils.leggiOggettoMP(pathData + path.sep + pathFileDatiTs) : null;
 
         let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
         let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
@@ -627,6 +630,35 @@ export class FlussoSIAD {
             });
         });
 
+        // 1 - mmg
+        // 2- pls
+        // 3 - infermiere
+        // 4 - medico specialista
+        // 5 - medico esperto in cure palliative
+        // 6 - medico di continuità assistenziale
+        // 7 - psicologo
+        // 8 - fisioterapista
+        // 9 - logopedista
+        // 10 - OSS
+        // 11 - dietista
+        // 12 - assistente sociale del ssn
+        // 13 - terapista occupazionale
+        // 99 - altro
+
+        let tipoOperatore = {
+            medico: [1, 2, 4, 5, 6],
+            infermiere: [3],
+            terapisti_riabilitazione: [8, 9],
+            altro: [7, 10, 11, 12, 13, 99]
+        }
+
+        const tipoOperatoreMap = {};
+        for (let key in tipoOperatore) {
+            for (let val of tipoOperatore[key]) {
+                tipoOperatoreMap[val] = key;
+            }
+        }
+
         filesT2.forEach(file => {
             let xml_string = fs.readFileSync(file, "utf8");
             console.log("T2 file:" + file)
@@ -635,16 +667,33 @@ export class FlussoSIAD {
                     let assistenze = result['FlsAssDom_2']['Assistenza'];
                     for (let i = 0; i < assistenze.length; i++) {
                         const idPresaPic = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
+                        console.log(idPresaPic);
                         const stats = data.allChiaviCasiTrattati[idPresaPic];
                         for (let erogazione of assistenze[i]['Eventi'][0]['Erogazione']) {
-                            console.log("asd")
+                            const tipoOp = parseInt(erogazione['TipoOperatore'][0]);
+                            const numAccessi = parseInt(erogazione['ATTR']['numAccessi']);
+                            const isPalliativa = stats.palliativa;
+                            const isAnziano = stats.anziano;
+                            data.statsT2.totali.totali += numAccessi;
+                            if (isPalliativa)
+                                data.statsT2.totali.palliativa += numAccessi;
+                            else if (isAnziano)
+                                data.statsT2.totali.anziani += numAccessi;
+                            if (!data.statsT2.perTipoOperatore.hasOwnProperty(tipoOperatoreMap[tipoOp]))
+                                data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]] = {totali: 0, anziani: 0, palliativa: 0};
+                            data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]].totali += numAccessi;
+                            if (isPalliativa)
+                                data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]].palliativa += numAccessi;
+                            else if (isAnziano)
+                                data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]].anziani += numAccessi;
                         }
 
                     }
                 }
             });
         });
-
+        delete data.allChiaviCasiTrattati;
+        await utils.scriviOggettoSuFile(pathData + path.sep + "statisticheFLS21.json", data);
     }
 
     contaPrestazioni() {
@@ -1013,7 +1062,7 @@ export class FlussoSIAD {
                         }
                     }
                     if (ok) {
-                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione + "_"+ tipoPic;
+                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione + "_" + tipoPic;
                         if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
                             data.datiTracciatiDitte.T2byKey[key] = t2row;
                         else
@@ -1076,7 +1125,7 @@ export class FlussoSIAD {
                 const datiPicAster = picAssistitoAster ? utils.trovaPICfromData(Object.keys(picAssistitoAster), dataAttivita) : null;
                 const picDitteMap = this.picDitteToKeyMap(data.datiTracciatiDitte.T1byCf[cf]);
                 const datiPicAssistitoDitte = picDitteMap ? utils.trovaPICfromData(Object.keys(picDitteMap), dataAttivita) : null;
-                const isPalliativaFromT1Ditte =datiPicAssistitoDitte && datiPicAssistitoDitte.corrente ? (parseInt(picDitteMap[datiPicAssistitoDitte.corrente][tracciato1Maggioli[18]]) === 2 ? true: false) : null;
+                const isPalliativaFromT1Ditte = datiPicAssistitoDitte && datiPicAssistitoDitte.corrente ? (parseInt(picDitteMap[datiPicAssistitoDitte.corrente][tracciato1Maggioli[18]]) === 2 ? true : false) : null;
                 const tipoPic = isPalliativaFromT1Ditte ? "2" : "1";
                 const etaAssistito = datiAssistitoTs ? datiAssistitoTs.eta : utils.getAgeFromCF(cf);
                 const pazienteTrattatoDopo = out.allCfTrattatiOk.tutti.hasOwnProperty(cf);
