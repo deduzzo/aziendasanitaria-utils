@@ -581,6 +581,14 @@ export class FlussoSIAD {
         return out;
     }
 
+    /**
+     * Computes statistical data from FLS21 XML files, analyzing two types of data (T1 and T2),
+     * and writes the results to a JSON file.
+     *
+     * @param {string} pathData - The base directory path containing the XML data files to be processed.
+     * @param {string} [pathFileDatiTs="datiTS.mpdb"] - The relative path to the datiTS file to be used, if it exists.
+     * @return {Promise<void>} Resolves when the statistics have been computed and written to the output file.
+     */
     async statisticheFLS21(pathData, pathFileDatiTs = "datiTS.mpdb") {
         let data = {
             allChiaviCasiTrattati: {},
