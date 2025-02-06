@@ -52,6 +52,7 @@ class Indicatori {
                     const parser = new xml2js.Parser({attrkey: "ATTR"});
                     let allFilesHospice = utils.getAllFilesRecursive(params[this.HOSPICE_PATH], [".xml"], "ATT");
                     let assistitiDecedutiConRequisitiHospice = {};
+                    const consideraTuttiDecedutiHospice = true;
                     let i = 0;
                     for (let file of allFilesHospice) {
                         i++;
@@ -60,15 +61,15 @@ class Indicatori {
                         const result = await promisify(parser.parseString)(xml_string);
                         for (let assistenza of result["HspAttivita"]["Assistenza"]) {
                             const patologiaResponsabile = parseInt(assistenza['PresaInCarico'][0]['PatologiaResponsabile'][0]);
-                            if (parseInt(assistenza['Conclusione'][0]['Modalita'][0]) === 6 && patologiaResponsabile >= 140 && patologiaResponsabile <= 208) {
+                            if ((parseInt(assistenza['Conclusione'][0]['Modalita'][0]) === 6 || consideraTuttiDecedutiHospice) && patologiaResponsabile >= 140 && patologiaResponsabile <= 208) {
                                 let cf = assistenza['PresaInCarico'][0]['Id_Rec'][0].substring(22,38);
                                 if (!assistitiDecedutiConRequisitiHospice.hasOwnProperty(cf))
                                     assistitiDecedutiConRequisitiHospice[cf] = { cf };
                             }
                         }
                     }
-                    let allFilesSiadT1 = utils.getAllFilesRecursive(params[this.SIAD_PATH], [".xml"], "AAD");
-                    let allFilesSiadT2 = utils.getAllFilesRecursive(params[this.SIAD_PATH], [".xml"], "APS");
+                    let allFilesSiadT1 = utils.getAllFilesRecursive(params[this.SIAD_PATH], [".xml"], "AA2");
+                    let allFilesSiadT2 = utils.getAllFilesRecursive(params[this.SIAD_PATH], [".xml"], "AP2");
                     let idrecTracciato1Validi = {};
                     let assistitiDecedutiConRequisitiSiad = {};
                     const ignoraMotivoSospensione = true;
@@ -83,9 +84,8 @@ class Indicatori {
                             const idRec = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
                             try {
                                 const patologiaPrevalente = parseInt(assistenza['Eventi'][0]['Valutazione'][0]['Patologia'][0]['Prevalente'][0]);
-                                let curePalliative=
-                                    (assistenza['Eventi'][0]['Valutazione'][0].hasOwnProperty('CurePalliative') && parseInt(assistenza['Eventi'][0]['Valutazione'][0]['CurePalliative'][0]) === 1) ||
-                                    (assistenza['Eventi'][0]['Valutazione'][0].hasOwnProperty('AssistStatoTerminaleOnc') && parseInt(assistenza['Eventi'][0]['Valutazione'][0]['AssistStatoTerminaleOnc'][0]) === 1);
+                                // tipologiaPic = 2
+                                let curePalliative= assistenza['Eventi'][0]['PresaInCarico'][0]['ATTR']['TipologiaPIC'][0] === '2';
                                 if (curePalliative && (ignoraPatologiaT1 || ( patologiaPrevalente >= 140 && patologiaPrevalente <= 208 )) )
                                     if (!idrecTracciato1Validi.hasOwnProperty(idRec))
                                         idrecTracciato1Validi[idRec] = true;
@@ -103,9 +103,7 @@ class Indicatori {
                             try {
                                 let motivazioneChiusura = parseInt(assistenza['Eventi'][0]['Conclusione'][0]['Motivazione'][0]);
                                 let idRec = assistenza['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
-                                if (
-                                    (motivazioneChiusura === 3 || ignoraMotivoSospensione) && idrecTracciato1Validi.hasOwnProperty(idRec)
-                                ){
+                                if ((motivazioneChiusura === 3 || ignoraMotivoSospensione) && idrecTracciato1Validi.hasOwnProperty(idRec)){
                                     let cf = idRec.substring(16, 32);
                                     if (!assistitiDecedutiConRequisitiSiad.hasOwnProperty(cf))
                                         assistitiDecedutiConRequisitiSiad[cf] = {cf};
@@ -117,6 +115,12 @@ class Indicatori {
                     }
                     out.result = { hospice: Object.keys(assistitiDecedutiConRequisitiHospice).length, siad: Object.keys(assistitiDecedutiConRequisitiSiad).length };
                     console.log("Hospice: " + Object.keys(assistitiDecedutiConRequisitiHospice).length + " SIAD: " + Object.keys(assistitiDecedutiConRequisitiSiad).length);
+                    // totali
+                    let totali = {};
+                    for (let cf of [...Object.keys(assistitiDecedutiConRequisitiHospice), ...Object.keys(assistitiDecedutiConRequisitiSiad)]) {
+                        if (!totali.hasOwnProperty(cf))
+                            totali[cf] = cf
+                    }
                     console.log("FINE");
 
                 }

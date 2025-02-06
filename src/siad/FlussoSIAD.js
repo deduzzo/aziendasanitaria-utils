@@ -581,15 +581,17 @@ export class FlussoSIAD {
         return out;
     }
 
+
+
     /**
-     * Computes statistical data from FLS21 XML files, analyzing two types of data (T1 and T2),
-     * and writes the results to a JSON file.
+     * Metodo che analizza i file XML presenti in una directory e calcola statistiche su specifiche tipologie di assistenza
+     * sanitaria domiciliare. Produce un file JSON con le statistiche calcolate e lo salva nella directory specificata.
      *
-     * @param {string} pathData - The base directory path containing the XML data files to be processed.
-     * @param {string} [pathFileDatiTs="datiTS.mpdb"] - The relative path to the datiTS file to be used, if it exists.
-     * @return {Promise<void>} Resolves when the statistics have been computed and written to the output file.
+     * @param {string} pathData Il percorso della directory contenente i dati XML da analizzare.
+     * @param {string} [nomeFileTs="datiTS.mpdb"] (Opzionale) Il percorso del file dati TS da utilizzare per il confronto.
+     * @return {Promise<void>} Una promessa che si risolve una volta completato il calcolo delle statistiche e la scrittura del file di output.
      */
-    async statisticheFLS21(pathData, pathFileDatiTs = "datiTS.mpdb") {
+    async statisticheFLS21(pathData, nomeFileTs = "datiTS.mpdb") {
         let data = {
             allChiaviCasiTrattati: {},
             statsT1: {totali: 0, anziani: 0, palliativa: 0},
@@ -600,7 +602,7 @@ export class FlussoSIAD {
         };
         const parser = new xml2js.Parser({attrkey: "ATTR"});
 
-        let fileDatiTs = fs.existsSync(pathData + path.sep + pathFileDatiTs) ? await utils.leggiOggettoMP(pathData + path.sep + pathFileDatiTs) : null;
+        let fileDatiTs = fs.existsSync(pathData + path.sep + nomeFileTs) ? await utils.leggiOggettoMP(pathData + path.sep + pathFileDatiTs) : null;
 
         let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
         let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
@@ -702,6 +704,8 @@ export class FlussoSIAD {
         });
         delete data.allChiaviCasiTrattati;
         await utils.scriviOggettoSuFile(pathData + path.sep + "statisticheFLS21.json", data);
+        console.log(JSON.stringify(data, null, 2));
+
     }
 
     contaPrestazioni() {
