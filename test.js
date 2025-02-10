@@ -15,6 +15,7 @@ import {flussiRegioneSicilia} from "./index.js";
 import config from './src/config.js';
 import winston from "winston";
 import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
+import { Client } from "@gradio/client";
 
 (async () => {
     //await flussiRegioneSicilia.flussoM.eseguiElaborazioneCompletaFlussoMDaCartella( true,true,true);
@@ -82,6 +83,19 @@ import {FlussoSIAD} from "./src/siad/FlussoSIAD.js";
 
     const assistiti = new Assistiti(impostazioniEsterni);
     const flussoSiad = new flussiRegioneSicilia.FlussoSIAD(impostazioniMessina, impostazioniEsterni);
+
+/*
+    const client = await Client.connect("black-forest-labs/FLUX.1-dev");
+    const result = await client.predict("/infer", {
+        prompt: "Hello!!",
+        seed: 0,
+        randomize_seed: true,
+        width: 256,
+        height: 256,
+        guidance_scale: 1,
+        num_inference_steps: 1,
+    });
+*/
 
     //let out1 = await flussoSiad.importaTracciato2ChiaviValideAssessorato("/Users/deduzzo/Downloads/ChiaviValide_SIAD_AP2_Prestazioni_Sanitarie.xlsx");
     //let out2 = await flussoSiad.importaTracciato1ChiaviValideAssessorato("/Users/deduzzo/Downloads/ChiaviValide_SIAD_AA2_Anagrafica_Assistenza_Domiciliare.xlsx");

@@ -75,5 +75,8 @@
     "xml2js": "^0.6.2"
   },
   "author": "Roberto De Domenico",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@gradio/client": "^1.11.0"
+  }
 }

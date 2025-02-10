@@ -980,11 +980,32 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
  * @param {string} format - Il formato di output (default: 'DD/MM/YYYY').
  * @returns {string} Data formattata.
  */
-function convertFromUnixSeconds(unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') {
+const  convertFromUnixSeconds = (unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
     // Crea un oggetto Moment a partire da unixSeconds (che sono secondi).
     // Poi imposta il fuso orario desiderato.
     // Infine formatta la data.
     return moment.unix(unixSeconds).tz(timeZone).format(format);
+}
+
+/**
+ * Converte automaticamente un timestamp (in secondi o millisecondi)
+ * in una data formattata.
+ *
+ * @param {number} unixTime - Il timestamp in secondi o millisecondi.
+ * @param {string} timeZone - La time zone (default 'Europe/Rome').
+ * @param {string} format - Il formato di output (default 'DD/MM/YYYY').
+ * @returns {string} - La data formattata.
+ */
+const convertUnixTimestamp = (unixTime, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
+    // Se unixTime è minore di 1e10 (~ 31/12/2286 in secondi),
+    // presumiamo siano secondi; altrimenti millisecondi.
+    if (unixTime < 1e10) {
+        // Interpreta come secondi
+        return moment.unix(unixTime).tz(timeZone).format(format);
+    } else {
+        // Interpreta come millisecondi
+        return moment(unixTime).tz(timeZone).format(format);
+    }
 }
 
 const calcolaMD5daStringa = (str) => {
@@ -1038,6 +1059,7 @@ export const utils = {
     trovaDataPicDaAttivita,
     waitForTimeout,
     convertToUnixSeconds,
+    convertUnixTimestamp,
     convertFromUnixSeconds,
     calcolaMD5daStringa
 }
