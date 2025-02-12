@@ -8,7 +8,7 @@ import MsgReader from '@freiraum/msgreader';
 import pdf2html from "pdf2html";
 import ExcelJS from "exceljs";
 import excel from "excel-date-to-js";
-import {Parser} from "@marketto/codice-fiscale-utils";
+import {Parser, Validator} from "@marketto/codice-fiscale-utils";
 import os from "os";
 import {existsSync, mkdirSync} from "fs";
 import libre from "libreoffice-convert";
@@ -659,6 +659,11 @@ const getAgeFromCF = (codiceFiscale) => {
     return years;
 }
 
+const codiceFiscaleValido = (cf) => {
+    const valid = /^[a-zA-Z0-9]*$/.test(cf);
+    return valid && Validator.codiceFiscale(cf).valid;
+}
+
 const calcolaDifferenzaGiorniPerAnno = (dataInizio, dataFine, numGiorniPerVerifica) => {
     if (moment(dataInizio).isValid() && moment(dataFine).isValid() && moment(dataInizio).isSameOrBefore(dataFine)) {
         const giorniPerAnno = {};
@@ -1061,5 +1066,6 @@ export const utils = {
     convertToUnixSeconds,
     convertUnixTimestamp,
     convertFromUnixSeconds,
-    calcolaMD5daStringa
+    calcolaMD5daStringa,
+    codiceFiscaleValido
 }
