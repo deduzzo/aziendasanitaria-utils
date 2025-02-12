@@ -28,6 +28,7 @@ export class Nar2 {
     static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable"
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}"
+    static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it?cf={cf}&token={token}&type={type}";
 
     static #token = null;
     static #tokenSemaphore = new AsyncSemaphore();
@@ -63,63 +64,72 @@ export class Nar2 {
         }
     }
 
-    async getDatiAssistitoNar2FromCf(codiceFiscale, assistito = null) {
+    async getDatiAssistitoNar2FromCf(codiceFiscale, assistito = null, fallback = false) {
         // step1, get id assistito from codice fiscale
         if (!assistito)
             assistito = new Assistito();
-        let datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
-        if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1) {
-            let datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
-            if (datiAssistito.ok) {
-                try {
-                    assistito.setNar2(DATI.CF, codiceFiscale.toUpperCase().trim());
-                    assistito.setNar2(DATI.CF_NORMALIZZATO, datiAssistito.data.pz_cfis);
-                } catch (e) {
-                    console.log(e);
-                }
-                const comuneNascita = datiAssistito.data.comune_nascita ?? {};
-                const comuneResidenza = datiAssistito.data.comune_residenza ?? {};
-                const aslAppartenenza = datiAssistito.data.asl_appartenenza ?? {};
-                const storicoMedici = datiAssistito.data.storico_medici?.[0]?.dett_pazientemedico ?? {};
-                const medico = datiAssistito.data.medico ?? {};
-                const rapportoIndividuale = datiAssistito.data.elementi_tabelle_paziente?.storico_medici?.[0]?.medico?.rapporto_individuale?.[0] ?? {};
-
-                assistito.setNar2(DATI.COGNOME, datiAssistito.data.pz_cogn);
-                assistito.setNar2(DATI.NOME, datiAssistito.data.pz_nome);
-                assistito.setNar2(DATI.SESSO, datiAssistito.data.pz_sesso);
-                assistito.setNar2(DATI.CAP_RESIDENZA, datiAssistito.data.pz_cap_res);
-                assistito.setNar2(DATI.DATA_NASCITA, moment(datiAssistito.data.pz_dt_nas, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY"));
-                assistito.setNar2(DATI.COMUNE_NASCITA, comuneNascita.cm_desc ?? null);
-                assistito.setNar2(DATI.COD_COMUNE_NASCITA, comuneNascita.cm_cfis ?? null);
-                assistito.setNar2(DATI.COD_ISTAT_COMUNE_NASCITA, comuneNascita.cm_cistat ?? null);
-                assistito.setNar2(DATI.PROVINCIA_NASCITA, comuneNascita.provincia?.pr_id ?? null);
-                assistito.setNar2(DATI.INDIRIZZO_RESIDENZA, datiAssistito.data.pz_ind_res ?? null);
-                assistito.setNar2(DATI.COMUNE_RESIDENZA, comuneResidenza.cm_desc ?? null);
-                assistito.setNar2(DATI.COD_COMUNE_RESIDENZA, comuneResidenza.cm_cfis ?? null);
-                assistito.setNar2(DATI.COD_ISTAT_COMUNE_RESIDENZA, comuneResidenza.cm_cistat ?? null);
-                assistito.setNar2(DATI.ASP, aslAppartenenza ? `${aslAppartenenza.az_codi} - ${aslAppartenenza.az_desc}` : null);
-                assistito.setNar2(DATI.SSN_TIPO_ASSISTITO, datiAssistito.data?.categoria_cittadino?.eg_desc1 ?? null);
-                assistito.setNar2(DATI.SSN_INIZIO_ASSISTENZA, datiAssistito.data.asl_assistenza?.az_dt_ins ? moment(datiAssistito.data.asl_assistenza.az_dt_ins, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
-                assistito.setNar2(DATI.SSN_FINE_ASSISTENZA, datiAssistito.data.asl_assistenza?.az_dt_disable ? moment(datiAssistito.data.asl_assistenza.az_dt_disable, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
-                assistito.setNar2(DATI.SSN_NUMERO_TESSERA, datiAssistito.data.pz_team_id ?? null);
-                assistito.setNar2(DATI.MMG_ULTIMA_OPERAZIONE, storicoMedici.tipoop_scelta?.eg_desc1 ?? null);
-                assistito.setNar2(DATI.MMG_ULTIMO_STATO, storicoMedici.posizione_ass?.eg_desc1 ?? null);
-                assistito.setNar2(DATI.MMG_TIPO, rapportoIndividuale.categoria?.eg_cod ?? null);
-                assistito.setNar2(DATI.MMG_COD_REG, rapportoIndividuale.dett_medico?.dm_creg ?? null);
-                assistito.setNar2(DATI.MMG_NOME, medico.pf_nome ?? null);
-                assistito.setNar2(DATI.MMG_COGNOME, medico.pf_cognome ?? null);
-                assistito.setNar2(DATI.MMG_CF, medico.pf_cfis ?? null);
-                assistito.setNar2(DATI.MMG_DATA_SCELTA, storicoMedici.dm_dt_ins ? moment(storicoMedici.dm_dt_ins, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
-                assistito.setNar2(DATI.MMG_DATA_REVOCA, storicoMedici.pm_dt_disable ? moment(storicoMedici.pm_dt_disable, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
-                assistito.setNar2(DATI.DATA_DECESSO, datiAssistito.data.pz_dt_dec ? moment(datiAssistito.data.pz_dt_dec, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
-                assistito.okNar2 = true;
-                assistito.fullDataNar2 = datiAssistito.data;
-                return {
-                    ok: true,
-                    data: assistito,
-                    fullData: datiAssistito
-                };
+        let datiAssistito = null;
+        let datiIdAssistito;
+        if (!fallback) {
+            datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
+            if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
+                datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
+        } else {
+            await this.getToken();
+            datiIdAssistito = await axios.get(Nar2.GET_WS_FALLBACK_INTERNAL.replace("{cf}", codiceFiscale).replace("{token}", Nar2.#token).replace("{type}", "nar2"));
+            if (datiIdAssistito.status === 200)
+                datiAssistito = {ok: true, data: datiIdAssistito.data.nar2.result};
+            else datiAssistito = {ok: false, data: datiIdAssistito.data};
+        }
+        if (datiAssistito.ok) {
+            try {
+                assistito.setNar2(DATI.CF, codiceFiscale.toUpperCase().trim());
+                assistito.setNar2(DATI.CF_NORMALIZZATO, datiAssistito.data.pz_cfis);
+            } catch (e) {
+                console.log(e);
             }
+            const comuneNascita = datiAssistito.data.comune_nascita ?? {};
+            const comuneResidenza = datiAssistito.data.comune_residenza ?? {};
+            const aslAppartenenza = datiAssistito.data.asl_appartenenza ?? {};
+            const storicoMedici = datiAssistito.data.storico_medici?.[0]?.dett_pazientemedico ?? {};
+            const medico = datiAssistito.data.medico ?? {};
+            const rapportoIndividuale = datiAssistito.data.elementi_tabelle_paziente?.storico_medici?.[0]?.medico?.rapporto_individuale?.[0] ?? {};
+
+            assistito.setNar2(DATI.COGNOME, datiAssistito.data.pz_cogn);
+            assistito.setNar2(DATI.NOME, datiAssistito.data.pz_nome);
+            assistito.setNar2(DATI.SESSO, datiAssistito.data.pz_sesso);
+            assistito.setNar2(DATI.CAP_RESIDENZA, datiAssistito.data.pz_cap_res);
+            assistito.setNar2(DATI.DATA_NASCITA, moment(datiAssistito.data.pz_dt_nas, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY"));
+            assistito.setNar2(DATI.COMUNE_NASCITA, comuneNascita.cm_desc ?? null);
+            assistito.setNar2(DATI.COD_COMUNE_NASCITA, comuneNascita.cm_cfis ?? null);
+            assistito.setNar2(DATI.COD_ISTAT_COMUNE_NASCITA, comuneNascita.cm_cistat ?? null);
+            assistito.setNar2(DATI.PROVINCIA_NASCITA, comuneNascita.provincia?.pr_id ?? null);
+            assistito.setNar2(DATI.INDIRIZZO_RESIDENZA, datiAssistito.data.pz_ind_res ?? null);
+            assistito.setNar2(DATI.COMUNE_RESIDENZA, comuneResidenza.cm_desc ?? null);
+            assistito.setNar2(DATI.COD_COMUNE_RESIDENZA, comuneResidenza.cm_cfis ?? null);
+            assistito.setNar2(DATI.COD_ISTAT_COMUNE_RESIDENZA, comuneResidenza.cm_cistat ?? null);
+            assistito.setNar2(DATI.ASP, aslAppartenenza ? `${aslAppartenenza.az_codi} - ${aslAppartenenza.az_desc}` : null);
+            assistito.setNar2(DATI.SSN_TIPO_ASSISTITO, datiAssistito.data?.categoria_cittadino?.eg_desc1 ?? null);
+            assistito.setNar2(DATI.SSN_INIZIO_ASSISTENZA, datiAssistito.data.asl_assistenza?.az_dt_ins ? moment(datiAssistito.data.asl_assistenza.az_dt_ins, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
+            assistito.setNar2(DATI.SSN_FINE_ASSISTENZA, datiAssistito.data.asl_assistenza?.az_dt_disable ? moment(datiAssistito.data.asl_assistenza.az_dt_disable, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
+            assistito.setNar2(DATI.SSN_NUMERO_TESSERA, datiAssistito.data.pz_team_id ?? null);
+            assistito.setNar2(DATI.MMG_ULTIMA_OPERAZIONE, storicoMedici.tipoop_scelta?.eg_desc1 ?? null);
+            assistito.setNar2(DATI.MMG_ULTIMO_STATO, storicoMedici.posizione_ass?.eg_desc1 ?? null);
+            assistito.setNar2(DATI.MMG_TIPO, rapportoIndividuale.categoria?.eg_cod ?? null);
+            assistito.setNar2(DATI.MMG_COD_REG, rapportoIndividuale.dett_medico?.dm_creg ?? null);
+            assistito.setNar2(DATI.MMG_NOME, medico.pf_nome ?? null);
+            assistito.setNar2(DATI.MMG_COGNOME, medico.pf_cognome ?? null);
+            assistito.setNar2(DATI.MMG_CF, medico.pf_cfis ?? null);
+            assistito.setNar2(DATI.MMG_DATA_SCELTA, storicoMedici.dm_dt_ins ? moment(storicoMedici.dm_dt_ins, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
+            assistito.setNar2(DATI.MMG_DATA_REVOCA, storicoMedici.pm_dt_disable ? moment(storicoMedici.pm_dt_disable, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
+            assistito.setNar2(DATI.DATA_DECESSO, datiAssistito.data.pz_dt_dec ? moment(datiAssistito.data.pz_dt_dec, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY") : null);
+            assistito.okNar2 = true;
+            assistito.fullDataNar2 = datiAssistito.data;
+            return {
+                ok: true,
+                data: assistito,
+                fullData: datiAssistito
+            };
         } else {
             assistito.erroreNar2 = "Nessun assistito trovato con il codice fiscale fornito";
             assistito.okNar2 = false;
@@ -190,32 +200,34 @@ export class Nar2 {
      * @param {Assistito} [config.assistito] Oggetto Assistito da aggiornare
      * @param {boolean} [config.sogei=true] Recupera dati da Sogei
      * @param {boolean} [config.nar2=true] Recupera dati da Nar2
+     * @param {boolean} [config.fallback=false] Recupera dati da server di fallback
      * @returns {Assistito} Oggetto Assistito aggiornato
      */
     async getDatiAssistitoCompleti(cf, config = {}) {
         let {
             dateToUnix = false,
             replaceNullWithEmptyString = false,
-            assistito = new Assistito({dateToUnix,replaceNullWithEmptyString}),
+            assistito = new Assistito({dateToUnix, replaceNullWithEmptyString}),
             sogei = true,
             nar2 = true,
+            fallback = false
         } = config;
 
 
         if (sogei && nar2) {
             await Promise.all([
-                this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito),
-                this.getDatiAssistitoNar2FromCf(cf, assistito)
+                this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback),
+                this.getDatiAssistitoNar2FromCf(cf, assistito, fallback)
             ]);
         } else {
-            if (sogei) await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito);
-            if (nar2) await this.getDatiAssistitoNar2FromCf(cf, assistito);
+            if (sogei) await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback);
+            if (nar2) await this.getDatiAssistitoNar2FromCf(cf, assistito, fallback);
         }
 
         return assistito;
     }
 
-    async getDatiAssistitoFromCfSuSogeiNew(cf, assistito = null) {
+    async getDatiAssistitoFromCfSuSogeiNew(cf, assistito = null, fallback = false) {
         let ok = false;
         const nullArray = (data) => {
             return Array.isArray(data) && data.length === 0 ? "" : data;
@@ -229,14 +241,20 @@ export class Nar2 {
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
                 await this.getToken();
-                let out = await axios.post(Nar2.GET_DATI_ASSISTITO_FROM_SOGEI, {
-                    codiceFiscale: cf,
-                }, {
-                    headers: {
-                        Authorization: `Bearer ${Nar2.#token}`, // Usa token statico
-                        'Content-Type': 'application/json'
-                    }
-                });
+                let out = null;
+                if (!fallback) {
+                    out = await axios.post(Nar2.GET_DATI_ASSISTITO_FROM_SOGEI, {
+                        codiceFiscale: cf,
+                    }, {
+                        headers: {
+                            Authorization: `Bearer ${Nar2.#token}`, // Usa token statico
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } else {
+                    out = await axios.get(Nar2.GET_WS_FALLBACK_INTERNAL.replace("{cf}", cf).replace("{token}", Nar2.#token).replace("{type}", "sogei"));
+                    out = out.sogei;
+                }
 
                 if (out.data === undefined || out.data.status.toString().toLowerCase().includes("token is invalid"))
                     await this.getToken(true);
