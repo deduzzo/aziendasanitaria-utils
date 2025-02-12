@@ -253,10 +253,10 @@ export class Nar2 {
                     });
                 } else {
                     out = await axios.get(Nar2.GET_WS_FALLBACK_INTERNAL.replace("{cf}", cf).replace("{token}", Nar2.#token).replace("{type}", "sogei"));
-                    out = out.sogei;
+                    out.data = {status: out.data.sogei.status || false, data: out.data.sogei.data};
                 }
 
-                if (out.data === undefined || out.data.status.toString().toLowerCase().includes("token is invalid"))
+                if (!out.data || out.data === undefined || (fallback && out.data.status.toString().toLowerCase().includes("token is invalid")))
                     await this.getToken(true);
                 else if (out.data.status.toString() !== "true" && out.data.listaMessaggi.p801descrizioneMessaggio.includes("errato")) {
                     assistito.okTs = false;
