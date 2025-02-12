@@ -77,6 +77,10 @@ export default class CryptHelper {
     return Buffer.from(message, 'utf8');
   }
 
+  static convertBase64StringToByte(data) {
+    return Buffer.from(data, 'base64');
+  }
+
   static convertByteToBase64String(data) {
     return Buffer.from(data).toString('base64');
   }
