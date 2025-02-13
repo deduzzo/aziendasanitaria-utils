@@ -2,67 +2,104 @@ import axios from "axios";
 import {Assistito, DATI} from "../classi/Assistito.js";
 import moment from "moment";
 import _ from "lodash";
-
-class AsyncSemaphore {
-    constructor() {
-        this.current = Promise.resolve();
-    }
-
-    async acquire() {
-        let release;
-        const next = new Promise(resolve => {
-            release = resolve;
-        });
-        const prior = this.current;
-        this.current = next;
-        await prior;
-        return release;
-    }
-}
+import CryptHelper from "../CryptHelper.js";
 
 export class Nar2 {
     static LOGIN_URL = "https://nar2.regione.sicilia.it/services/index.php/api/login";
     static GET_ASSISTITO_NAR_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/{id}";
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
-    static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable"
+    static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable";
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
-    static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}"
-    static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it?cf={cf}&token={token}&type={type}";
+    static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
+    //static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
+    static GET_WS_FALLBACK_INTERNAL = "http://disabili.localhost/test.php?XDEBUG_SESSION_START=13991";
 
     static #token = null;
-    static #tokenSemaphore = new AsyncSemaphore();
+    static #tokenPromise = null; // Variabile per la chiamata in corso
 
-    constructor(impostazioniServiziTerzi) {
+    constructor(impostazioniServiziTerzi, crtyptData = {}) {
         this._username = impostazioniServiziTerzi.nar2_username;
         this._password = impostazioniServiziTerzi.nar2_password;
         this._maxRetry = 10;
+        this._cryptData = (crtyptData.hasOwnProperty("KEY") && crtyptData.hasOwnProperty("IV"))
+            ? crtyptData
+            : null;
     }
 
-    async getToken(newToken = false) {
+    /**
+     * Ottiene un token di autenticazione.
+     *
+     * Se una chiamata è già in corso, tutte le altre attendono il suo completamento.
+     *
+     * @param {Object} [config={}] - Opzioni di configurazione.
+     * @param {boolean} [config.newToken=false] - Se true, forza l'ottenimento di un nuovo token.
+     * @param {boolean} [config.fallback=false] - Se true, usa il server di fallback.
+     * @returns {Promise<string>} - Il token di autenticazione.
+     */
+    async getToken(config = {}) {
+        const {newToken = false, fallback = false} = config;
+        // Se non richiediamo un nuovo token e uno è già presente, restituiscilo subito
         if (!newToken && Nar2.#token) {
             return Nar2.#token;
         }
-        const release = await Nar2.#tokenSemaphore.acquire();
-        try {
+        // Se c'è già una richiesta in corso, attendi il suo completamento
+        if (Nar2.#tokenPromise) {
+            return await Nar2.#tokenPromise;
+        }
+        // Altrimenti, crea una nuova promise per ottenere il token
+        Nar2.#tokenPromise = (async () => {
             for (let i = 0; i < this._maxRetry; i++) {
                 try {
-                    const out = await axios.post(Nar2.LOGIN_URL, {username: this._username, password: this._password});
-                    Nar2.#token = out.data.accessToken;
-                    return Nar2.#token;
+                    if (!fallback) {
+                        const out = await axios.post(Nar2.LOGIN_URL, {
+                            username: this._username,
+                            password: this._password
+                        }, {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        Nar2.#token = out.data.accessToken;
+                        return Nar2.#token;
+                    } else {
+                        const data = {username: this._username, password: this._password, type: "token"};
+                        const cripted = CryptHelper.AESEncrypt(
+                            JSON.stringify(data),
+                            this._cryptData["KEY"],
+                            CryptHelper.convertBase64StringToByte(this._cryptData["IV"])
+                        );
+                        const out = await axios.request({
+                            method: "post",
+                            url: Nar2.GET_WS_FALLBACK_INTERNAL,
+                            data: {d: cripted},
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            }
+                        });
+                        if (out.status === 200 && out.data.error === false) {
+                            Nar2.#token = out.data.token;
+                            return Nar2.#token;
+                        }
+                    }
                 } catch (e) {
-                    console.log("Token non valido ,attendo 1 secondo e riprovo");
-                    // timeout 1000ms
+                    console.log("Token non valido, attendo 1 secondo e riprovo");
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     if (i === this._maxRetry - 1) {
                         throw new Error("Errore durante l'ottenimento del token");
                     }
                 }
             }
+        })();
+        try {
+            const token = await Nar2.#tokenPromise;
+            return token;
         } finally {
-            release();
+            // Resetta la promise in modo che le future chiamate possano eventualmente rinnovare il token
+            Nar2.#tokenPromise = null;
         }
     }
+
 
     async getDatiAssistitoNar2FromCf(codiceFiscale, assistito = null, fallback = false) {
         // step1, get id assistito from codice fiscale
@@ -75,10 +112,19 @@ export class Nar2 {
             if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
                 datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
         } else {
-            await this.getToken();
-            datiIdAssistito = await axios.get(Nar2.GET_WS_FALLBACK_INTERNAL.replace("{cf}", codiceFiscale).replace("{token}", Nar2.#token).replace("{type}", "nar2"));
+            await this.getToken({fallback});
+            const data = {cf: codiceFiscale, token: Nar2.#token, type: "nar2"};
+            const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
+            datiIdAssistito = await axios.request({
+                method: "post",
+                url: Nar2.GET_WS_FALLBACK_INTERNAL,
+                data: {d: cripted},
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
             if (datiIdAssistito.status === 200)
-                datiAssistito = {ok: true, data: datiIdAssistito.data.nar2.result};
+                datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
             else datiAssistito = {ok: false, data: datiIdAssistito.data};
         }
         if (datiAssistito.ok) {
@@ -161,13 +207,13 @@ export class Nar2 {
 
                 if (!response?.data?.status || response.data.status.toString() !== "true" ||
                     response.data.status.toString().toLowerCase().includes("token is invalid")) {
-                    await this.getToken(true);
+                    await this.getToken({newToken: true});
                 } else {
                     ok = true;
                     out = {ok: true, data: response.data.result};
                 }
             } catch (e) {
-                await this.getToken(true);
+                await this.getToken({newToken: true});
             }
         }
 
@@ -213,7 +259,7 @@ export class Nar2 {
             fallback = false
         } = config;
 
-
+        await this.getToken({fallback});
         if (sogei && nar2) {
             await Promise.all([
                 this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback),
@@ -240,7 +286,7 @@ export class Nar2 {
 
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
-                await this.getToken();
+                await this.getToken({fallback});
                 let out = null;
                 if (!fallback) {
                     out = await axios.post(Nar2.GET_DATI_ASSISTITO_FROM_SOGEI, {
@@ -252,12 +298,22 @@ export class Nar2 {
                         }
                     });
                 } else {
-                    out = await axios.get(Nar2.GET_WS_FALLBACK_INTERNAL.replace("{cf}", cf).replace("{token}", Nar2.#token).replace("{type}", "sogei"));
-                    out.data = {status: out.data.sogei.status || false, data: out.data.sogei.data};
+                    const data = {cf: cf, token: Nar2.#token, type: "sogei"};
+                    const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
+                    //out = await axios.post(Nar2.GET_WS_FALLBACK_INTERNAL, { "d": cripted }, {);
+                    out = await axios.request({
+                        method: "post",
+                        url: Nar2.GET_WS_FALLBACK_INTERNAL,
+                        data: {d: cripted},
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    })
+                    out.data = {status: out.data.data.sogei.status || false, data: out.data.data.sogei.data};
                 }
 
                 if (!out.data || out.data === undefined || (fallback && out.data.status.toString().toLowerCase().includes("token is invalid")))
-                    await this.getToken(true);
+                    await this.getToken({newToken: true, fallback});
                 else if (out.data.status.toString() !== "true" && out.data.listaMessaggi.p801descrizioneMessaggio.includes("errato")) {
                     assistito.okTs = false;
                     assistito.erroreTs = out.data.listaMessaggi.p801descrizioneMessaggio;
@@ -307,7 +363,7 @@ export class Nar2 {
                     };
                 }
             } catch (e) {
-                await this.getToken();
+                await this.getToken({fallback});
             }
         }
         if (!ok)
