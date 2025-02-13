@@ -111,7 +111,18 @@ import { Client } from "@gradio/client";
 
 
 
-    await flussoSiad.statisticheFLS21('/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/anno ignorando maggioli pseudo completo (da correggere per eventuali scarti)',
+
+    await Procedure.eseguiVerifichePeriodicheDecedutiAssistitiMedici(
+        impostazioniEsterni,
+        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/ELENCO MEDICI COMPLETO/ELENCO-TUTTI-2025-02-13.xlsx",
+        distrettiByKeyword,
+        "31/01/2025",
+        {
+            workingPath: "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/RECUPERI MORTI/RECUPERI PERIODICI/2025-02"
+        });
+
+
+/*    await flussoSiad.statisticheFLS21('/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/anno ignorando maggioli pseudo completo (da correggere per eventuali scarti)',
     )
     process.exit(0);
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
@@ -121,7 +132,7 @@ import { Client } from "@gradio/client";
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_01_08.json",
-    )
+    )*/
     //let data = await utils.getObjectFromFileExcel(nomeFile);
     //let out = flussoSiad.generaRigheTracciato1ConDefault("/Users/deduzzo/Desktop/outFolder", data, nomeFile, 2024, 3);
 

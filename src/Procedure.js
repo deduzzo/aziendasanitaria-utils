@@ -436,9 +436,30 @@ class Procedure {
     }
 
 
-    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, workingPath = null, nomeFilePdfAssistiti = "assistiti.pdf", cartellaElaborazione = "elaborazioni", numParallelsJobs = 5, visibile = false) {
-        if (workingPath == null)
-            workingPath = await Utils.getWorkingPath();
+    /**
+     * Esegue le verifiche periodiche dei deceduti tra gli assistiti dei medici.
+     *
+     * @param {Object} impostazioniServizi - Impostazioni per la connessione ai servizi.
+     * @param {string} pathExcelMedici - Percorso del file Excel contenente l'elenco dei medici.
+     * @param {Object} distretti - Oggetto contenente i distretti da verificare.
+     * @param {string} dataQuote - Data di riferimento per il calcolo delle quote.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {string} [config.nomeFilePdfAssistiti="assistiti.pdf"] - Nome del file PDF degli assistiti.
+     * @param {string} [config.cartellaElaborazione="elaborazioni"] - Nome della cartella per le elaborazioni.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli da eseguire.
+     * @param {boolean} [config.visibile=false] - Se mostrare i processi in esecuzione.
+     * @param {string} [config.workingPath] - Percorso di lavoro personalizzato.
+     * @returns {Promise<void>}
+     */
+    static async eseguiVerifichePeriodicheDecedutiAssistitiMedici(impostazioniServizi, pathExcelMedici, distretti, dataQuote, config = {}) {
+        let {
+            nomeFilePdfAssistiti = "assistiti.pdf",
+            cartellaElaborazione = "elaborazioni",
+            numParallelsJobs = 10,
+            visibile = false,
+            workingPath = await Utils.getWorkingPath()
+        } = config;
+
 
         let medici = new Medici(impostazioniServizi);
         let {codToCfDistrettoMap, mediciPerDistretto} = await Procedure.getOggettiMediciDistretto(
