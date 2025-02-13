@@ -106,27 +106,32 @@ export class Nar2 {
             assistito = new Assistito();
         let datiAssistito = null;
         let datiIdAssistito;
-        if (!fallback) {
-            datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
-            if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
-                datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
-        } else {
-            await this.getToken({fallback});
-            const data = {cf: codiceFiscale, token: Nar2.#token, type: "nar2"};
-            const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
-            datiIdAssistito = await axios.request({
-                method: "post",
-                url: Nar2.GET_WS_FALLBACK_INTERNAL,
-                data: {d: cripted},
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
-            });
-            if (datiIdAssistito.status === 200)
-                datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
-            else datiAssistito = {ok: false, data: datiIdAssistito.data};
+        const retry = 3;
+        for (let i = 0; i < retry; i++) {
+            if (!fallback) {
+                datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
+                if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
+                    datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
+            } else {
+                await this.getToken({fallback});
+                const data = {cf: codiceFiscale, token: Nar2.#token, type: "nar2"};
+                const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
+                datiIdAssistito = await axios.request({
+                    method: "post",
+                    url: Nar2.GET_WS_FALLBACK_INTERNAL,
+                    data: {d: cripted},
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+                if (datiIdAssistito.status === 200)
+                    datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
+                else datiAssistito = {ok: false, data: datiIdAssistito.data};
+            }
+            if (datiAssistito && datiAssistito.ok) break;
+                else console.log("Errore durante il recupero dei dati assistito da Nar2, tentativi rimanenti:" + (retry - i));
         }
-        if (datiAssistito.ok) {
+        if (datiAssistito && datiAssistito.ok) {
             try {
                 assistito.setNar2(DATI.CF, codiceFiscale.toUpperCase().trim());
                 assistito.setNar2(DATI.CF_NORMALIZZATO, datiAssistito.data.pz_cfis);

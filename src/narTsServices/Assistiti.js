@@ -1133,7 +1133,7 @@ export class Assistiti {
                 if (datiAssititi[codiceMedico]) {
                     let cfAssistitiMap  = {};
                     for (let cf of datiAssititi[codiceMedico].hasOwnProperty("assistiti") ? datiAssititi[codiceMedico].assistiti : datiAssititi[codiceMedico])
-                        cfAssistitiMap[cf.cf] = cf;
+                        cfAssistitiMap[cf.codiceFiscale] = cf;
                     dati[codiceMedico] = {
                         totale: Object.keys(cfAssistitiMap).length,
                         completo: false

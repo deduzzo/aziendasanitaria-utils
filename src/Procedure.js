@@ -451,11 +451,11 @@ class Procedure {
 
         await Assistiti.verificaAssititiInVitaParallelsJobs(
             impostazioniServizi,
-            workingPath,
-            cartellaElaborazione,
-            numParallelsJobs,
-            visibile);
-
+            workingPath, {
+                outPath: cartellaElaborazione,
+                numParallelsJobs,
+                visibile
+            });
 
         await medici.creaElenchiDeceduti(codToCfDistrettoMap, workingPath, distretti, dataQuote);
 

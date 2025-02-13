@@ -468,7 +468,7 @@ export class FlussoM {
                     fileOut.warning.push("WARNING!!: " + ricetta.warning)
                 console.log("elaborazione: " + ++progress + " di " + numFiles)
             } else {
-                console.log("elaborazione: " + ++progress + " di " + numFiles + "\n File già presente")
+                console.log("elaborazione: " + ++progress + " di " + numFiles + "\n File già presente: " + file);
                 fileOut.ripetuti.push([fileOut.ok[md5].absolutePath, this._settings.in_folder + path.sep + file]);
             }
         }
