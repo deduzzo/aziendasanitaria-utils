@@ -12,8 +12,7 @@ export class Nar2 {
     static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable";
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
-    //static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
-    static GET_WS_FALLBACK_INTERNAL = "http://disabili.localhost/test.php?XDEBUG_SESSION_START=13991";
+    static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
 
     static #token = null;
     static #tokenPromise = null; // Variabile per la chiamata in corso
