@@ -815,6 +815,35 @@ class Procedure {
         console.log("File dati creato");
     }
 
+/**
+ * Aggiorna l'anagrafica attraverso file ZIP contenenti dati assistiti.
+ *
+ * @param {string} pathFiles - Percorso della cartella contenente i file ZIP.
+ * @param {APIHelper} api - Oggetto DBHelper contenente i dati di connessione al database.
+ * @returns {Promise<void>} - Promise che si risolve al completamento dell'aggiornamento.
+ */
+static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api) {
+    let allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
+    let out = {};
+    let i =0;
+    for (let zipFile of allZipFilesInFolder) {
+        let data = await utils.decomprimiELeggiFile(zipFile);
+        console.log("File " + zipFile);
+        for (let assistito of [... Object.values(data.vivi ?? {}), ...Object.values(data.morti ?? {})]) {
+            console.log("Assistito " + assistito.cf);
+            const res = await api.nuovoAssistito(assistito);
+            if (!res.ok && res.err && res.err.code === "ALREADY_EXISTS")
+                console.log("Assistito " + assistito.cf + " non necessità di aggiornamento");
+            else if (res.ok)
+                console.log("Assistito " + assistito.cf + " aggiunto correttamente");
+            else
+                console.log("Errore aggiunta assistito " + assistito.cf);
+        }
+        console.log("Progresso " + i + " di " + allZipFilesInFolder.length + " totale assistiti: " + Object.keys(out).length);
+        i++;
+    }
+}
+
 
 
     static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visibile = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {

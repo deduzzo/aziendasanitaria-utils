@@ -365,12 +365,14 @@ export class Assistito {
      * @param {Object} [options={}] - Opzioni per la generazione dei dati.
      * @param {boolean} [options.dateToUnix=this.#dateToUnix] - Se true, converte le date in formato Unix.
      * @param {Object} [options.fromAssistitoObject=null] - Oggetto contenente i dati dell'assistito da inizializzare
+     * @param {boolean} [options.omitNullValues=false] - Se true, non include i valori null
      * @returns {Object} Oggetto contenente i dati dell'assistito.
      */
     dati(options = {}) {
         const {
             dateToUnix = false,
             fromAssistitoObject = null,
+            omitNullValues = false
         } = options;
 
         let out = {
@@ -382,6 +384,9 @@ export class Assistito {
                     value = utils.convertToUnixSeconds(value, 'Europe/Rome');
                 }
 
+                if (omitNullValues && (value === null)) {
+                    return acc;
+                }
                 acc[key] = value;
                 return acc;
             }, {}),
