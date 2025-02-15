@@ -98,7 +98,7 @@ class Procedure {
         if (workingPath == null)
             workingPath = await Utils.getWorkingPath();
         if (!fs.existsSync(workingPath + path.sep + nomeFile)) {
-            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap),codToCfDistrettoMap, impostazioniServizi,
+            let temp = await Medici.getElencoAssistitiFromTsParallels(Object.keys(codToCfDistrettoMap), codToCfDistrettoMap, impostazioniServizi,
                 {
                     numParallelsJobs: parallels,
                     visibile: visibile
@@ -298,7 +298,7 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, singoloCedolino= false, workingPath = null, conteggioVoci = ["CM0020"]) {
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, singoloCedolino = false, workingPath = null, conteggioVoci = ["CM0020"]) {
         // da,a array mese anno
 
         process.setMaxListeners(0);
@@ -309,8 +309,8 @@ class Procedure {
         let outFinal = [];
         let outDettaglioMese = [];
         do {
-            let out = await medici.stampaCedolino(matricola, visibile, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(),singoloCedolino);
-            let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(),singoloCedolino);
+            let out = await medici.stampaCedolino(matricola, visibile, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(), singoloCedolino);
+            let out2 = await medici.analizzaBustaPaga(matricola, da.month() + 1, da.year(), !singoloCedolino ? (da.month() + 1) : (a.month() + 1), !singoloCedolino ? da.year() : a.year(), singoloCedolino);
             const bustakey = da.year().toString() + "-" + (da.month() + 1).toString().padStart(2, '0');
             let outData = {};
             for (let conteggioVoce of conteggioVoci) {
@@ -797,11 +797,10 @@ class Procedure {
         });
     }
 
-    static async creaFileJsonAssistitiCompletoDaFilesZip(pathFiles,nomeFileFinale = "assistiti.db" )
-    {
+    static async creaFileJsonAssistitiCompletoDaFilesZip(pathFiles, nomeFileFinale = "assistiti.db") {
         let allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
         let out = {};
-        let i =0;
+        let i = 0;
         for (let zipFile of allZipFilesInFolder) {
             let data = await utils.decomprimiELeggiFile(zipFile);
             console.log("File " + zipFile);
@@ -815,35 +814,146 @@ class Procedure {
         console.log("File dati creato");
     }
 
-/**
- * Aggiorna l'anagrafica attraverso file ZIP contenenti dati assistiti.
- *
- * @param {string} pathFiles - Percorso della cartella contenente i file ZIP.
- * @param {APIHelper} api - Oggetto DBHelper contenente i dati di connessione al database.
- * @returns {Promise<void>} - Promise che si risolve al completamento dell'aggiornamento.
- */
-static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api) {
-    let allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
-    let out = {};
-    let i =0;
-    for (let zipFile of allZipFilesInFolder) {
-        let data = await utils.decomprimiELeggiFile(zipFile);
-        console.log("File " + zipFile);
-        for (let assistito of [... Object.values(data.vivi ?? {}), ...Object.values(data.morti ?? {})]) {
-            console.log("Assistito " + assistito.cf);
-            const res = await api.nuovoAssistito(assistito);
-            if (!res.ok && res.err && res.err.code === "ALREADY_EXISTS")
-                console.log("Assistito " + assistito.cf + " non necessità di aggiornamento");
-            else if (res.ok)
-                console.log("Assistito " + assistito.cf + " aggiunto correttamente");
-            else
-                console.log("Errore aggiunta assistito " + assistito.cf);
-        }
-        console.log("Progresso " + i + " di " + allZipFilesInFolder.length + " totale assistiti: " + Object.keys(out).length);
-        i++;
-    }
-}
+    /**
+     * Aggiorna l'anagrafica attraverso file ZIP contenenti dati assistiti usando due worker paralleli.
+     *
+     * @param {string} pathFiles - Percorso della cartella contenente i file ZIP.
+     * @param {APIHelper} api - Oggetto DBHelper contenente i dati di connessione al database.
+     * @returns {Promise<void>} - Promise che si risolve al completamento dell'aggiornamento.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     */
+    static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
+        let {numParallelsJobs = 10} = config;
+        const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
+        // Buffer condiviso tra i worker
+        let dataBuffer = [];
+        let isReaderComplete = false;
+
+        // Inizializza o carica il file di progresso
+        let progress = fs.existsSync(progressFile)
+            ? await Utils.leggiOggettoDaFileJSON(progressFile)
+            : {};
+
+        const allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip")
+            .sort()
+            .filter(zipFile => !progress[zipFile]?.elaborato);
+
+        // Worker 1: Legge i file ZIP e popola il buffer
+        const zipReaderWorker = async () => {
+            for (let zipFile of allZipFilesInFolder) {
+                if (!progress[zipFile]) {
+                    progress[zipFile] = {
+                        elaborato: false,
+                        aggiornati: 0,
+                        aggiunti: 0,
+                        nonModificati: 0,
+                        errori: {totale: 0, cf: []}
+                    };
+                }
+
+                const data = await utils.decomprimiELeggiFile(zipFile);
+                const assistiti = [...Object.values(data.vivi ?? {}), ...Object.values(data.morti ?? {})];
+
+                dataBuffer.push({
+                    zipFile,
+                    assistiti
+                });
+
+            }
+            isReaderComplete = true;
+        };
+
+        // Worker 2: Processa i dati dal buffer
+        const dataProcessorWorker = async () => {
+            while (!isReaderComplete || dataBuffer.length > 0) {
+                if (dataBuffer.length === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+
+                const {zipFile, assistiti} = dataBuffer.shift();
+                //console.log(`Elaborazione ${zipFile} (${assistiti.length} assistiti)`);
+
+                let stats = {
+                    aggiornati: 0,
+                    nonModificati: 0,
+                    aggiunti: 0,
+                    errori: {totale: 0, cf: []}
+                };
+
+                // Calcola la percentuale di completamento totale
+                const completati = Object.values(progress).filter(p => p.elaborato).length;
+                const totaleFile = allZipFilesInFolder.length;
+                const percentualeTotale = ((completati / totaleFile) * 100).toFixed(2);
+                console.log(`\nProcessando ${path.basename(zipFile)} - Completamento totale: ${percentualeTotale}% (${completati}/${totaleFile} file)`);
+
+                // Suddivide gli assistiti in gruppi per il processamento parallelo
+                const numPerJob = Math.ceil(assistiti.length / numParallelsJobs);
+                const jobs = [];
+
+                for (let i = 0; i < numParallelsJobs; i++) {
+                    const start = i * numPerJob;
+                    const end = Math.min(start + numPerJob, assistiti.length);
+                    const slice = assistiti.slice(start, end);
+
+                    jobs.push((async (jobId, assistitiSlice) => {
+                        const BATCH_SIZE = 1000;
+                        let processedCount = 0;
+
+                        for (let j = 0; j < assistitiSlice.length; j += BATCH_SIZE) {
+                            const batch = assistitiSlice.slice(j, j + BATCH_SIZE);
+                            processedCount += batch.length;
+
+                            const percentuale = ((processedCount / assistitiSlice.length) * 100).toFixed(2);
+                            const res = await api.nuoviAssistiti(batch);
+
+                            if (Array.isArray(res.data)) {
+                                for (const result of res.data) {
+                                    if (result.err?.code === "ALREADY_EXISTS") {
+                                        stats.nonModificati++;
+                                    } else if (!result.err) {
+                                        result.op === "CREATE" ? stats.aggiunti++ : stats.aggiornati++;
+                                    } else {
+                                        stats.errori.totale++;
+                                        stats.errori.cf.push(result.assistito);
+                                    }
+                                    // MOSTRA CF e STATO
+                                    console.log(`${result.assistito} ${result.err?.code ?? (result.op === "CREATE" ? "CREATO" : "AGGIORNATO")}`);
+                                }
+                            } else {
+                                stats.errori.totale += batch.length;
+                                stats.errori.cf.push(...batch.map(a => a.cf));
+                                console.error(`Errore batch in ${zipFile}:`, res);
+                            }
+                        }
+                    })(i + 1, slice));
+                }
+
+                await Promise.all(jobs);
+
+                progress[zipFile] = {
+                    elaborato: true,
+                    ...stats
+                };
+
+                await Utils.scriviOggettoSuFile(progressFile, progress);
+
+                console.log(`${path.basename(zipFile)}:
+                    - Aggiornati: ${stats.aggiornati}
+                    - Aggiunti: ${stats.aggiunti}
+                    - Non modificati: ${stats.nonModificati}
+                    - Errori: ${stats.errori.totale}`);
+                        }
+                    };
+
+        // Avvia entrambi i worker in parallelo
+        await Promise.all([
+            zipReaderWorker(),
+            dataProcessorWorker()
+        ]);
+    }
 
 
     static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visibile = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {

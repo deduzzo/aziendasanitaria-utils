@@ -4,7 +4,7 @@ import {Assistito} from "../classi/Assistito.js";
 
 export default class APIHelper {
     static GET_TOKEN = "/api/v1/login/get-token";
-    static NUOVO_ASSISTITO = "/api/v1/anagrafica/nuovo-assistito";
+    static NUOVI_ASSISTITI = "/api/v1/anagrafica/nuovi-assistiti";
     static RICERCA_ASSISTITO = "/api/v1/anagrafica/ricerca-assistito";
 
     #token = '';
@@ -49,31 +49,44 @@ export default class APIHelper {
             this.#tokenExpiration = moment(data.data.expireDate, "YYYY-MM-DD HH:mm:ss");
             return data.data;
         } else {
-            throw new Error("Errore nella richiesta del token");
+            const res = await response.json();
+            throw new Error("Errore nella richiesta del token: " + res.message);
         }
     }
 
-    async nuovoAssistito(assistito) {
-        if (!this.#token || !this.#tokenExpiration || moment().isAfter(this.#tokenExpiration)) {
+
+    /**
+     * Invia una richiesta per inserire nuovi assistiti nel sistema
+     * @param {Object|Object[]} assistiti - Un singolo assistito o un array di assistiti da inserire
+     * @returns {Promise<Object>} Risposta JSON dal server
+     * @throws {Error} Se la richiesta fallisce dopo il tentativo di rinnovo del token
+     */
+    async nuoviAssistiti(assistiti) {
+        if (!this.#token || !this.#tokenExpiration || moment().isAfter(this.#tokenExpiration))
             await this.getToken();
-            let temp = (new Assistito()).dati({fromAssistitoObject: assistito, dateToUnix: true, omitNull: true});
+        if (!Array.isArray(assistiti))
+            assistiti = [assistiti];
+        let assistitiOk = [];
+        for (let assistito of assistiti) {
+            let temp = (new Assistito()).dati({fromAssistitoObject: assistito, dateToUnix: true});
             temp = _.omit(temp, ['eta', 'inVita']);
-            const response = await fetch(`${this.baseurl}${APIHelper.NUOVO_ASSISTITO}`, {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json',
-                    'Authorization': `Bearer ${this.#token}`
-                },
-                body: JSON.stringify({assistito: temp})
-            });
-            if (response.status === 401) {
-                await this.getToken();
-                return await this.nuovoAssistito(assistito);
-            } else {
-                return (await response.json());
-            }
+            assistitiOk.push(temp);
+        }
+        const response = await fetch(`${this.baseurl}${APIHelper.NUOVI_ASSISTITI}`, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${this.#token}`
+            },
+            body: JSON.stringify({assistiti: assistitiOk})
+        });
+        if (response.status === 401) {
+            await this.getToken();
+            return await this.nuoviAssistiti(assistitiOk);
+        } else {
+            const res = await response.json();
+            return res;
         }
     }
-
 
 }
