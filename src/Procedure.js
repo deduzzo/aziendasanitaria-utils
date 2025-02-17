@@ -956,11 +956,29 @@ class Procedure {
     }
 
 
-    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, visibile = false, numParallelsJobs = 10, fileName = "decedutiChiusuraJobStatus.json") {
+    /**
+     * Chiude in parallelo gli assistiti deceduti utilizzando i dati contenuti nei file nella cartella specificata.
+     *
+     * @param {string} pathDeceduti - Percorso della cartella contenente i files dei deceduti (file .xlsx).
+     * @param {Object} impostazioniServizi - Impostazioni per la connessione ai servizi NAR/TS.
+     * @param {Object} [config={}] - Configurazione opzionale.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {string} [config.fileName="decedutiChiusuraJobStatus.json"] - Nome del file di stato.
+     * @param {Array} [config.otherArgs=[]] - Altri argomenti di lancio di puppeteer.
+     * @returns {Promise<void>} Promise che si risolve al completamento delle chiusure.
+     */
+    static async chiudiAssistitiDecedutiParallelsJobs(pathDeceduti, impostazioniServizi, config = {}) {
+        let {
+            visibile = false,
+            numParallelsJobs = 10,
+            fileName = "decedutiChiusuraJobStatus.json",
+            otherArgs = []
+        } = config;
         let out = {datiAssistitiMorti: [], chiusi: [], nonTrovati: [], errori: []};
         let basePath = path.dirname(pathDeceduti);
         if (!fs.existsSync(basePath + path.sep + fileName)) {
-            let allDatiMorti = await utils.riunisciJsonDaTag(pathDeceduti, "deceduti");
+            let allDatiMorti = await utils.riunisciExcelDaTag(pathDeceduti, "deceduti");
             out.datiAssistitiMorti = allDatiMorti["deceduti"];
             await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
         } else
@@ -971,7 +989,7 @@ class Procedure {
         let count = allCfs.length;
         let numPerJob = Math.ceil(count / numParallelsJobs);
         while (i < numParallelsJobs) {
-            let assistiti = new Assistiti(impostazioniServizi, visibile);
+            let assistiti = new Assistiti(impostazioniServizi, visibile, otherArgs);
             let slice = allCfs.slice(i * numPerJob, (i + 1) * numPerJob);
             allJobs.push(assistiti.chiudiAssistitiDeceduti(slice, i + 1));
             i++;
@@ -983,7 +1001,9 @@ class Procedure {
             out.nonTrovati.push(...outJob.nonTrovati);
             out.errori.push(...outJob.errori);
         }
-        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, out);
+        // scrivi chiusi su file excel
+        await utils.scriviOggettoSuNuovoFileExcel(basePath + path.sep + "chiusi.xlsx", Object.values(out.chiusi));
+        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, {nonTrovati: out.nonTrovati, errori: out.errori});
         return out;
     }
 }

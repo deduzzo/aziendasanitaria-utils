@@ -1,13 +1,9 @@
 import path from "path";
 import puppeteer from 'puppeteer-extra';
-import puppeteerExtra from 'puppeteer-extra';
 import userPreferences from 'puppeteer-extra-plugin-user-preferences';
 import * as os from "os";
 import fs from "fs";
-import {existsSync} from "fs";
-import moment from "moment";
-import * as Util from "util";
-import {utils, utils as Utils} from "../Utils.js";
+import {utils as Utils} from "../Utils.js";
 
 
 export class Nar {
@@ -26,6 +22,7 @@ export class Nar {
         this._visibile = visibile;
         this._type = type;
         this._retry = 5;
+        this._otherArgs = [];
         // working path for download,a temporary folder so temp dir
         this._downloadPath = path.join(os.tmpdir(), 'nar_' + Date.now());
         this._workingPath = workingPath ?? Utils.getWorkingPath()
@@ -35,6 +32,14 @@ export class Nar {
 
     static PAGHE = 0;
     static NAR = 1;
+
+    get otherArgs() {
+        return this._otherArgs;
+    }
+
+    set otherArgs(value) {
+        this._otherArgs = value;
+    }
 
     get type() {
         return this._type;
@@ -87,7 +92,7 @@ export class Nar {
         while (!this._logged && retry > 0) {
             if (this._type === Nar.PAGHE || this._type === Nar.NAR) {
                 try {
-                    puppeteerExtra.use(
+                    puppeteer.use(
                         userPreferences({
                             userPrefs: {
                                 profile: {
@@ -107,15 +112,17 @@ export class Nar {
                             },
                         })
                     );
-                    this._browser = await puppeteerExtra.launch({
+                    this._browser = await puppeteer.launch({
+                        executablePath: process.env.CHROME_BIN || null,
                         headless: !this._visibile,
                         defaultViewport: {width: 1920, height: 1080},
-                        args: [
+                        args: [...[
                             '--window-size=1920,1080',
                             '--ignore-certificate-errors',
                             '--disable-web-security',
-                        ]
+                        ],...this._otherArgs],
                     });
+                    // set page timeout of 120s
                     const page = (await this._browser.pages())[0];
                     await page.goto('https://nar.regione.sicilia.it/NAR/');
                     await page.type("#loginform > div > input:nth-child(2)", this._impostazioni.nar_username);

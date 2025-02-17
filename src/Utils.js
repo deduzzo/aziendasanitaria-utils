@@ -844,6 +844,17 @@ const riunisciJsonDaTag = async (path, tag, filter = null) => {
     return out;
 }
 
+const riunisciExcelDaTag = async (path, tag, filter = null) => {
+    let files = getAllFilesRecursive(path, ".xlsx", filter);
+    let out = {};
+    out[tag] = [];
+    for (let file of files) {
+        let data = await getObjectFromFileExcel(file);
+        out[tag].push(...data);
+    }
+    return out;
+}
+
 const replaceNullWithEmptyString = (obj) => {
     return Object.fromEntries(
         Object.entries(obj).map(([key, value]) => [
@@ -1067,5 +1078,6 @@ export const utils = {
     convertUnixTimestamp,
     convertFromUnixSeconds,
     calcolaMD5daStringa,
-    codiceFiscaleValido
+    codiceFiscaleValido,
+    riunisciExcelDaTag
 }

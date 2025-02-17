@@ -4,6 +4,7 @@ import {utils as Utils, utils} from "../Utils.js";
 import path from "path";
 import fs from "fs";
 import AsyncLock from 'async-lock';
+
 const lock = new AsyncLock();
 import {EventEmitter} from 'events';
 import _ from 'lodash';
@@ -34,9 +35,12 @@ export class Assistiti {
      * @param {Config} configurazioneServiziTerzi
      * @param visibile
      */
-    constructor(configurazioneServiziTerzi, visibile = false) {
+    constructor(configurazioneServiziTerzi, visibile = false, otherArgs = []) {
         this._impostazioni = new ImpostazioniServiziTerzi(configurazioneServiziTerzi);
+        this._otherArgs = otherArgs;
         this._nar = new Nar(this._impostazioni, visibile);
+        if (this._otherArgs)
+            this._nar.otherArgs = this._otherArgs;
         this._ts = new Ts(this._impostazioni);
         this._nar2 = new Nar2(this._impostazioni, visibile);
         this.retryTimeout = 5;
@@ -59,7 +63,7 @@ export class Assistiti {
                     await page.type("input[name='provinciaNascita']", (dato.provincia_nascita !== "SE" && dato.provincia_nascita !== "XX") ? dato.provincia_nascita : "EE");
                     await page.click('#go');
                     await page.waitForSelector("body > div:nth-child(12) > h1")
-                    datiUtenti[cf].data_decesso = await page.evaluate(() => {
+                    datiUtenti[cf].dataDecesso = await page.evaluate(() => {
                         let data = null;
                         try {
                             if (document.querySelector("body > div:nth-child(12) > div:nth-child(15) > div.cellaAss35.bold > div").innerHTML === "Data Decesso")
@@ -70,7 +74,7 @@ export class Assistiti {
                     });
                 } catch (e) {
                 }
-                console.log(index + "# -" + cf + " data decesso: " + (datiUtenti[cf].data_decesso ?? "NON RECUPERABILE"));
+                console.log(index + "# -" + cf + " data decesso: " + (datiUtenti[cf].dataDecesso ?? "NON RECUPERABILE"));
             }
         }
         await this._ts.doLogout();
@@ -186,8 +190,7 @@ export class Assistiti {
 
 
         let out = {chiusi: [], nonTrovati: [], errori: [], currentIndex: 0};
-
-        await this._nar.doLogout();
+        //await this._nar.doLogout();
         let page = await this._nar.getWorkingPage();
         console.log("$#" + index + " " + " TOTALI: " + datiAssistitiMorti.length)
         if (page) {
@@ -195,84 +198,94 @@ export class Assistiti {
                 let assistito = datiAssistitiMorti[out.currentIndex];
                 let cf = assistito.cf;
                 console.log("#" + index + " " + cf + " in lavorazione");
-                if ((assistito.data_decesso === "" || assistito.data_decesso === null || assistito.data_decesso === undefined) && provaNar2 === true) {
+                if ((assistito.dataDecesso === "" || assistito.dataDecesso === null || assistito.dataDecesso === undefined) && provaNar2 === true) {
                     console.log("#" + index + " " + cf + " data decesso non presente, provo a recuperarla da NAR2");
-                    let dataNar2 = await this._nar2.getDatiAssistitoFromCfSuSogei(cf);
+                    let dataNar2 = await this._nar2.getDatiAssistitoFromCfSuSogeiNew(cf);
                     if (dataNar2.ok && dataNar2.deceduto === true) {
                         // parse from format "2024-08-06 00:00:00" to "06/08/2024"
-                        assistito.data_decesso = dataNar2.dataDecesso;
-                        console.log("#" + index + " " + cf + " data decesso recuperata da NAR2: " + assistito.data_decesso);
+                        assistito.dataDecesso = dataNar2.dataDecesso;
+                        console.log("#" + index + " " + cf + " data decesso recuperata da NAR2: " + assistito.dataDecesso);
                     }
                 }
-                if (assistito.data_decesso !== "" && assistito.data_decesso !== null && assistito.data_decesso !== undefined) {
-                    try {
-                        await performTaskWithTimeout(async () => {
-                            await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
-                            await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
-                            await utils.waitForTimeout(1000);
-                            await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
-                            await page.waitForSelector("#inside");
-                            await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
-                            await page.waitForSelector("#mediciTable");
-                            let datiAssistito = await page.evaluate(() => {
-                                let data = {deceduto: null, dataDecesso: null};
-                                const selectElement = document.querySelector("select[name='categoriaCittadino@']");
-                                const selectedOption = selectElement.options[selectElement.selectedIndex];
-                                if (selectedOption.text.toLowerCase().includes("deceduto") && document.querySelector("input[name='dataDecesso@']").value !== "") {
-                                    data.deceduto = true;
-                                    data.dataDecesso = document.querySelector("input[name='dataDecesso@']").value;
-                                }
-                                return data;
-                            });
-                            if (datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.data_decesso) {
-                                console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
-                                out.chiusi.push({
-                                    cf: cf,
-                                    data_decesso: assistito.data_decesso,
-                                    data_chiusura: datiAssistito.dataDecesso,
-                                    data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
-                                    chiuso_precedentemente: true
-                                })
-                            } else {
-                                // da chiudere
+                if (assistito.dataDecesso !== "" && assistito.dataDecesso !== null && assistito.dataDecesso !== undefined) {
+                    let attempts = 0;
+                    const maxAttempts = this.retryTimeout;
+
+                    while (attempts < maxAttempts) {
+                        try {
+                            await performTaskWithTimeout(async () => {
+                                await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=39100000113");
+                                await page.waitForSelector("input[name='codiceFiscaleISISTP@Filter']");
+                                await utils.waitForTimeout(1000);
+                                await page.type("input[name='codiceFiscaleISISTP@Filter']", cf);
+                                await utils.waitForTimeout(1000);
+                                await page.waitForSelector("#inside");
+                                await page.click("#inside > table > tbody > tr > td:nth-child(2) > a");
+                                await page.waitForSelector("#mediciTable");
+                                let datiAssistito = await page.evaluate(() => {
+                                    let data = {deceduto: null, dataDecesso: null};
+                                    const selectElement = document.querySelector("select[name='categoriaCittadino@']");
+                                    const selectedOption = selectElement.options[selectElement.selectedIndex];
+                                    if (selectedOption.text.toLowerCase().includes("deceduto") && document.querySelector("input[name='dataDecesso@']").value !== "") {
+                                        data.deceduto = true;
+                                        data.dataDecesso = document.querySelector("input[name='dataDecesso@']").value;
+                                    }
+                                    return data;
+                                });
+
                                 await page.click("button[name='Btn1']");
                                 await page.waitForSelector("input[name='pazienteMedico.dataRevoca@']");
-                                await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.data_decesso);
-                                // type tab
-                                await page.keyboard.press('Tab');
-                                // wait for 500 ms
-                                await utils.waitForTimeout(1000);
-                                await page.type("input[name='idTipoOpeRevoca_c']", "3");
-                                await page.keyboard.press('Tab');
-                                await utils.waitForTimeout(1000);
-                                await page.type("input[name='idMotivoRevoca_c']", "A08");
-                                await page.keyboard.press('Tab');
-                                await utils.waitForTimeout(1000);
-                                // click BTN_CONFIRM
-                                await page.click("button[name='BTN_CONFIRM']");
-                                // wait until "body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p" value is "deceduto"
-                                await page.waitForFunction(() => {
-                                    const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
-                                    return element && element.textContent.toLowerCase().includes("deceduto");
-                                }, {timeout: 60000});
-                                console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.data_decesso);
-                                out.chiusi.push({
-                                    cf: cf,
-                                    data_decesso: assistito.data_decesso,
-                                    data_chiusura: assistito.data_decesso,
-                                    data_ora_operazione: moment().format("YYYY-MM-DD HH:mm:ss"),
-                                    chiuso_precedentemente: false
-                                })
+                                // verify the html of body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p
+                                let decedutoNew = await page.evaluate(() => {
+                                    return document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p").innerText.toLowerCase().includes("deceduto");
+                                });
+                                if ((datiAssistito.deceduto && datiAssistito.dataDecesso === assistito.dataDecesso) || decedutoNew) {
+                                    console.log("#" + index + " " + cf + " deceduto già chiuso correttamente il " + datiAssistito.dataDecesso);
+                                    out.chiusi.push({
+                                        cf: cf,
+                                        dataDecesso: assistito.dataDecesso,
+                                        dataChiusura: datiAssistito.dataDecesso,
+                                        dataOraOperazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                        chiusoPrecedentemente: true
+                                    })
+                                } else {
+                                    // da chiudere
+                                    await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.dataDecesso);
+                                    await page.keyboard.press('Tab');
+                                    await utils.waitForTimeout(1000);
+                                    await page.type("input[name='idTipoOpeRevoca_c']", "3");
+                                    await page.keyboard.press('Tab');
+                                    await utils.waitForTimeout(1000);
+                                    await page.type("input[name='idMotivoRevoca_c']", "A08");
+                                    await page.keyboard.press('Tab');
+                                    await utils.waitForTimeout(1000);
+                                    await page.click("button[name='BTN_CONFIRM']");
+                                    await page.waitForFunction(() => {
+                                        const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
+                                        return element && element.textContent.toLowerCase().includes("deceduto");
+                                    }, {timeout: 60000});
+                                    console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.dataDecesso);
+                                    out.chiusi.push({
+                                        cf: cf,
+                                        dataDecesso: assistito.dataDecesso,
+                                        dataChiusura: assistito.dataDecesso,
+                                        dataOraOperazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                        chiusoPrecedentemente: false
+                                    })
+                                }
+                            }, 60000);
+                            break; // Se l'operazione ha successo, esci dal ciclo
+                        } catch (ex) {
+                            attempts++;
+                            if (attempts >= maxAttempts) {
+                                console.log("#" + index + " " + cf + " errore dopo " + maxAttempts + " tentativi: " + ex.message);
+                                out.errori.push(cf + "_su_nar");
+                            } else {
+                                console.log("#" + index + " " + cf + " tentativo " + attempts + "/" + maxAttempts + " fallito: " + ex.message);
+                                await utils.waitForTimeout(1000 * attempts); // Attesa crescente tra i tentativi
                             }
-
-                        }, 60000); // Timeout di 60 secondi
-                    } catch (ex) {
-                        console.log("#" + index + " " + cf + " errore: " + ex.message + " " + ex.stack);
-                        out.errori.push(cf + "_su_nar");
-                        await this._nar.doLogout();
-                        page = await this._nar.getWorkingPage();
+                        }
                     }
-
                 } else {
                     console.log("#" + index + " " + cf + " data decesso non valida");
                     out.errori.push(cf + " data decesso non valida");
@@ -561,24 +574,24 @@ export class Assistiti {
 
 
     /**
-    * Verifica gli assistiti in vita utilizzando Nar2.
-    *
-    * @param {Array<string>} codiciFiscali - Lista dei codici fiscali degli assistiti.
-    * @param {Object} [config=defaultConfig] - Configurazione opzionale.
-    * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
-    * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
-    * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
-    * @param {boolean} [config.verbose=false] - Se mostrare messaggi dettagliati.
-    * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
-    * @param {Object} [config.datiMedicoNar=null] - Dati del medico Nar.
-    * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta.
-    * @param {boolean} [config.sogei=true] - Se utilizzare Sogei.
-    * @param {boolean} [config.nar2=true] - Se utilizzare Nar2.
-    * @param {boolean} [config.salvaFile=true] - Se salvare il file.
-    * @param {number} [config.index=1] - Indice del job.
-    * @param {Object} [config.callback={fn: null, params: {}}] - Callback per il salvataggio dei dati.
-    * @returns {Promise<Object>} - Risultato della verifica.
-    */
+     * Verifica gli assistiti in vita utilizzando Nar2.
+     *
+     * @param {Array<string>} codiciFiscali - Lista dei codici fiscali degli assistiti.
+     * @param {Object} [config=defaultConfig] - Configurazione opzionale.
+     * @param {boolean} [config.includiIndirizzo=true] - Se includere l'indirizzo.
+     * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo.
+     * @param {boolean} [config.verbose=false] - Se mostrare messaggi dettagliati.
+     * @param {boolean} [config.legacy=false] - Se utilizzare la modalità legacy.
+     * @param {Object} [config.datiMedicoNar=null] - Dati del medico Nar.
+     * @param {Object} [config.dateSceltaCfMap=null] - Mappa delle date di scelta.
+     * @param {boolean} [config.sogei=true] - Se utilizzare Sogei.
+     * @param {boolean} [config.nar2=true] - Se utilizzare Nar2.
+     * @param {boolean} [config.salvaFile=true] - Se salvare il file.
+     * @param {number} [config.index=1] - Indice del job.
+     * @param {Object} [config.callback={fn: null, params: {}}] - Callback per il salvataggio dei dati.
+     * @returns {Promise<Object>} - Risultato della verifica.
+     */
     async verificaAssititiInVitaNar2(codiciFiscali, config = utils.defaultJobConfig) {
 
         const finalConfig = utils.getFinalConfigFromTemplate(config);
@@ -610,8 +623,11 @@ export class Assistiti {
                 }
 
                 if (datiAssistito.ok && config.callback.fn) {
-                        config.callback.params = {codiceFiscale: codiceFiscale, dati: datiAssistito.dati({dateToUnix:true})};
-                        await config.callback.fn(config.callback.params);
+                    config.callback.params = {
+                        codiceFiscale: codiceFiscale,
+                        dati: datiAssistito.dati({dateToUnix: true})
+                    };
+                    await config.callback.fn(config.callback.params);
                 }
 
                 if (i % 10 === 0 && i > 0) {
@@ -1131,7 +1147,7 @@ export class Assistiti {
             let totaleGlobale = 0;
             for (let codiceMedico of Object.keys(datiAssititi)) {
                 if (datiAssititi[codiceMedico]) {
-                    let cfAssistitiMap  = {};
+                    let cfAssistitiMap = {};
                     for (let cf of datiAssititi[codiceMedico].hasOwnProperty("assistiti") ? datiAssititi[codiceMedico].assistiti : datiAssititi[codiceMedico])
                         cfAssistitiMap[cf.codiceFiscale] = cf;
                     dati[codiceMedico] = {
@@ -1170,7 +1186,7 @@ export class Assistiti {
                 await utils.scriviOggettoSuFile(pathJob + path.sep + "jobstatus.json", jobStatus);
         }
 
-        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo || (jobStatus[el].hasOwnProperty("ok") && !jobStatus[el].ok) );
+        let jobsDaElaborare = Object.keys(jobStatus).filter((el) => !jobStatus[el].completo || (jobStatus[el].hasOwnProperty("ok") && !jobStatus[el].ok));
         completati = Object.keys(jobStatus).length - jobsDaElaborare.length;
         showInfo();
         await taskPool(numParallelsJobs, jobsDaElaborare.map((codMedico, index) => () => processJob(codMedico, index)));

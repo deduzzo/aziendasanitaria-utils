@@ -22,3 +22,4 @@ package-lock.json
 private_*.js
 /spid/testkey/
 /.vscode/
+pnpm-lock.yaml
