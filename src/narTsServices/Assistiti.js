@@ -251,29 +251,44 @@ export class Assistiti {
                                 } else {
                                     // da chiudere
                                     await page.type("input[name='pazienteMedico.dataRevoca@']", assistito.dataDecesso);
-                                    await page.keyboard.press('Tab');
-                                    await utils.waitForTimeout(1000);
-                                    await page.type("input[name='idTipoOpeRevoca_c']", "3");
-                                    await page.keyboard.press('Tab');
-                                    await utils.waitForTimeout(1000);
-                                    await page.type("input[name='idMotivoRevoca_c']", "A08");
-                                    await page.keyboard.press('Tab');
-                                    await utils.waitForTimeout(1000);
+                                    await utils.waitForTimeout(400);
                                     await page.click("button[name='BTN_CONFIRM']");
-                                    await page.waitForFunction(() => {
-                                        const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
-                                        return element && element.textContent.toLowerCase().includes("deceduto");
-                                    }, {timeout: 60000});
-                                    console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.dataDecesso);
-                                    out.chiusi.push({
-                                        cf: cf,
-                                        dataDecesso: assistito.dataDecesso,
-                                        dataChiusura: assistito.dataDecesso,
-                                        dataOraOperazione: moment().format("YYYY-MM-DD HH:mm:ss"),
-                                        chiusoPrecedentemente: false
-                                    })
+                                    // wait for selector with id #ERRORE_GLOBALE
+                                    await page.waitForSelector("#ERRORE_GLOBALE");
+                                    // check if the innerhtml of "#ERRORE_GLOBALE > tbody > tr > td:nth-child(2)" contains "specificare il tipo di operazione di revoca"
+                                    let errore = await page.evaluate(() => {
+                                        return document.querySelector("#ERRORE_GLOBALE").innerHTML.toLowerCase().includes("specificare il tipo di operazione di revoca");
+                                    });
+                                    if (errore) {
+                                        await page.type("input[name='idTipoOpeRevoca_c']", "3");
+                                        await utils.waitForTimeout(100);
+                                        await page.keyboard.press('Tab');
+                                        await utils.waitForTimeout(1000);
+                                        await page.type("input[name='idMotivoRevoca_c']", "A08");
+                                        await utils.waitForTimeout(100);
+                                        await page.keyboard.press('Tab');
+                                        await utils.waitForTimeout(1000);
+                                        await page.click("button[name='BTN_CONFIRM']");
+                                        await page.waitForFunction(() => {
+                                            const element = document.querySelector("body > table > tbody > tr > td > table:nth-child(3) > tbody > tr > td > form > table:nth-child(18) > tbody > tr > td > table > tbody > tr:nth-child(3) > td:nth-child(4) > p");
+                                            return element && element.textContent.toLowerCase().includes("deceduto");
+                                        }, {timeout: 60000});
+                                        console.log("#" + index + " " + cf + " deceduto chiuso il " + assistito.dataDecesso);
+                                        out.chiusi.push({
+                                            cf: cf,
+                                            dataDecesso: assistito.dataDecesso,
+                                            dataChiusura: assistito.dataDecesso,
+                                            dataOraOperazione: moment().format("YYYY-MM-DD HH:mm:ss"),
+                                            chiusoPrecedentemente: false
+                                        })
+                                    }
+                                    else
+                                    {
+                                        console.log("#" + index + " " + cf + " errore durante la chiusura");
+                                        out.errori.push(cf + "_su_nar");
+                                    }
                                 }
-                            }, 60000);
+                            }, 20000);
                             break; // Se l'operazione ha successo, esci dal ciclo
                         } catch (ex) {
                             attempts++;

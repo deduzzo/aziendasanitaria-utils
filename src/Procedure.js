@@ -987,6 +987,7 @@ class Procedure {
         let allJobs = [];
         let i = 0;
         let count = allCfs.length;
+        allCfs = allCfs.reverse();
         let numPerJob = Math.ceil(count / numParallelsJobs);
         while (i < numParallelsJobs) {
             let assistiti = new Assistiti(impostazioniServizi, visibile, otherArgs);

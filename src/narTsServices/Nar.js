@@ -3,7 +3,7 @@ import puppeteer from 'puppeteer-extra';
 import userPreferences from 'puppeteer-extra-plugin-user-preferences';
 import * as os from "os";
 import fs from "fs";
-import {utils as Utils} from "../Utils.js";
+import {utils} from "../Utils.js";
 
 
 export class Nar {
@@ -25,7 +25,7 @@ export class Nar {
         this._otherArgs = [];
         // working path for download,a temporary folder so temp dir
         this._downloadPath = path.join(os.tmpdir(), 'nar_' + Date.now());
-        this._workingPath = workingPath ?? Utils.getWorkingPath()
+        this._workingPath = workingPath ?? utils.getWorkingPath()
         this._batchProcess = batchProcess;
         // create the folder if it does not exist async
     }
@@ -124,7 +124,7 @@ export class Nar {
                     });
                     // set page timeout of 120s
                     const page = (await this._browser.pages())[0];
-                    await page.goto('https://nar.regione.sicilia.it/NAR/');
+                    await page.goto('https://nar.regione.sicilia.it/NAR/', { timeout: 120000 });
                     await page.type("#loginform > div > input:nth-child(2)", this._impostazioni.nar_username);
                     await page.type("#loginform > div > input:nth-child(7)", this._impostazioni.nar_password);
                     await page.click("#loginform > div > div > div:nth-child(1) > input");
@@ -132,8 +132,8 @@ export class Nar {
                     await page.close();
                     //get the new page object:
                     const newPage = await newTarget.page();
-                    await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do');
-                    await newPage.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=RELOG");
+                    await newPage.goto('https://nar.regione.sicilia.it/NAR/mainLogin.do' ,{ timeout: 120000 });
+                    await newPage.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=RELOG",{ timeout: 120000 });
 
                     await newPage.waitForSelector("select[name='ufficio@Controller']");
                     //await newPage.waitForSelector("#oCMenu_fill");
