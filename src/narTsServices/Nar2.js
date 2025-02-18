@@ -251,6 +251,7 @@ export class Nar2 {
      * @param {boolean} [config.sogei=true] Recupera dati da Sogei
      * @param {boolean} [config.nar2=true] Recupera dati da Nar2
      * @param {boolean} [config.fallback=false] Recupera dati da server di fallback
+     * @param {boolean} [config.replaceNullWithEmptyString=false] Sostituisce i valori null con stringhe vuote
      * @returns {Assistito} Oggetto Assistito aggiornato
      */
     async getDatiAssistitoCompleti(cf, config = {}) {

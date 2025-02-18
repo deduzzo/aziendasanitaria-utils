@@ -59,7 +59,7 @@ async function main() {
 
                 let impostazioniServizi = new ImpostazioniServiziTerzi(configData);
                 let nar2 = new Nar2(impostazioniServizi);
-                let data = await nar2.getDatiAssistitoCompleti(mainWindow.cf_input,{dateToUnix:true,replaceNullWithEmptyString:true});
+                let data = await nar2.getDatiAssistitoCompleti(mainWindow.cf_input, {replaceNullWithEmptyString: true});
                 if (data.ok) {
                     // Aggiorna l'interfaccia usando gli stessi nomi delle proprietà del file Slint
                     mainWindow.paziente_data = data.dati();
