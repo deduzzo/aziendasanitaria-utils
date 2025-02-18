@@ -996,7 +996,7 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
  * @param {string} format - Il formato di output (default: 'DD/MM/YYYY').
  * @returns {string} Data formattata.
  */
-const  convertFromUnixSeconds = (unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
+const convertFromUnixSeconds = (unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
     // Crea un oggetto Moment a partire da unixSeconds (che sono secondi).
     // Poi imposta il fuso orario desiderato.
     // Infine formatta la data.
@@ -1027,6 +1027,10 @@ const convertUnixTimestamp = (unixTime, timeZone = 'Europe/Rome', format = 'DD/M
 const calcolaMD5daStringa = (str) => {
     return crypto.createHash('md5').update(str).digest('hex');
 };
+
+const getHtmlFromPdf = async (path) => {
+    return await pdf2html.text(path);
+}
 
 
 export const utils = {
@@ -1079,5 +1083,6 @@ export const utils = {
     convertFromUnixSeconds,
     calcolaMD5daStringa,
     codiceFiscaleValido,
-    riunisciExcelDaTag
+    riunisciExcelDaTag,
+    getHtmlFromPdf
 }
