@@ -1033,6 +1033,14 @@ const getHtmlFromPdf = async (path) => {
 }
 
 
+const removeEmptyValuesFromArray = (array) => {
+    return array.map((el) => {
+        return el?.trim() ?? "";
+    }).filter((el) => {
+        return el !== null && el !== "";
+    });
+}
+
 export const utils = {
     getAllFilesRecursive,
     creaCartellaSeNonEsisteSvuotalaSeEsiste,
@@ -1084,5 +1092,6 @@ export const utils = {
     calcolaMD5daStringa,
     codiceFiscaleValido,
     riunisciExcelDaTag,
-    getHtmlFromPdf
+    getHtmlFromPdf,
+    removeEmptyValuesFromArray
 }
