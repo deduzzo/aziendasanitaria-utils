@@ -1,6 +1,7 @@
 import {utils} from "./Utils.js";
 import path from "path";
-
+import fs from "fs";
+import * as cheerio from 'cheerio';
 
 class Stipendi {
 
@@ -159,6 +160,37 @@ class Stipendi {
             console.error("Errore in lettura file pdf", path.basename(pathPdf), e);
             return {cedolini: {}, errors: [{msg: "Errore in lettura file pdf", data: pathPdf}]};
         }
+    }
+
+    static async getDataFromHtmlMMGPls(pathHtml) {
+        const html = fs.readFileSync(pathHtml, 'utf-8');
+        const $ = cheerio.load(html);
+        // get all tables that contain a row with "Azienda Sanitaria Provinciale di Messina Part."
+        const tables = $("table").first().find("table").filter((i, el) => {
+            const rows = $(el).find("tr");
+            let found = false;
+            rows.each((i, row) => {
+                if ($(row).text().includes("Azienda Sanitaria Provinciale di Messina Part.")) {
+                    found = true;
+                }
+            });
+            return found;
+        });
+        let allCedoliniRows = [];
+        // for each table console the row content
+        tables.each((i, table) => {
+            const rows = $(table).find('> tr, > tbody > tr');
+            const cedoliniRows = [];
+            rows.each((i, row) => {
+                const val = $(row).text().trim();
+                if (val.length > 0) {
+                    cedoliniRows.push(val);
+                    console.log(val);
+                }
+            });
+            allCedoliniRows.push(cedoliniRows);
+        });
+        console.log("ciao");
     }
 
     static async getAllDatiStipendiConvenzionati(pathCedolini) {

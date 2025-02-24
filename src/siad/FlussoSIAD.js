@@ -323,7 +323,8 @@ export class FlussoSIAD {
         } : idPic;
     }
 
-    async creaMappaChiaviValideAssessorato(fileT1, fileT2, anno) {
+    async creaMappaChiaviValideAssessorato(fileT1, fileT2, anno, conf = {}) {
+        let {consideraSoloAnno = false} = conf;
 
         let mappa = {
             allIds: {},
@@ -347,7 +348,7 @@ export class FlussoSIAD {
 
         for (let rigat1 of chiaviValideT1) {
             const annoPicFromMinistero = rigat1["Anno Presa In Carico"];
-            if (annoPicFromMinistero === anno) {
+            if (annoPicFromMinistero === anno || !consideraSoloAnno) {
                 const id = rigat1["Id Record"];
                 if (!mappa.allIds.hasOwnProperty(id))
                     mappa.allIds[id] = id;
@@ -368,13 +369,6 @@ export class FlussoSIAD {
                         id: id,
                         cf,
                         msg: "Data inizio PIC Ministero diversa da data inizio PIC Id Record"
-                    })
-                }
-                if (annoPicFromMinistero !== anno) {
-                    mappa.errors.push({
-                        id: id,
-                        cf,
-                        msg: "Anno PIC Ministero diverso da anno"
                     })
                 }
                 if (!mappa.perCf.hasOwnProperty(cf))
@@ -1074,13 +1068,13 @@ export class FlussoSIAD {
                         }
                     }
                     if (ok) {
-                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione + "_" + tipoPic;
+                        const key = dataAttivita.format("YYYY-MM-DD") + "_" + cf + "_" + tipoOperatore + "_" + tipoPrestazione;
                         if (!data.datiTracciatiDitte.T2byKey.hasOwnProperty(key))
                             data.datiTracciatiDitte.T2byKey[key] = t2row;
                         else
-                            out.errors.t2ditte.push({error: "Chiave duplicata " + key, value: t2row});
+                            out.errors.globals.push({error: "Chiave duplicata " + key, value: t2row});
                     } else
-                        out.errors.t2ditte.push({error: "Errore in qualche campo chiave", value: t2row});
+                        out.errors.globals.push({error: "Errore in qualche campo chiave", value: t2row});
                     if (++index % 1000 === 0)
                         console.log("Elaborazione " + index + " di " + data.datiTracciatiDitte.T2.length + " - " + parseFloat((index / data.datiTracciatiDitte.T2.length * 100).toString()).toFixed(2) + "%");
                 }
@@ -1104,16 +1098,16 @@ export class FlussoSIAD {
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
         // PER CREARE IL FLUSSO PULITO
-        data.mappaDatiMinistero.perCf = {};
-        data.mappaDatiMinistero.allCfTrattati.perCf = {};
+        //data.mappaDatiMinistero.perCf = {};
+        //data.mappaDatiMinistero.allCfTrattati.perCf = {};
 
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            //if (key.includes("2024-01-31_DMCMRL55A24F205E_3_1"))
-            //    console.log("check");
+            if (key.includes("MRBGCM57L14F158R"))
+                console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno)) {

@@ -130,11 +130,12 @@ async function main() {
             let struttureMessina = new StruttureDistrettiPerProvincia(distretti, comuniDistretti, struttureDistrettiMap);
             let impostazioniServizi = new ImpostazioniServiziTerzi(configData);
             const siad = new FlussiRegioneSicilia.FlussoSIAD(struttureMessina, impostazioniServizi);
-            const filesT1 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AP");
-            const filesT2 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AA");
+            const filesT1 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AA");
+            const filesT2 = utils.getAllFilesRecursive(mainWindow.path_input, ".xml", "AA_SIAD_AP");
             const fileAltri = fs.existsSync(mainWindow.path_input + path.sep + "altri.xlsx") ?
                 await utils.getObjectFromFileExcel(mainWindow.path_input + path.sep + "altri.xlsx") : [];
-            const daAttenzionare = await utils.leggiOggettoDaFileJSON(mainWindow.path_input + path.sep + "cfDaAttenzionare.json");
+            const daAttenzionare = fs.existsSync(mainWindow.path_input + path.sep + "cfDaAttenzionare.json") ?  await utils.leggiOggettoDaFileJSON(mainWindow.path_input + path.sep + "cfDaAttenzionare.json")
+                : [];
 
             if (fs.existsSync(mainWindow.path_input) && fs.existsSync(mainWindow.path_input + path.sep + dbFile)) {
                 ministeroData = await utils.leggiOggettoMP(mainWindow.path_input + path.sep + dbFile);
