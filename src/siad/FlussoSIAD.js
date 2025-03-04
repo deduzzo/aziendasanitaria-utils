@@ -174,6 +174,18 @@ const nodoPresaInCaricoT1 = {
     }
 }
 
+const nodoPresaInCaricoT1Palliativa = {
+    PresaInCarico: {
+        $: {
+            data: datoObbligatorio,
+            soggettoRichiedente: 9,
+            TipologiaPIC: 2,
+            PianificazioneCondivisa: 9
+        },
+        Id_Rec: datoObbligatorio,
+    }
+}
+
 const defaultRigaT1 = {
     Trasmissione: {$: {"tipo": datoObbligatorio}},
     Assistito: {
@@ -253,6 +265,97 @@ const defaultRigaT1 = {
             AssistenzaIADL: 2,
             AssistenzaADL: 2,
             SupportoCareGiver: 2,
+        }
+    }
+}
+
+const defaultRigaT1Palliativa = {
+    Trasmissione: {$: {"tipo": datoObbligatorio}},
+    Assistito: {
+        DatiAnagrafici: {
+            CUNI: datoObbligatorio,
+            validitaCI: 0,
+            tipologiaCI: 0,
+            AnnoNascita: datoObbligatorio,
+            Genere: datoObbligatorio,
+            Cittadinanza: "IT",
+            StatoCivile: 9,
+            ResponsabilitaGenitoriale: 3,
+            Residenza: {
+                Regione: datoObbligatorio,
+                ASL: datoObbligatorio,
+                Comune: datoObbligatorio
+            },
+        }
+    },
+    Conviventi: {
+        NucleoFamiliare: 0,
+        AssistenteNonFamiliare: 2,
+    },
+    Erogatore: {
+        CodiceRegione: datoObbligatorio,
+        CodiceASL: datoObbligatorio,
+        AppartenenzaRete: 1,
+        TipoRete: 1
+    },
+    Eventi: {
+        ...nodoPresaInCaricoT1Palliativa,
+        Valutazione: {
+            $: {
+                data: datoObbligatorio,
+            },
+            Patologia: {
+                Prevalente: datoObbligatorio,
+                Concomitante: "000",
+            },
+            Autonomia: 2,
+            GradoMobilita: 2,
+            Disturbi: {
+                Cognitivi: 1,
+                Comportamentali: 1,
+            },
+            SupportoSociale: 1,
+            FragilitaFamiliare: 2,
+            RischioInfettivo: 2,
+            RischioSanguinamento: 2,
+            DrenaggioPosturale: 2,
+            OssigenoTerapia: 2,
+            Ventiloterapia: 2,
+            Tracheostomia: 2,
+            Alimentazione: {
+                Assistita: 2,
+                Enterale: 2,
+                Parenterale: 2,
+            },
+            GestioneStomia: 2,
+            ElimiUrinariaIntestinale: 2,
+            AlterRitmoSonnoVeglia: 2,
+            IntEduTerapeutica: 2,
+            LesioniCute: 2,
+            CuraUlcereCutanee12Grado: 2,
+            CuraUlcereCutanee34Grado: 2,
+            PrelieviVenosiNonOcc: 2,
+            ECG: 2,
+            Telemetria: 2,
+            TerSottocutIntraMuscInfus: 2,
+            GestioneCatetere: 2,
+            Trasfusioni: 2,
+            ControlloDolore: 2,
+            CurePalliative: 1,
+            TrattamentiRiab: {
+                Neurologico: 2,
+                Motorio: 2,
+                DiMantenimento: 2,
+            },
+            SupervisioneContinua: 2,
+            AssistenzaIADL: 2,
+            AssistenzaADL: 2,
+            SupportoCareGiver: 2,
+            ValutazioneUCPDOM: {
+                SegnoSintomoClinico: "V65.8",
+                UtilStrumentoIdentBisognoCP: 1,
+                UtilStrumentoValMultid: 1
+            }
         }
     }
 }
@@ -576,7 +679,6 @@ export class FlussoSIAD {
     }
 
 
-
     /**
      * Metodo che analizza i file XML presenti in una directory e calcola statistiche su specifiche tipologie di assistenza
      * sanitaria domiciliare. Produce un file JSON con le statistiche calcolate e lo salva nella directory specificata.
@@ -590,7 +692,7 @@ export class FlussoSIAD {
             allChiaviCasiTrattati: {},
             statsT1: {totali: 0, anziani: 0, palliativa: 0},
             statsT2: {
-                totali: { totali: 0, anziani: 0, palliativa: 0 },
+                totali: {totali: 0, anziani: 0, palliativa: 0},
                 perTipoOperatore: {},
             }
         };
@@ -684,7 +786,11 @@ export class FlussoSIAD {
                             else if (isAnziano)
                                 data.statsT2.totali.anziani += numAccessi;
                             if (!data.statsT2.perTipoOperatore.hasOwnProperty(tipoOperatoreMap[tipoOp]))
-                                data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]] = {totali: 0, anziani: 0, palliativa: 0};
+                                data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]] = {
+                                    totali: 0,
+                                    anziani: 0,
+                                    palliativa: 0
+                                };
                             data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]].totali += numAccessi;
                             if (isPalliativa)
                                 data.statsT2.perTipoOperatore[tipoOperatoreMap[tipoOp]].palliativa += numAccessi;
@@ -1106,7 +1212,7 @@ export class FlussoSIAD {
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            if (key.includes("MRBGCM57L14F158R"))
+            if (key.includes("CMPFLV28B53"))
                 console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
@@ -1140,6 +1246,7 @@ export class FlussoSIAD {
                     tutte: data.fromPortalePic.hasOwnProperty(cf) ? data.fromPortalePic[cf] : null
                 };
                 let erogato = false;
+                let skip = false;
                 if (pazienteGiaTrattatoMinistero)
                     erogato = true;
 
@@ -1150,79 +1257,82 @@ export class FlussoSIAD {
                         // aggiorna mapping
                         mappingIdPicAperte[cf].ultimaMinistero = datiPicAperteMinistero.corrente;
                         mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] = picPortale.corrente
+                        skip = true;
                     }
                 } else if (!datiAssistitoTs) {
+                    skip = true;
                     logger.info(key + ": Skip attività in quanto assistito non presente in TS, non possiamo inviarlo, lo inseriamo in quelli da rettificare");
                     if (!cfNonValidiTs.hasOwnProperty(cf))
                         cfNonValidiTs[cf] = [key];
                     else
                         cfNonValidiTs[cf].push(key);
-                } else {
-                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
-                        // abbiamo almeno una pic corrente e valida aperta nel ministero
-                        // verifichiamo se ci sono ulteriori pic aperte successive
-                        if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
-                            if (!pazienteGiaTrattatoMinistero) {
-                                const err = key + " :Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare";
-                                if (!out.cfDaAttenzionare.hasOwnProperty(cf))
-                                    out.cfDaAttenzionare[cf] = [err];
-                                else
-                                    out.cfDaAttenzionare[cf].push(err);
-                                logger.info(err);
-                            }
-                        }
-                        // abbiamo una pic aperta in ministero
-                        // verifichiamo se è valida o se è da chiudere in quanto superata da un altra su Aster
-                        // in tal caso ne apriamo un altra
-                        if (datiPicAster) {
-                            const dataPicCorrenteAster = datiPicAster ? this.ottieniDatiFromIdPic(datiPicAster.corrente)?.dataInizio : null;
-                            const dataPicMinistero = datiPicAperteMinistero ? this.ottieniDatiFromIdPic(datiPicAperteMinistero.corrente)?.dataInizio : null;
-                            const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
-
-
-                            const attivitaSuccessivaProssimaPicAster = (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster));
-                            const dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster = (dataPicMinistero && dataPicCorrenteAster && dataPicMinistero.format("DD/MM/YYYY") !== dataPicCorrenteAster.format("DD/MM/YYYY") && dataPicCorrenteAster.isAfter(dataPicMinistero) && dataPicCorrenteAster.diff(dataPicMinistero, 'days') > 15);
-                            const picDiversaSuPortale = ((datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) &&
-                                mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente &&
-                                mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined);
-                            if (attivitaSuccessivaProssimaPicAster || dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster || picDiversaSuPortale) {
-                                const motivazione = attivitaSuccessivaProssimaPicAster ? "Attività successiva a pic Aster" : (dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster ? "Differenza di un mese tra pic Aster e Ministero" : "Differenza tra pic su portale e ministero");
-                                logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura, motivazione " + motivazione);
-                                datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
-                                delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
-                                datiPicAperteMinistero.corrente = null;
-                            }
+                }
+                if (!skip && datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
+                    // abbiamo almeno una pic corrente e valida aperta nel ministero
+                    // verifichiamo se ci sono ulteriori pic aperte successive
+                    if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length > 0) {
+                        if (!pazienteGiaTrattatoMinistero) {
+                            const err = key + " :Paziente " + cf + " non è mai stato trattato, lo inseriamo tra quelli da attenzionare";
+                            if (!out.cfDaAttenzionare.hasOwnProperty(cf))
+                                out.cfDaAttenzionare[cf] = [err];
+                            else
+                                out.cfDaAttenzionare[cf].push(err);
+                            logger.info(err);
                         }
                     }
-                    // chiudo tutto quello aperto e precedente alla pic corrente
-                    if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
-                        logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
-                        for (let i = 0; i < datiPicAperteMinistero.precedenti.length; i++) {
-                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                                out.T2.AA,
-                                datiPicAperteMinistero.precedenti[i]);
-                            // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
-                            let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
-                            out.T2.AA = this.aggiungiConclusioneTracciato2FromId(
-                                out.T2.AA,
-                                datiPicAperteMinistero.precedenti[i],
-                                dataConclusione);
+                    // abbiamo una pic aperta in ministero
+                    // verifichiamo se è valida o se è da chiudere in quanto superata da un altra su Aster
+                    // in tal caso ne apriamo un altra
+                    if (datiPicAster) {
+                        const dataPicCorrenteAster = datiPicAster ? this.ottieniDatiFromIdPic(datiPicAster.corrente)?.dataInizio : null;
+                        const dataPicMinistero = datiPicAperteMinistero ? this.ottieniDatiFromIdPic(datiPicAperteMinistero.corrente)?.dataInizio : null;
+                        const dataPicSuccessivaAster = datiPicAster && datiPicAster.successive.length > 0 ? this.ottieniDatiFromIdPic(datiPicAster.successive[0])?.dataInizio : null;
 
-                            // PER TRIMESTRE
-                            let trimestre = moment(dataConclusione, "YYYY-MM-DD").quarter();
-                            this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
-                                out.T2[trimestre],
-                                datiPicAperteMinistero.precedenti[i]);
-                            out.T2[trimestre] = this.aggiungiConclusioneTracciato2FromId(
-                                out.T2[trimestre],
-                                datiPicAperteMinistero.precedenti[i],
-                                dataConclusione);
 
-                            data.mappaDatiMinistero.perCf[cf].chiuse[datiPicAperteMinistero.precedenti[i]] = data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
-                            delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                        const attivitaSuccessivaProssimaPicAster = (dataPicSuccessivaAster && dataAttivita.isAfter(dataPicSuccessivaAster));
+                        const dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster = (dataPicMinistero && dataPicCorrenteAster && dataPicMinistero.format("DD/MM/YYYY") !== dataPicCorrenteAster.format("DD/MM/YYYY") && dataPicCorrenteAster.isAfter(dataPicMinistero) && dataPicCorrenteAster.diff(dataPicMinistero, 'days') > 15);
+                        const picDiversaSuPortale = ((datiPicAperteMinistero && datiPicAperteMinistero.corrente && picPortale && picPortale.corrente) &&
+                            mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== picPortale.corrente &&
+                            mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== null && mappingIdPicAperte[cf][datiPicAperteMinistero.corrente] !== undefined);
+                        if (attivitaSuccessivaProssimaPicAster || dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster || picDiversaSuPortale) {
+                            const motivazione = attivitaSuccessivaProssimaPicAster ? "Attività successiva a pic Aster" : (dataPicCorrenteMinisteroDiversaEUnMeseDopoQuellaDiAster ? "Differenza di un mese tra pic Aster e Ministero" : "Differenza tra pic su portale e ministero");
+                            logger.info("L'attività " + key + " risulta precedente a quella in ministero, procediamo all'inserimento nell'array precedenti per la chiusura, motivazione " + motivazione);
+                            datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
+                            delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
+                            datiPicAperteMinistero.corrente = null;
                         }
                     }
+                }
+                // chiudo tutto quello aperto e precedente alla pic corrente
+                if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
+                    logger.info("L'attività " + key + " ha " + datiPicAperteMinistero.precedenti.length + " pic precedenti in ministero da chiudere, procediamo alla chiusura");
+                    for (let i = 0; i < datiPicAperteMinistero.precedenti.length; i++) {
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2.AA,
+                            datiPicAperteMinistero.precedenti[i]);
+                        // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
+                        let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
+                        dataConclusione = moment(dataConclusione, "YYYY-MM-DD").subtract(1, 'days').format("YYYY-MM-DD");
+                        out.T2.AA = this.aggiungiConclusioneTracciato2FromId(
+                            out.T2.AA,
+                            datiPicAperteMinistero.precedenti[i],
+                            dataConclusione);
 
+                        // PER TRIMESTRE
+                        let trimestre = moment(dataConclusione, "YYYY-MM-DD").quarter();
+                        this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
+                            out.T2[trimestre],
+                            datiPicAperteMinistero.precedenti[i]);
+                        out.T2[trimestre] = this.aggiungiConclusioneTracciato2FromId(
+                            out.T2[trimestre],
+                            datiPicAperteMinistero.precedenti[i],
+                            dataConclusione);
+
+                        data.mappaDatiMinistero.perCf[cf].chiuse[datiPicAperteMinistero.precedenti[i]] = data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                        delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.precedenti[i]];
+                    }
+                }
+                if (!skip) {
                     if ((!datiPicAperteMinistero || !datiPicAperteMinistero.corrente) &&
                         datiPicAster && (datiPicAster.corrente || datiPicAster.successive.length > 0 || datiPicAster.precedenti.length > 0)) {
                         // se non esiste una pic corrente, troviamola ed apriamola
@@ -1230,7 +1340,7 @@ export class FlussoSIAD {
                         let selectedId = datiPicAster.corrente || datiPicAster.successive[0] || datiPicAster.precedenti[0];
 
                         const t1ByAster = data.datiAster.T1[selectedId];
-                        let tempT1 = _.cloneDeep(defaultRigaT1);
+                        let tempT1 = tipoPic === "2" ? _.cloneDeep(defaultRigaT1Palliativa) : _.cloneDeep(defaultRigaT1);
                         tempT1 = this.copiaT1AsterSuRigaDefault(t1ByAster, tempT1, dataAttivita, {
                             tipoPic: tipoPic,
                             datiAssistitoTs: datiAssistitoTs
@@ -1593,6 +1703,12 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.GestioneCatetere = rigaSorgente.Eventi[0].Valutazione[0].GestioneCatetere[0];
         rigaDestinazione.Eventi.Valutazione.Trasfusioni = rigaSorgente.Eventi[0].Valutazione[0].Trasfusioni[0];
         rigaDestinazione.Eventi.Valutazione.ControlloDolore = rigaSorgente.Eventi[0].Valutazione[0].ControlloDolore[0];
+        if (tipoPic === "2") {
+            rigaDestinazione.Erogatore.AppartenenzaRete = rigaSorgente.Eventi[0].Valutazione[0].AppartenenzaRete ? rigaSorgente.Eventi[0].Valutazione[0].AppartenenzaRete[0] : 1;
+            rigaDestinazione.Erogatore.TipoRete = rigaSorgente.Eventi[0].Valutazione[0].TipoRete ? rigaSorgente.Eventi[0].Valutazione[0].TipoRete[0]: 1;
+            rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = rigaSorgente.Eventi[0].PresaInCarico[0]['ATTR'].PianificazioneCondivisa ?? 9;
+            rigaDestinazione.Eventi.Valutazione.CurePalliative = rigaSorgente.Eventi[0].Valutazione[0].CurePalliative ? rigaSorgente.Eventi[0].Valutazione[0].CurePalliative[0] : 1;
+        }
         rigaDestinazione.Eventi.Valutazione.TrattamentiRiab.Neurologico = rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].Neurologico[0];
         if (rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].hasOwnProperty("Motorio"))
             rigaDestinazione.Eventi.Valutazione.TrattamentiRiab.Motorio = rigaSorgente.Eventi[0].Valutazione[0].TrattamentiRiab[0].Motorio[0];
@@ -1602,15 +1718,11 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.AssistenzaADL = rigaSorgente.Eventi[0].Valutazione[0].AssistenzaADL[0];
         rigaDestinazione.Eventi.Valutazione.SupportoCareGiver = rigaSorgente.Eventi[0].Valutazione[0].SupportoCareGiver[0];
         if (tipoPic === "2") {
-            rigaDestinazione.Erogatore.AppartenenzaRete = 1;
-            rigaDestinazione.Erogatore.TipoRete = 1;
-            rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            //rigaDestinazione.Eventi.Valutazione.CurePalliative = 1;
-            /*            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
-                            SegnoSintomoClinico: datoObbligatorio,
-                            UtilStrumentoIdentBisognoCP: datoObbligatorio,
-                            UtilStrumentoValMultid: datoObbligatorio
-                        }*/
+            rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
+                SegnoSintomoClinico: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].SegnoSintomoClinico[0]: "V65.8",
+                UtilStrumentoIdentBisognoCP: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].UtilStrumentoIdentBisognoCP[0] : 1,
+                UtilStrumentoValMultid: rigaSorgente.Eventi[0].ValutazioneUCPDOM ?rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].UtilStrumentoValMultid[0] : 1
+            }
         }
         return rigaDestinazione;
     }
@@ -1722,21 +1834,9 @@ export class FlussoSIAD {
             tipoPic = null,
             dataAttivita = null,
         } = config;
-
-
-        let riga = _.cloneDeep(defaultRigaT1);
-        if (parseInt(tipoPic) === 2) {
-            // palliativa
-            riga.Erogatore.AppartenenzaRete = 1;
-            riga.Erogatore.TipoRete = 1;
-            riga.Eventi.PresaInCarico.$.PianificazioneCondivisa = 9;
-            //riga.Eventi.Valutazione.CurePalliative = 1;
-            /*            riga.Valutazione.ValutazioneUCPDOM = {
-                            SegnoSintomoClinico: datoObbligatorio,
-                            UtilStrumentoIdentBisognoCP: datoObbligatorio,
-                            UtilStrumentoValMultid: datoObbligatorio
-                        }*/
-        }
+        let riga = tipoPic === "2" ? _.cloneDeep(defaultRigaT1Palliativa) : _.cloneDeep(defaultRigaT1);
+        if (tipoPic === "2")
+            console.log("test");
         riga.Erogatore.CodiceASL = codASL;
         riga.Erogatore.CodiceRegione = codRegione;
         riga.Trasmissione.$ = {tipo: tipo};
@@ -1769,7 +1869,7 @@ export class FlussoSIAD {
                     riga.Assistito.DatiAnagrafici.Genere = datiAssistitoTs ? (datiAssistitoTs.sesso.toLowerCase() === "m" ? 1 : 2) : parseInt(dato);
                     break;
                 case tracciato1Maggioli[15]: //Data Presa In Carico
-                    riga.Eventi.PresaInCarico.$.data = dato ? moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD") : dataAttivita.format("YYYY-MM-DD");
+                    riga.Eventi.PresaInCarico.$.data = dataAttivita.format("YYYY-MM-DD");
                     break;
                 case tracciato1Maggioli[19]: //data valutazione iniziale
                     riga.Eventi.Valutazione.$.data = dato ? moment(dato, "DD/MM/YYYY").format("YYYY-MM-DD") : dataAttivita.format("YYYY-MM-DD");
