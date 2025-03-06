@@ -449,10 +449,10 @@ export class FlussoM {
     }
 
 
-    async elaboraFlussi() {
+    async elaboraFlussi(cartella) {
         let fileOut = {ripetuti: [], ok: {}, errori: [], warning: []}
         //1- ottieni tutti i file txt della cartella
-        let allFiles = utils.getAllFilesRecursive(this._settings.in_folder, this._settings.extensions);
+        let allFiles = utils.getAllFilesRecursive(cartella, this._settings.extensions);
         let numFiles = allFiles.length;
         var progress = 0;
         // 2- elaborazione
@@ -978,11 +978,40 @@ export class FlussoM {
         return {error: errors.length === 0, errors: errors};
     }
 
-    async eseguiElaborazioneCompletaFlussoMDaCartella(scriviSuCartella, controllaSuTs, generaStats, bloccaConWarning = true, bloccaConDuplicati = false, controllaDuplicatiAnno = true, generaReportHtml = true, generaReportExcel = true) {
-        let ris = await this.elaboraFlussi();
+
+    /**
+     * Esegue l'elaborazione completa del flusso M da una cartella.
+     *
+     * @param {Object} [config={}] - Oggetto di configurazione opzionale.
+     * @param {string} [config.cartella=this._settings.in_folder] - Path della cartella di input.
+     * @param {boolean} [config.scriviSuCartella=true] - Se scrivere i file elaborati su cartella.
+     * @param {boolean} [config.controllaSuTs=true] - Se eseguire il controllo rispetto ai dati TS.
+     * @param {boolean} [config.generaStats=true] - Se generare le statistiche.
+     * @param {boolean} [config.bloccaConWarning=false] - Se bloccare l'elaborazione in caso di warning.
+     * @param {boolean} [config.bloccaConDuplicati=false] - Se bloccare l'elaborazione in caso di duplicati.
+     * @param {boolean} [config.controllaDuplicatiAnno=true] - Se controllare duplicati per anno.
+     * @param {boolean} [config.generaReportHtml=false] - Se generare il report in formato HTML.
+     * @param {boolean} [config.generaReportExcel=true] - Se generare il report in formato Excel.
+     * @param {boolean} [config.visibile=false] - Se mostrare la finestra del browser.
+     * @returns {Promise} - Una promise che risolve il risultato dell'elaborazione.
+     */
+    async eseguiElaborazioneCompletaFlussoMDaCartella(config = {}) {
+        let {
+            cartella = this._settings.in_folder,
+            scriviSuCartella = true,
+            controllaSuTs = true,
+            generaStats = true,
+            bloccaConWarning = false,
+            bloccaConDuplicati = false,
+            controllaDuplicatiAnno = true,
+            generaReportHtml = false,
+            generaReportExcel = true,
+            visibile = false
+        } = config;
+        let ris = await this.elaboraFlussi(cartella);
         let duplicati
         if (ris.errori.length === 0)
-            duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(this._settings.in_folder) : this._settings.in_folder, false);
+            duplicati = await this.trovaRicetteDuplicate(controllaDuplicatiAnno ? path.dirname(cartella) : cartella, false);
         if (ris.errori.length === 0 && (duplicati.numDuplicati === 0 || !bloccaConDuplicati) && (ris.warning.length == 0 || !bloccaConWarning)) {
             let strutturePerControlloTS = {};
             for (let value of Object.values(ris.ok))
@@ -997,7 +1026,7 @@ export class FlussoM {
             let outTS = []
             if (controllaSuTs) {
                 const verificaTS = new DatiStruttureProgettoTs(this._settings)
-                outTS = await verificaTS.ottieniInformazioniStrutture(strutturePerControlloTS);
+                outTS = await verificaTS.ottieniInformazioniStrutture(strutturePerControlloTS, visibile);
             }
             if (scriviSuCartella)
                 await this.#scriviFlussoMSuCartella(ris.ok, outTS);
@@ -1359,7 +1388,8 @@ export class FlussoM {
         }
         console.log("ricette elaborate nel file nel file:" + i);
         return i;
-    };
+    }
+    ;
 
 
     #risolviProblemiPrestazioni(risultato) {
@@ -1389,7 +1419,13 @@ export class FlussoM {
 
                         }
                         if (!risultato[vals[2]][vals[1]][vals[0]].hasOwnProperty('classePrior'))
-                            risultato[vals[2]][vals[1]][vals[0]].classePrior = {"U": 0, "B": 0, "D": 0, "P": 0, "NO": 0}
+                            risultato[vals[2]][vals[1]][vals[0]].classePrior = {
+                                "U": 0,
+                                "B": 0,
+                                "D": 0,
+                                "P": 0,
+                                "NO": 0
+                            }
                         risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] = risultato[vals[2]][vals[1]][vals[0]].classePrior[classePrior] + ricD.quant;
                         //}
 

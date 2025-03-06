@@ -797,6 +797,14 @@ class Procedure {
         });
     }
 
+    /**
+     * Crea un file JSON contenente tutti gli assistiti estratti da file ZIP.
+     *
+     * @param {string} pathFiles - Percorso della cartella contenente i file ZIP.
+     * @param {string} [nomeFileFinale="assistiti.db"] - Nome del file JSON finale da creare.
+     * @returns {Promise<void>} - Promise che si risolve al completamento della creazione del file.
+     * @async
+     */
     static async creaFileJsonAssistitiCompletoDaFilesZip(pathFiles, nomeFileFinale = "assistiti.db") {
         let allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
         let out = {};

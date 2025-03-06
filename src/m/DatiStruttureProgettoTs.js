@@ -36,19 +36,33 @@ export class DatiStruttureProgettoTs {
         return url;
     }
 
-    async ottieniInformazioniStrutture(arrayStrutture) {
+    async ottieniInformazioniStrutture(arrayStrutture, visibile = false) {
         // arraystrutture: {mese, anno, codiceRegione, codiceAsl, codiceStruttura}
         const maxRetryOriginal = 5;
         let maxRetry = maxRetryOriginal;
         let out = {error: false, out: {}}
         let ris = {}
         let ts = new Ts(this._impostazioni.impostazioniServizi);
-        let page = await ts.getWorkingPage();
+        let page = await ts.getWorkingPage(visibile);
         if (page)
             for (let val of Object.values(arrayStrutture)) {
                 let {mese, anno, codiceRegione, codiceAsl, codiceStruttura} = val
                 maxRetry = maxRetryOriginal;
                 out = {error: false, out: {}}
+                // ottengo dati strutture
+                await page.goto("https://sistemats4.sanita.finanze.it/SimossLiqV2Web/", {waitUntil: 'networkidle2'});
+                await page.goto("https://sistemats4.sanita.finanze.it/SimossLiqV2Web/ricercaProspettiContabiliS.do?init=1&tipoMenu=S", {waitUntil: 'networkidle2'});
+                // selectStruttura is the select with name "struttura"
+                let strutturaValues = await page.evaluate(() => {
+                    let values = {};
+                    // get the element with queryselector 'select[name="struttura"]'
+                    let options = document.querySelector('select[name="struttura"]').options;
+                    for (let i = 2; i < options.length; i++) {
+                        const temp = options[i].text.split(" - ");
+                        values[temp[0].trim()] = temp[1].trim();
+                    }
+                    return values;
+                });
                 do {
                     //try {
                     let map = {
