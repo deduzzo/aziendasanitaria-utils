@@ -698,10 +698,10 @@ export class FlussoSIAD {
         };
         const parser = new xml2js.Parser({attrkey: "ATTR"});
 
-        let fileDatiTs = fs.existsSync(pathData + path.sep + nomeFileTs) ? await utils.leggiOggettoMP(pathData + path.sep + pathFileDatiTs) : null;
+        let fileDatiTs = fs.existsSync(pathData + path.sep + nomeFileTs) ? await utils.leggiOggettoMP(pathData + path.sep + nomeFileTs) : null;
 
-        let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
-        let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
+        let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
+        let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
 
         filesT1.forEach(file => {
             let xml_string = fs.readFileSync(file, "utf8");
