@@ -646,7 +646,7 @@ const dataFromUnixToString = (date) => {
 }
 
 const nowToUnixDate = () => {
-    return moment().unix();
+    return convertToUnixSeconds(moment().format('DD/MM/YYYY'));
 }
 
 
@@ -988,22 +988,6 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
 }
 
 /**
- * Converte un timestamp Unix (secondi) in una stringa "DD/MM/YYYY" (o altro formato),
- * forzando un certo fuso orario.
- *
- * @param {number} unixSeconds - Il timestamp Unix in secondi.
- * @param {string} timeZone - Il fuso orario di riferimento (ad es. 'Europe/Rome' o 'UTC').
- * @param {string} format - Il formato di output (default: 'DD/MM/YYYY').
- * @returns {string} Data formattata.
- */
-const convertFromUnixSeconds = (unixSeconds, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
-    // Crea un oggetto Moment a partire da unixSeconds (che sono secondi).
-    // Poi imposta il fuso orario desiderato.
-    // Infine formatta la data.
-    return moment.unix(unixSeconds).tz(timeZone).format(format);
-}
-
-/**
  * Converte automaticamente un timestamp (in secondi o millisecondi)
  * in una data formattata.
  *
@@ -1088,7 +1072,6 @@ export const utils = {
     waitForTimeout,
     convertToUnixSeconds,
     convertUnixTimestamp,
-    convertFromUnixSeconds,
     calcolaMD5daStringa,
     codiceFiscaleValido,
     riunisciExcelDaTag,
