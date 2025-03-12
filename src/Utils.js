@@ -994,9 +994,11 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
  * @param {number} unixTime - Il timestamp in secondi o millisecondi.
  * @param {string} timeZone - La time zone (default 'Europe/Rome').
  * @param {string} format - Il formato di output (default 'DD/MM/YYYY').
- * @returns {string} - La data formattata.
+ * @returns {string|null} - La data formattata.
  */
 const convertUnixTimestamp = (unixTime, timeZone = 'Europe/Rome', format = 'DD/MM/YYYY') => {
+    if (!unixTime || typeof unixTime !== 'number')
+        return null;
     // Se unixTime è minore di 1e10 (~ 31/12/2286 in secondi),
     // presumiamo siano secondi; altrimenti millisecondi.
     if (unixTime < 1e10) {
@@ -1076,5 +1078,5 @@ export const utils = {
     codiceFiscaleValido,
     riunisciExcelDaTag,
     getHtmlFromPdf,
-    removeEmptyValuesFromArray
+    removeEmptyValuesFromArray,
 }

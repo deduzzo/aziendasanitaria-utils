@@ -835,7 +835,7 @@ class Procedure {
     static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
         let {
             numParallelsJobs = 10,
-            batchSize = 100,
+            batchSize = 50,
         } = config;
         const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
@@ -896,7 +896,7 @@ class Procedure {
                 };
 
                 // Calcola la percentuale di completamento totale
-                const completati = Object.values(progress).filter(p => p.elaborato).length;
+                const completati = Object.values(progress).filter(p => p.elaborato && p.errori.totale === 0).length;
                 const totaleFile = allZipFilesInFolder.length;
                 const percentualeTotale = ((completati / totaleFile) * 100).toFixed(2);
                 console.log(`\nProcessando ${path.basename(zipFile)} - Completamento totale: ${percentualeTotale}% (${completati}/${totaleFile} file)`);
