@@ -850,7 +850,7 @@ class Procedure {
 
         const allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip")
             .sort()
-            .filter(zipFile => !progress[zipFile]?.elaborato);
+            .filter(zipFile => !progress[zipFile]?.elaborato || progress[zipFile]?.errori?.totale > 0);
 
         // Worker 1: Legge i file ZIP e popola il buffer
         const zipReaderWorker = async () => {
