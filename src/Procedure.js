@@ -830,9 +830,13 @@ class Procedure {
      * @returns {Promise<void>} - Promise che si risolve al completamento dell'aggiornamento.
      * @param {Object} [config={}] - Configurazione opzionale.
      * @param {number} [config.numParallelsJobs=10] - Numero di job paralleli.
+     * @param {number} [config.batchSize=100] - Dimensione del batch per l'aggiornamento.
      */
     static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
-        let {numParallelsJobs = 10} = config;
+        let {
+            numParallelsJobs = 10,
+            batchSize = 100,
+        } = config;
         const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
         // Buffer condiviso tra i worker
@@ -906,12 +910,11 @@ class Procedure {
                     const end = Math.min(start + numPerJob, assistiti.length);
                     const slice = assistiti.slice(start, end);
 
-                    jobs.push((async (jobId, assistitiSlice) => {
-                        const BATCH_SIZE = 1000;
+                    jobs.push((async (jobId, assistitiSlice) => {;
                         let processedCount = 0;
 
-                        for (let j = 0; j < assistitiSlice.length; j += BATCH_SIZE) {
-                            const batch = assistitiSlice.slice(j, j + BATCH_SIZE);
+                        for (let j = 0; j < assistitiSlice.length; j += batchSize) {
+                            const batch = assistitiSlice.slice(j, j + batchSize);
                             processedCount += batch.length;
 
                             const percentuale = ((processedCount / assistitiSlice.length) * 100).toFixed(2);
