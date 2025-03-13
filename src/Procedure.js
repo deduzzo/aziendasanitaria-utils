@@ -7,6 +7,7 @@ import knex from "knex";
 import fs from "fs";
 import sqlite3 from 'sqlite3';
 import {Nar} from "./narTsServices/Nar.js";
+import _ from "lodash";
 
 
 class Procedure {
@@ -835,7 +836,7 @@ class Procedure {
     static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
         let {
             numParallelsJobs = 10,
-            batchSize = 50,
+            batchSize = 100,
         } = config;
         const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
@@ -848,15 +849,16 @@ class Procedure {
             ? await Utils.leggiOggettoDaFileJSON(progressFile)
             : {};
 
-        const allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip")
-            .sort()
-            .filter(zipFile => !progress[zipFile]?.elaborato || progress[zipFile]?.errori?.totale > 0);
+        const allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
+        const allZipDaProcessare = _.cloneDeep(allZipFilesInFolder).sort()
+            .filter(zipFile => !progress[path.basename(zipFile)]?.elaborato || progress[path.basename(zipFile)]?.errori?.totale > 0);
 
         // Worker 1: Legge i file ZIP e popola il buffer
         const zipReaderWorker = async () => {
-            for (let zipFile of allZipFilesInFolder) {
-                if (!progress[zipFile]) {
-                    progress[zipFile] = {
+            for (let zipFile of allZipDaProcessare) {
+                const nomefile = path.basename(zipFile);
+                if (!progress[nomefile]) {
+                    progress[nomefile] = {
                         elaborato: false,
                         aggiornati: 0,
                         aggiunti: 0,
@@ -944,7 +946,8 @@ class Procedure {
 
                 await Promise.all(jobs);
 
-                progress[zipFile] = {
+                const nomeFile = path.basename(zipFile);
+                progress[nomeFile] = {
                     elaborato: true,
                     ...stats
                 };
