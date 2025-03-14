@@ -499,7 +499,7 @@ export class FlussoSIAD {
             }
             const ultimaErogazione = rigat2["Ultima Data Erogazione\n"];
 
-            if (typeof ultimaErogazione === "string" && ultimaErogazione.includes("--")) // nessuna erogazione, dovrebbe essere sospesa
+            if (typeof ultimaErogazione === "string" && (ultimaErogazione.includes("--") || ultimaErogazione.includes("N.D."))) // nessuna erogazione, dovrebbe essere sospesa
                 mappa.nessunaErogazione[id] = rigat2;
             else {
                 mappa.almenoUnaErogazione[id] = rigat2;

@@ -129,7 +129,7 @@ import { Client } from "@gradio/client";
         2024,
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024 pulito/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/",
-        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/situazione post anno/CHIAVI VALIDE MINISTERO 12-02-2025/",
+        "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/situazione post anno/CHIAVI VALIDE MINISTERO 14-03-2025/",
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_01_08.json",
     )
     //let data = await utils.getObjectFromFileExcel(nomeFile);
