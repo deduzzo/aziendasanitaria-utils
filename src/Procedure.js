@@ -836,7 +836,7 @@ class Procedure {
     static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
         let {
             numParallelsJobs = 10,
-            batchSize = 100,
+            batchSize = 50,
         } = config;
         const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
@@ -912,7 +912,7 @@ class Procedure {
                     const end = Math.min(start + numPerJob, assistiti.length);
                     const slice = assistiti.slice(start, end);
 
-                    jobs.push((async (jobId, assistitiSlice) => {;
+                    jobs.push((async (jobId, assistitiSlice) => {
                         let processedCount = 0;
 
                         for (let j = 0; j < assistitiSlice.length; j += batchSize) {
@@ -933,7 +933,7 @@ class Procedure {
                                         stats.errori.cf.push(result.assistito);
                                     }
                                     // MOSTRA CF e STATO
-                                    console.log(`${result.assistito} ${result.err?.code ?? (result.op === "CREATE" ? "CREATO" : "AGGIORNATO")}`);
+                                    console.log(`${result.assistito} ${result.err?.code ? (result.err.code + " " + result.err.msg) : (result.op === "CREATE" ? "CREATO" : "AGGIORNATO")}`);
                                 }
                             } else {
                                 stats.errori.totale += batch.length;
@@ -959,8 +959,8 @@ class Procedure {
                     - Aggiunti: ${stats.aggiunti}
                     - Non modificati: ${stats.nonModificati}
                     - Errori: ${stats.errori.totale}`);
-                        }
-                    };
+            }
+        };
 
         // Avvia entrambi i worker in parallelo
         await Promise.all([
@@ -1018,7 +1018,10 @@ class Procedure {
         }
         // scrivi chiusi su file excel
         await utils.scriviOggettoSuNuovoFileExcel(basePath + path.sep + "chiusi.xlsx", Object.values(out.chiusi));
-        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, {nonTrovati: out.nonTrovati, errori: out.errori});
+        await utils.scriviOggettoSuFile(basePath + path.sep + fileName, {
+            nonTrovati: out.nonTrovati,
+            errori: out.errori
+        });
         return out;
     }
 }
