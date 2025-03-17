@@ -836,7 +836,8 @@ class Procedure {
     static async aggiornaApiAnagraficaDaFilesZip(pathFiles, api, config = {}) {
         let {
             numParallelsJobs = 10,
-            batchSize = 50,
+            batchSize = 10,
+            retries = 10
         } = config;
         const progressFile = path.join(pathFiles, 'updateDbProgress.json');
 
@@ -852,6 +853,9 @@ class Procedure {
         const allZipFilesInFolder = utils.getAllFilesRecursive(pathFiles, ".zip");
         const allZipDaProcessare = _.cloneDeep(allZipFilesInFolder).sort()
             .filter(zipFile => !progress[path.basename(zipFile)]?.elaborato || progress[path.basename(zipFile)]?.errori?.totale > 0);
+        // if not exist, create a controlTimestamp.json file with the timestamp of yesterday in unix time
+        if (!fs.existsSync(pathFiles + path.sep + "controlTimestamp.json"))
+            await Utils.scriviOggettoSuFile(pathFiles + path.sep + "controlTimestamp.json", {timestamp: utils.convertToUnixSeconds(moment().subtract(1, "days").format("DD/MM/YYYY"))});
 
         // Worker 1: Legge i file ZIP e popola il buffer
         const zipReaderWorker = async () => {
@@ -920,7 +924,30 @@ class Procedure {
                             processedCount += batch.length;
 
                             const percentuale = ((processedCount / assistitiSlice.length) * 100).toFixed(2);
-                            const res = await api.nuoviAssistiti(batch);
+                            let res;
+                            let attempt = 0;
+                            let success = false;
+
+                            while (attempt < retries && !success) {
+                                try {
+                                    res = await api.nuoviAssistiti(batch);
+                                    success = true; // If no exception, we succeeded
+                                } catch (error) {
+                                    attempt++;
+                                    console.log(`Attempt ${attempt}/${retries} failed: ${error.message}`);
+
+                                    if (attempt >= retries) {
+                                        console.error(`Failed after ${retries} attempts`);
+                                        // Create a default response object to avoid errors in the following code
+                                        throw new Error(`Failed to update assistiti after ${retries} attempts. Original error: ${error.message}`);
+                                    } else {
+                                        // Wait with exponential backoff before retrying (1s, 2s, 4s...)
+                                        const delay = Math.pow(2, attempt) * 1000;
+                                        console.log(`Retrying in ${delay}ms...`);
+                                        await new Promise(resolve => setTimeout(resolve, delay));
+                                    }
+                                }
+                            }
 
                             if (Array.isArray(res.data)) {
                                 for (const result of res.data) {
