@@ -1002,7 +1002,7 @@ class Procedure {
         // converti valore in millisecondi
         let lastTimestamp = controlTimestamp.timestamp * 1000;
         let assistitiDaAggiornare = await api.assistitiNonAggiornatiDa(lastTimestamp);
-        const tot = assistitiDaAggiornare.count;
+        const tot = assistitiDaAggiornare ? assistitiDaAggiornare.count : 0;
         if (tot>0) {
             console.log("Da aggiornare:" + tot);
             assistitiDaAggiornare = assistitiDaAggiornare.assistiti;
