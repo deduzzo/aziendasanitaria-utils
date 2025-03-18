@@ -5,7 +5,8 @@ import {Assistito} from "../classi/Assistito.js";
 export default class APIHelper {
     static GET_TOKEN = "/api/v1/login/get-token";
     static NUOVI_ASSISTITI = "/api/v1/anagrafica/nuovi-assistiti";
-    static RICERCA_ASSISTITO = "/api/v1/anagrafica/ricerca-assistito";
+    static RICERCA_ASSISTITO = "/api/v1/anagrafica/ricerca";
+    static RICERCA_MASSIVA = "/api/v1/anagrafica/ricerca-massiva";
 
     #token = '';
     #tokenExpiration = null;
@@ -51,6 +52,49 @@ export default class APIHelper {
         } else {
             const res = await response.json();
             throw new Error("Errore nella richiesta del token: " + res.message);
+        }
+    }
+
+    async assistitiNonAggiornatiDa(ultimaData) {
+        if (!this.#token || !this.#tokenExpiration || moment().isAfter(this.#tokenExpiration))
+            await this.getToken();
+        const response = await fetch(`${this.baseurl}${APIHelper.RICERCA_MASSIVA}?beforeLastUpdate=${ultimaData}`, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${this.#token}`
+            },
+        });
+        if (response.status === 401) {
+            await this.getToken();
+            return await this.assistitiNonAggiornatiDa(ultimaData);
+        } else {
+            const res = await response.json();
+            return res.data;
+        }
+    }
+
+    async ricercaAssistito(params) {
+        if (!this.#token || !this.#tokenExpiration || moment().isAfter(this.#tokenExpiration))
+            await this.getToken();
+        const queryParams = new URLSearchParams();
+        for (const key in params) {
+            queryParams.append(key, params[key]);
+        }
+        const response = await fetch(`${this.baseurl}${APIHelper.RICERCA_ASSISTITO}?${queryParams}`, {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${this.#token}`
+            },
+            body: JSON.stringify(params)
+        });
+        if (response.status === 401) {
+            await this.getToken();
+            return await this.ricercaAssistito(params);
+        } else {
+            const res = await response.json();
+            return res.data;
         }
     }
 

@@ -994,6 +994,73 @@ class Procedure {
             zipReaderWorker(),
             dataProcessorWorker()
         ]);
+
+        // adesso mancano da aggiornare i disabili che non sono stati aggiornati
+
+        // leggi dal file l'ultima data
+        let controlTimestamp = await Utils.leggiOggettoDaFileJSON(pathFiles + path.sep + "controlTimestamp.json");
+        // converti valore in millisecondi
+        let lastTimestamp = controlTimestamp.timestamp * 1000;
+        let assistitiDaAggiornare = await api.assistitiNonAggiornatiDa(lastTimestamp);
+        const tot = assistitiDaAggiornare.count;
+        if (tot>0) {
+            console.log("Da aggiornare:" + tot);
+            assistitiDaAggiornare = assistitiDaAggiornare.assistiti;
+            let i = 0;
+            // Divide gli assistiti in batch per l'elaborazione parallela
+            const parallelJobs = numParallelsJobs;
+            const chunkSize = Math.ceil(assistitiDaAggiornare.length / parallelJobs);
+            const jobs = [];
+            let processedCount = 0;
+
+            for (let j = 0; j < parallelJobs; j++) {
+                const start = j * chunkSize;
+                const end = Math.min(start + chunkSize, assistitiDaAggiornare.length);
+                const assistitiChunk = assistitiDaAggiornare.slice(start, end);
+
+                jobs.push((async (jobId, assistitiSlice) => {
+                    for (let assistito of assistitiSlice) {
+                        let attempt = 0;
+                        let success = false;
+
+                        while (attempt < retries && !success) {
+                            try {
+                                await api.ricercaAssistito({codiceFiscale: assistito, forzaAggiornamentoTs: true});
+                                success = true;
+
+                                // Aggiorna il contatore totale in modo thread-safe
+                                processedCount++;
+                                const percentuale = ((processedCount / tot) * 100).toFixed(2);
+                                console.log(`Aggiornamento ${percentuale}% completato - ${assistito} OK [Job ${jobId}]`);
+
+                            } catch (error) {
+                                attempt++;
+                                console.log(`Job ${jobId} - Attempt ${attempt}/${retries} failed for ${assistito}: ${error.message}`);
+
+                                if (attempt >= retries) {
+                                    console.error(`Job ${jobId} - Failed after ${retries} attempts for ${assistito}`);
+                                    break; // Skip this assistito instead of failing the entire process
+                                } else {
+                                    const delay = Math.pow(2, attempt) * 1000;
+                                    console.log(`Job ${jobId} - Retrying in ${delay}ms...`);
+                                    await new Promise(resolve => setTimeout(resolve, delay));
+                                }
+                            }
+                        }
+
+                        if (!success) {
+                            console.error(`Job ${jobId} - Errore durante l'aggiornamento di ${assistito}`);
+                        }
+                    }
+                })(j + 1, assistitiChunk));
+            }
+
+            // Attendi il completamento di tutti i job paralleli
+            await Promise.all(jobs);
+        }
+        else
+            console.log("Nessun assistito da aggiornare");
+        console.log("Aggiornamento completato");
     }
 
 
