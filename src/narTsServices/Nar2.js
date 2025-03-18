@@ -124,7 +124,7 @@ export class Nar2 {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     }
                 });
-                if (datiIdAssistito.status === 200)
+                if (datiIdAssistito.status === 200 && datiIdAssistito.data.data.hasOwnProperty('nar2'))
                     datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
                 else datiAssistito = {ok: false, data: datiIdAssistito.data};
             }
