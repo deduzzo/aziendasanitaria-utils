@@ -987,18 +987,41 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
     return m.unix();
 }
 
-function getUnixRangeFromRangeEta(etaIniziale, etaFinale, inMillisecondi = true,timeZone = 'Europe/Rome') {
-    if (!etaIniziale && !etaFinale) {
-        return null;
+/**
+ * Calcola un intervallo di timestamp Unix a partire da un intervallo di età.
+ *
+ * Questa funzione prende un'età iniziale e finale e restituisce l'intervallo di timestamp Unix corrispondente.
+ * I timestamp rappresentano le date calcolate sottraendo le età dalla data corrente.
+ * Nota: A causa di come le età vengono sottratte dalla data corrente, unixStart corrisponde al limite di età maggiore
+ * (etaFinale) e unixEnd corrisponde al limite di età minore (etaIniziale).
+ *
+ * @param {number|null} etaIniziale - Il limite inferiore di età (es., 18 per gli adulti)
+ * @param {number|null} etaFinale - Il limite superiore di età (es., 65 per gli anziani)
+ * @param {boolean} [inMillisecondi=true] - Se true, restituisce i timestamp in millisecondi; se false, in secondi
+ * @param {string} [timeZone='Europe/Rome'] - Il fuso orario da utilizzare per i calcoli delle date
+ * @returns {{unixStart: null, unixEnd: null}} Restituisce un oggetto con proprietà unixStart e unixEnd, o null se l'intervallo non è valido
+ * @returns {number|null} returns.unixStart - Timestamp Unix per il limite di età maggiore (etaFinale)
+ * @returns {number|null} returns.unixEnd - Timestamp Unix per il limite di età minore (etaIniziale)
+ *
+ * @example
+ * // Ottieni intervallo per adulti (18-65 anni) in millisecondi
+ * const range = getUnixRangeFromRangeEta(18, 65);
+ * // range = {unixStart: [timestamp per 65enni], unixEnd: [timestamp per 18enni]}
+ *
+ * @example
+ * // Ottieni intervallo per bambini sotto i 18 anni in secondi Unix
+ * const range = getUnixRangeFromRangeEta(0, 18, false);
+ */
+function getUnixRangeFromRangeEta(etaIniziale, etaFinale, inMillisecondi = true, timeZone = 'Europe/Rome') {
+    let out = {};
+    if ((etaIniziale || etaFinale) && (!etaFinale || !etaIniziale) || (etaIniziale && etaFinale && etaFinale > etaIniziale)) {
+        let fn = inMillisecondi ? 'valueOf' : 'unix';
+        let dataInizio = etaIniziale ? moment().tz(timeZone).subtract(etaIniziale, 'years').startOf('day') : null;
+        let dataFine = etaFinale ? moment().tz(timeZone).subtract(etaFinale, 'years').endOf('day') : null;
+        out.unixStart = dataInizio ? dataInizio[fn]() : null;
+        out.unixEnd = dataFine ? dataFine[fn]() : null;
     }
-    let fn = inMillisecondi ? 'valueOf' : 'unix';
-    let out = {unixStart: null, unixEnd: null};
-     let dataInizio = etaIniziale ? moment().tz(timeZone).subtract(etaIniziale, 'years').startOf('day') : null;
-     let dataFine = etaFinale ? moment().tz(timeZone).subtract(etaFinale, 'years').endOf('day') : null;
-     out.unixStart = dataFine ? dataFine[fn]() : null;
-     out.unixEnd = dataInizio ? dataInizio[fn]() : null;
-
-    return {...out};
+    return Object.keys(out).length === 0 ? null :out;
 }
 
 /**
