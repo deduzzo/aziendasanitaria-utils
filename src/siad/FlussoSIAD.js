@@ -1212,7 +1212,7 @@ export class FlussoSIAD {
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            if (key.includes("CMPFLV28B53"))
+            if (key.includes("CLSNGL40B63F158O"))
                 console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
@@ -1249,6 +1249,12 @@ export class FlussoSIAD {
                 let skip = false;
                 if (pazienteGiaTrattatoMinistero)
                     erogato = true;
+
+                // sort datiPicAperteMinistero.precedenti
+                if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length >1)
+                    datiPicAperteMinistero.precedenti = datiPicAperteMinistero.precedenti.sort();
+                if (datiPicAperteMinistero && datiPicAperteMinistero.successive.length >1)
+                    datiPicAperteMinistero.successive = datiPicAperteMinistero.successive.sort();
 
                 if (dataUltimaErogazioneMinistero && dataUltimaErogazioneMinistero.isAfter(dataAttivita)) {
                     logger.info(key + ": Skip attività in quanto precedente all'ultima valida erogazione ministero, quindi sicuramente già inviata");
@@ -1311,8 +1317,11 @@ export class FlussoSIAD {
                             out.T2.AA,
                             datiPicAperteMinistero.precedenti[i]);
                         // la data conclusione se non si tratta dell'ultimo elemento è uguale alla data attività successiva
-                        let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? dataAttivita.format("YYYY-MM-DD") : datiPicAperteMinistero.precedenti[i + 1].substring(6, 16);
-                        dataConclusione = moment(dataConclusione, "YYYY-MM-DD").subtract(1, 'days').format("YYYY-MM-DD");
+                        let dataConclusione = i === datiPicAperteMinistero.precedenti.length - 1 ? [dataAttivita.format("YYYY-MM-DD")] : [datiPicAperteMinistero.precedenti[i + 1].substring(6, 16)];
+                        if (datiPicAperteMinistero.corrente)
+                            dataConclusione.push(datiPicAperteMinistero.corrente.substring(6, 16));
+                        dataConclusione = dataConclusione.sort();
+                        dataConclusione = moment(dataConclusione[0], "YYYY-MM-DD").subtract(1, 'days').format("YYYY-MM-DD");
                         out.T2.AA = this.aggiungiConclusioneTracciato2FromId(
                             out.T2.AA,
                             datiPicAperteMinistero.precedenti[i],
@@ -1417,8 +1426,8 @@ export class FlussoSIAD {
                             successive: []
                         };
 
-                    } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && datiPicAperteMinistero.successive.length === 0) {
-                        logger.info("L'attività " + key + " non ha pic successive ma solo una corrente. Possiamo procedere con l'invio");
+                    } else if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {// && datiPicAperteMinistero.successive.length === 0) {
+                        logger.info("L'attività " + key + " ha una pic corrente e nessuna precedente, possiamo procedere con l'invio");
                         this.generaNuovaRigaTracciato2FromIdRecSeNonEsiste(
                             out.T2.AA,
                             datiPicAperteMinistero.corrente);
@@ -1557,10 +1566,6 @@ export class FlussoSIAD {
                         else
                             out.cfDaAttenzionare[cf].push(err);
                     } else {
-                        const err = datiPicAperteMinistero && datiPicAperteMinistero.corrente ?
-                            (key + ": Paziente " + cf + " trattato con successo, inviato tracciato 1 e 2") :
-                            (key + ": Paziente " + cf + " già trattato, non era necessaria l'erogazione");
-                        logger.info(err);
                         if (datiPicAperteMinistero && datiPicAperteMinistero.corrente) {
                             ultimaPicAttivitaPerAssistito[cf] = datiPicAperteMinistero.corrente;
                             // aggiorna mapping

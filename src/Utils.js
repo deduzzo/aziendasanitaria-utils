@@ -987,6 +987,20 @@ function convertToUnixSeconds(dateStr, timeZone = 'Europe/Rome') {
     return m.unix();
 }
 
+function getUnixRangeFromRangeEta(etaIniziale, etaFinale, inMillisecondi = true,timeZone = 'Europe/Rome') {
+    if (!etaIniziale && !etaFinale) {
+        return null;
+    }
+    let fn = inMillisecondi ? 'valueOf' : 'unix';
+    let out = {unixStart: null, unixEnd: null};
+     let dataInizio = etaIniziale ? moment().tz(timeZone).subtract(etaIniziale, 'years').startOf('day') : null;
+     let dataFine = etaFinale ? moment().tz(timeZone).subtract(etaFinale, 'years').endOf('day') : null;
+     out.unixStart = dataFine ? dataFine[fn]() : null;
+     out.unixEnd = dataInizio ? dataInizio[fn]() : null;
+
+    return {...out};
+}
+
 /**
  * Converte automaticamente un timestamp (in secondi o millisecondi)
  * in una data formattata.
@@ -1079,4 +1093,5 @@ export const utils = {
     riunisciExcelDaTag,
     getHtmlFromPdf,
     removeEmptyValuesFromArray,
+    getUnixRangeFromRangeEta
 }
