@@ -57,6 +57,8 @@ class Stipendi {
                                 netto: null,
                             },
                             totPagine: null,
+                            paginaDa: null,
+                            paginaA: null,
                             pagamento: {
                                 iban: null,
                                 banca: null,
@@ -85,6 +87,8 @@ class Stipendi {
                     datiCedolino.rapporto.livello = rigaQualificaProfLivello[2];
                     datiCedolino.rapporto.qualificaString = righe[9].trim().toUpperCase();
                     datiCedolino.cedolino.totPagine = righe[righe.length - 2].split("/")[1];
+                    datiCedolino.paginaDa = indexPagina;
+                    datiCedolino.paginaA = indexPagina + parseInt(datiCedolino.cedolino.totPagine) - 1;
 
                     let paginaCorrente = 1;
                     do {
@@ -199,12 +203,16 @@ class Stipendi {
         for (let pdfFile of allPdfFiles) {
             const out = await Stipendi.getDataFromPdfCedoliniConvenzionati(pdfFile);
             if (out) {
+                let cedoliniSingoli = {};
                 let {cedolini, errors} = out;
+                for (let cedolino in cedolini)
+                    cedoliniSingoli[cedolino] = [cedolini[cedolino].paginaDa, cedolini[cedolino].paginaA];
                 allCedoliniData.cedolini = {...allCedoliniData.cedolini, ...cedolini};
                 allCedoliniData.errors = [...allCedoliniData.errors, ...errors];
                 if (errors.length > 0)
                     console.error("ERRORS: ", errors);
                 console.log("STATS: Cedolini caricati: ", Object.keys(allCedoliniData.cedolini).length, "Errori: ", allCedoliniData.errors.length);
+                await utils.estraiPagineDaPdf(pdfFile, cedoliniSingoli);
             }
         }
         await utils.scriviOggettoMP(allCedoliniData, pathCedolini + path.sep + "cedoliniData.db");

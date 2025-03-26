@@ -59,6 +59,7 @@
     "passport": "^0.7.0",
     "passport-spid": "^2.0.4",
     "path": "^0.12.7",
+    "pdf-lib": "^1.17.1",
     "pdf2html": "^3.1.0",
     "pnpm": "^9.15.9",
     "puppeteer": "^24.4.0",

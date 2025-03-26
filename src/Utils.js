@@ -1064,6 +1064,65 @@ const removeEmptyValuesFromArray = (array) => {
     });
 }
 
+/**
+ * Estrae pagine specifiche da un file PDF e le salva in nuovi file PDF separati
+ * @param {string} pathPdf - Percorso del file PDF sorgente
+ * @param {Object} mapPagine - Oggetto in formato {nomeFile: [paginaInizio, paginaFine]}
+ * @returns {Promise<Array<string>>} - Array con i percorsi dei file creati
+ */
+const estraiPagineDaPdf = async (pathPdf, mapPagine, cartellaPdf = "singoli") => {
+    // Richiede il modulo pdf-lib (potrebbe essere necessario installarlo con npm install pdf-lib)
+    const { PDFDocument } = await import('pdf-lib');
+    const dirname = path.dirname(pathPdf);
+
+    // Crea la sottocartella di destinazione
+    const outputDir = path.join(dirname, cartellaPdf);
+    await fs.ensureDir(outputDir);
+
+    // Leggi il PDF sorgente
+    const pdfBytes = await fs.readFile(pathPdf);
+    const pdfSorgente = await PDFDocument.load(pdfBytes);
+
+    const filesCreati = [];
+
+    // Per ogni entry nella mappa delle pagine
+    for (const [nomeFile, intervalloPagine] of Object.entries(mapPagine)) {
+        const [inizioPagina, finePagina] = intervalloPagine;
+
+        // Verifica che l'intervallo pagine sia valido
+        if (inizioPagina < 1 || finePagina > pdfSorgente.getPageCount() || inizioPagina > finePagina) {
+            console.error(`Intervallo pagine non valido per ${nomeFile}: [${inizioPagina}, ${finePagina}]`);
+            continue;
+        }
+
+        // Crea un nuovo documento PDF
+        const nuovoPdf = await PDFDocument.create();
+
+        // Copia le pagine dal documento sorgente (gli indici sono 0-based)
+        const pageIndices = [];
+        for (let i = inizioPagina - 1; i <= finePagina - 1; i++) {
+            pageIndices.push(i);
+        }
+
+        const pagineCopiate = await nuovoPdf.copyPages(pdfSorgente, pageIndices);
+
+        // Aggiungi le pagine al nuovo documento
+        pagineCopiate.forEach(pagina => {
+            nuovoPdf.addPage(pagina);
+        });
+
+        // Salva il nuovo PDF nella sottocartella specificata
+        const percorsoOutput = path.join(outputDir, `${nomeFile}.pdf`);
+        const nuovoPdfBytes = await nuovoPdf.save();
+        await fs.writeFile(percorsoOutput, nuovoPdfBytes);
+
+        filesCreati.push(percorsoOutput);
+        console.log(`File creato: ${percorsoOutput} con pagine da ${inizioPagina} a ${finePagina}`);
+    }
+
+    return filesCreati;
+};
+
 export const utils = {
     getAllFilesRecursive,
     creaCartellaSeNonEsisteSvuotalaSeEsiste,
@@ -1116,5 +1175,6 @@ export const utils = {
     riunisciExcelDaTag,
     getHtmlFromPdf,
     removeEmptyValuesFromArray,
-    getUnixRangeFromRangeEta
+    getUnixRangeFromRangeEta,
+    estraiPagineDaPdf
 }
