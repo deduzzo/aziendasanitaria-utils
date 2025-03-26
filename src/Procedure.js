@@ -299,14 +299,35 @@ class Procedure {
         await db.close();
     }
 
-    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, visibile = false, singoloCedolino = false, workingPath = null, conteggioVoci = ["CM0020"]) {
-        // da,a array mese anno
+    /**
+     * Analizza le mensilità di un medico in un determinato periodo.
+     *
+     * @param {string} matricola - Codice identificativo del medico.
+     * @param {Object} impostazioniServizi - Configurazione dei servizi necessari per l'analisi.
+     * @param {number} daMese - Mese di inizio dell'analisi (1-12).
+     * @param {number} daAnno - Anno di inizio dell'analisi.
+     * @param {number} aMese - Mese di fine dell'analisi (1-12).
+     * @param {number} aAnno - Anno di fine dell'analisi.
+     * @param {Object} [config={}] - Configurazione opzionale dell'analisi.
+     * @param {boolean} [config.visibile=false] - Se rendere visibile il processo di analisi.
+     * @param {boolean} [config.singoloCedolino=false] - Se analizzare un singolo cedolino.
+     * @param {string|null} [config.workingPath=null] - Path di lavoro per l'output dell'analisi.
+     * @param {string[]} [config.conteggioVoci=["CM0020"]] - Codici delle voci da conteggiare.
+     * @returns {Promise<void>}
+     */
+    static async analizzaMensilitaMedico(matricola, impostazioniServizi, daMese, daAnno, aMese, aAnno, config = {}) {
+        let {
+            visibile = false,
+            singoloCedolino = false,
+            workingPath = null,
+            conteggioVoci = ["CM0020"],
+        } = config;
 
         process.setMaxListeners(0);
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");
         let medici = new Medici(impostazioniServizi, visibile, workingPath, true, Nar.PAGHE);
-        workingPath = medici._nar.getWorkingPath()
+
         let outFinal = [];
         let outDettaglioMese = [];
         do {
@@ -343,11 +364,14 @@ class Procedure {
                     }
                 }
             }
-            outFinal.push(outData);
+            if (Object.values(outData) >0)
+                outFinal.push(outData);
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a) && !singoloCedolino);
-        await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
-        await utils.scriviOggettoSuNuovoFileExcel(workingPath + path.sep + "cedolino_dettaglio-report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", Object.values(outDettaglioMese));
+        if (Object.values(outFinal).length > 0)
+            await utils.scriviOggettoSuNuovoFileExcel(medici._nar.getWorkingPath() + path.sep + "cedolino_report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", outFinal);
+        if (outDettaglioMese.length > 0)
+            await utils.scriviOggettoSuNuovoFileExcel(medici._nar.getWorkingPath() + path.sep + "cedolino_dettaglio-report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", Object.values(outDettaglioMese));
     }
 
     static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
@@ -1003,7 +1027,7 @@ class Procedure {
         let lastTimestamp = controlTimestamp.timestamp * 1000;
         let assistitiDaAggiornare = await api.assistitiNonAggiornatiDa(lastTimestamp);
         const tot = assistitiDaAggiornare ? assistitiDaAggiornare.count : 0;
-        if (tot>0) {
+        if (tot > 0) {
             console.log("Da aggiornare:" + tot);
             assistitiDaAggiornare = assistitiDaAggiornare.assistiti;
             let i = 0;
@@ -1057,8 +1081,7 @@ class Procedure {
 
             // Attendi il completamento di tutti i job paralleli
             await Promise.all(jobs);
-        }
-        else
+        } else
             console.log("Nessun assistito da aggiornare");
         console.log("Aggiornamento completato");
     }

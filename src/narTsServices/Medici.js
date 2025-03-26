@@ -274,7 +274,8 @@ export class Medici {
             }
             if (!out.error) {
                 if (salvaReport) {
-                    let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2, "0") + "/" + annoPagamentoDa + " </div></h1><br />" + htmlOutput + "</body></html>";
+                    let title = mesePagamentoDa !== mesePagamentoA ? ("Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2, "0") + "/" + annoPagamentoDa + " - " + mesePagamentoA.toString().padStart(2, "0") + "/" + annoPagamentoA) : ("Report dettagliato mensilità " + mesePagamentoDa.toString().padStart(2, "0") + "/" + annoPagamentoDa);
+                    let htmlString = "<html><body><h1><div style='text-align: center; margin-top: 30px'>Matric." + matricola + " " + title + "</div></h1><br />" + htmlOutput + "</body></html>";
 
                     // Crea un file temporaneo
                     const tempFileDettaglio = path.join(os.tmpdir(), 'temp_dettaglio.html');
@@ -290,8 +291,9 @@ export class Medici {
 
                     // Salva la pagina come PDF
                     await page.goto(`file://${tempFileDettaglio}`);
+                    const fileName = mesePagamentoDa !== mesePagamentoA ? (matricola + "_" + annoPagamentoDa + "_" + mesePagamentoDa.toString().padStart(2, '0') + "-" + mesePagamentoA.toString().padStart(2, '0') + '_dettaglio.pdf') : (matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf');
                     await page.pdf({
-                        path: this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_dettaglio.pdf',
+                        path: this._nar.getWorkingPath() + path.sep + fileName,
                         format: 'A4'
                     });
                     //await page.pdf({path: this._workingPath + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_busta.pdf', format: 'A4'});
@@ -391,7 +393,8 @@ export class Medici {
                     await utils.waitForTimeout(300);
                     if (file) {
                         // copy the file to the working path with filename
-                        fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                        let filename = (mesePagamentoDa !== mesePagamentoA) ? (matricola + "_" + annoPagamentoDa + "_" + mesePagamentoDa.toString().padStart(2, '0') + "-" + mesePagamentoA.toString().padStart(2, '0') + '_cedolino.pdf') : (matricola + "_" + annoPagamentoDa + mesePagamentoDa.toString().padStart(2, '0') + '_cedolino.pdf');
+                        fs.copyFileSync(file, this._nar.getWorkingPath() + path.sep + filename);
                     } else
                         out.error = true;
                     //dispose the watcher
