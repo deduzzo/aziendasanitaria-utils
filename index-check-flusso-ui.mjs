@@ -59,9 +59,9 @@ async function main() {
             in-out property <int> tot-attivita: 0;*/
         const aggiornaStatistiche = async () => {
             allData = {tutti: {}, over65: {}, pic: {}, attivita: {}};
-            const allCfMinistero = Object.keys(ministeroData.mappaDatiMinistero.allCfTrattati);
+            const allCfMinistero = []; //Object.keys(ministeroData.mappaDatiMinistero.allCfTrattati);
             const allCfXml = Object.keys(xmlData.data);
-            const allAltri = Object.keys(altri);
+            const allAltri = []; //Object.keys(altri);
             const daTrovareSuTs = [];
             let allTotali = {};
             for (let cf of [...allCfMinistero, ...allCfXml, ...allAltri]) {
@@ -151,12 +151,15 @@ async function main() {
                 }
             }
             if (filesT1.length === 1 && filesT2.length === 1) {
-                let result = siad.creaMappaTracciati(filesT1[0], filesT2[0]);
+                let result = siad.creaMappaTracciati(filesT1[0], filesT2[0],ministeroData.fromTS.out);
+                // write report to file excel
+                await utils.scriviOggettoSuNuovoFileExcel(mainWindow.path_input + path.sep + "report_tot_" + result.stats.over65Trattati.toString() +".xlsx",Object.values(result.report));
                 xmlData = result;
                 currentCfList = Object.keys(xmlData.data).sort();
                 mainWindow.cf_list = currentCfList;
                 mainWindow.is_loading = false;  // Ripristina lo stato normale
                 await aggiornaStatistiche();
+                //await creaReportBasatoSuFlusso();
             } else {
                 showAlert("Errore: i file T1 e T2 non sono presenti o non sono univoci", "error");
                 mainWindow.is_loading = false;  // Ripristina lo stato se i file non sono validi

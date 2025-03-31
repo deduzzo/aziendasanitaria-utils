@@ -18,6 +18,16 @@ async function main() {
 
         mainWindow.combo_options = Object.values(searchTypeMapping).map(item => item.text);
 
+        const showAlert = (message, type = "info") => {
+            mainWindow.alert_type = type;  // Usa la notazione con bracket per accedere alla property con trattino
+            mainWindow.alert_message = message;
+            mainWindow.alert_visibile = true;
+        }
+
+        mainWindow.close_alert = () => {
+            mainWindow.alert_visibile = false;
+        };
+
         // Gestione del cambio tipo ricerca
         mainWindow.on_search_type_changed = (index) => {
             console.log(index);
@@ -63,6 +73,8 @@ async function main() {
                 if (data.ok) {
                     // Aggiorna l'interfaccia usando gli stessi nomi delle proprietà del file Slint
                     mainWindow.paziente_data = data.dati();
+                    if (!mainWindow.paziente_data.inVita)
+                        showAlert("Il paziente è deceduto", "warning");
                 }
             } catch (error) {
                 console.error("Errore durante la ricerca:", error);

@@ -1,4 +1,5 @@
 import { Button, VerticalBox, LineEdit, ScrollView, GroupBox, ComboBox } from "std-widgets.slint";
+import {Alert} from "alert.slint";
 
 struct PazienteData {
     inVita: bool,
@@ -34,7 +35,13 @@ component FieldLabel inherits Text {
 
 export component MainWindow {
     width: 1200px;
-    height: 800px;
+    height: 900px;
+
+    // ALERT
+    in-out property <string> alert-type: "info";
+    in-out property <bool> alert-visibile: false;
+    in-out property <string> alert-message: "";
+    callback close-alert();
 
     callback cf_input_changed(string);
     in-out property <[string]> combo_options: [];
@@ -279,8 +286,8 @@ export component MainWindow {
                     }
                 }
 
-                       // Dati CF
-                       GroupBox {
+               // Dati CF
+               GroupBox {
                     title: "Dati CF";
                     VerticalLayout {
                         padding: 10px;
@@ -440,6 +447,15 @@ export component MainWindow {
                     }
                 }
             }
+        }
+    }
+    Alert {
+        visible: root.alert-visibile;
+        modalvisibile: root.alert-visibile;
+        message: root.alert-message;
+        alert-type: root.alert-type;
+        close => {
+            root.close-alert();
         }
     }
 }

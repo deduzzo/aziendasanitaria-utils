@@ -602,10 +602,10 @@ export class FlussoSIAD {
         }
     }
 
-    creaMappaTracciati(fileT1, fileT2) {
+    creaMappaTracciati(fileT1, fileT2,datiAssistitiTs = null) {
         if (!fileT1 || !fileT2)
             throw new Error("File non validi");
-        let out = {data: {}, errors: [], duplicati: {}};
+        let out = {data: {}, errors: [], duplicati: {}, report: {}};
         let xml_string = fs.readFileSync(fileT1, "utf8");
         const parser = new xml2js.Parser({attrkey: "ATTR"});
         console.log("file:" + fileT1);
@@ -641,6 +641,9 @@ export class FlussoSIAD {
                         }
                     }
                 }
+                for(let cf in out.data)
+                    out.report[cf] = {cf: cf,ultimaAttivita: "", etaUltimaAttivita: "", numAttivita: 0};
+
             }
         });
         // t2
@@ -659,8 +662,19 @@ export class FlussoSIAD {
                         out.data[cfFromId] = {};
                     if (!out.data[cfFromId].hasOwnProperty(id))
                         out.data[cfFromId][id] = {xmlT1: null, prestazioni: {}, chiusure: []};
+                    let dataNascita = datiAssistitiTs.vivi.hasOwnProperty(cfFromId) ? datiAssistitiTs.vivi[cfFromId].dataNascita : (datiAssistitiTs.morti.hasOwnProperty(cfFromId) ? datiAssistitiTs.morti[cfFromId].dataNascita : null);
+                    if (!dataNascita)
+                        dataNascita = utils.estraiDataDiNascita(cfFromId);
                     for (let erogazione of erogazioni) {
                         const idErog = erogazione['ATTR']['data'] + "-" + erogazione['TipoOperatore'][0] + "-" + erogazione['Prestazioni'][0]['TipoPrestazione'][0];
+                        let dataAttivita = moment(erogazione['ATTR']['data'],'YYYY-MM-DD');
+                        const etaAssistitoAttivita = utils.ottieniEtaDaDataDiNascita(dataNascita,dataAttivita.format("DD/MM/YYYY"));
+                        if (out.report[cfFromId].ultimaAttivita === "" || moment(out.report[cfFromId].ultimaAttivita,"DD/MM/YYYY").isBefore(dataAttivita)) {
+                            out.report[cfFromId].ultimaAttivita = dataAttivita.format("DD/MM/YYYY");
+                            out.report[cfFromId].etaUltimaAttivita = etaAssistitoAttivita;
+                        }
+                            out.report[cfFromId].numAttivita++;
+                        //out.report[cfFromId].attivita.push(dataAttivita.format("DD/MM/YYYY"));
                         if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
                             out.errors.push({
                                 id: idErog,
@@ -675,6 +689,11 @@ export class FlussoSIAD {
                 }
             }
         });
+        out.stats = {over65Trattati: 0}
+        for(let cf in out.report) {
+            if (out.report[cf].numAttivita !== "" && out.report[cf].numAttivita > 0 && out.report[cf].etaUltimaAttivita >= 65)
+                out.stats.over65Trattati++;
+        }
         return out;
     }
 
@@ -1204,8 +1223,8 @@ export class FlussoSIAD {
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
         // PER CREARE IL FLUSSO PULITO
-        //data.mappaDatiMinistero.perCf = {};
-        //data.mappaDatiMinistero.allCfTrattati.perCf = {};
+        data.mappaDatiMinistero.perCf = {};
+        data.mappaDatiMinistero.allCfTrattati.perCf = {};
 
         for (let key of t2bykeyOrdered) {
 
