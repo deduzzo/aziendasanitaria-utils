@@ -13,8 +13,9 @@ async function main() {
             1: { value: "details", text: "Nome Cognome e Data" }
         };
 
-        const ui = await slint.loadFile("ui/main.slint");
+        const ui = await slint.loadFile("ui/main.slint",{ style: "cosmic" });
         const mainWindow = new ui.MainWindow();
+        // change mainWindow theme to cupertino-light
 
         mainWindow.combo_options = Object.values(searchTypeMapping).map(item => item.text);
 
