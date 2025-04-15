@@ -320,9 +320,10 @@ class Procedure {
             visibile = false,
             singoloCedolino = false,
             workingPath = null,
-            conteggioVoci = ["CM0020"],
+            conteggioVoci = [],
         } = config;
 
+        // assistiti = "CM0020"
         process.setMaxListeners(0);
         let da = moment(daAnno + "-" + daMese + "-01", "YYYY-MM-DD");
         let a = moment(aAnno + "-" + aMese + "-01", "YYYY-MM-DD");

@@ -320,6 +320,8 @@ export class Medici {
                 let page = await this._nar.getWorkingPage();
                 if (page) {
                     await page.goto("https://nar.regione.sicilia.it/NAR/mainMenu.do?ACTION=START&KEY=18200000069");
+                    // wait for selector input[name='tipoLetturaLayoutCodice']
+                    await page.waitForSelector("input[name='tipoLetturaLayoutCodice']");
                     await page.type("input[name='tipoLetturaLayoutCodice']", "TL_CEDOLINO_PREFINCATO");
                     await page.keyboard.press("Tab");
                     await utils.waitForTimeout(500);
@@ -347,19 +349,23 @@ export class Medici {
                     //press f4
                     await utils.waitForTimeout(500);
                     await page.keyboard.press("F4");
+                    await utils.waitForTimeout(500);
                     await page.waitForSelector("input[name='annoPagamentoA@Filter']");
-                    await page.focus("input[name='annoPagamentoA@Filter']");
-                    await page.keyboard.down('Control');
-                    await page.keyboard.press('A');
-                    await page.keyboard.up('Control');
-                    await page.keyboard.press('Backspace');
-                    await page.type("input[name='annoPagamentoA@Filter']", annoPagamentoA.toString());
-                    await page.focus("input[name='annoPagamentoDa@Filter']");
-                    await page.keyboard.down('Control');
-                    await page.keyboard.press('A');
-                    await page.keyboard.up('Control');
-                    await page.keyboard.press('Backspace');
-                    await page.type("input[name='annoPagamentoDa@Filter']", annoPagamentoDa.toString());
+                  await page.$eval(
+                        "input[name='annoPagamentoA@Filter']",
+                        (element, newValue) => {
+                            element.value = newValue;
+                        },
+                        annoPagamentoA.toString()
+                    );
+                    await page.$eval(
+                        "input[name='annoPagamentoDa@Filter']",
+                        (element, newValue) => {
+                            element.value = newValue;
+                        },
+                        annoPagamentoDa.toString()
+                    );
+
 
                     // set selectedIndex = mesePagamentoDa to select[name='mesePagamentoDa@Filter']
                     await page.select("select[name='mesePagamentoDa@Filter']", mesePagamentoDa.toString());
