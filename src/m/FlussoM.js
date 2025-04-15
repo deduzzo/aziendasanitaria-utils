@@ -1543,7 +1543,27 @@ export class FlussoM {
     }
 
 
-    async generaReportPrestazioni(anno, struttureFilter = [], fileUnico = false) {
+    /**
+     * Genera un report delle prestazioni per un determinato anno.
+     *
+     * @param {number} anno - L'anno per cui generare il report.
+     * @param {Object} [config={}] - Configurazione opzionale per la generazione del report.
+     * @param {Array<string>} [config.struttureFilter=[]] - Elenco di codici struttura da includere nel report. Se vuoto, include tutte le strutture.
+     * @param {boolean} [config.fileUnico=false] - Se `true`, genera un unico file Excel per tutte le strutture.
+     *                                             Se `false`, genera un file separato per ogni struttura.
+     * @returns {Promise<void>} - Una promise che risolve quando il report è stato generato.
+     *
+     * @throws {Error} - Lancia un'eccezione se si verificano errori durante la generazione del report.
+     *
+     * @example
+     * // Genera un report per l'anno 2023 includendo solo alcune strutture
+     * await generaReportPrestazioni(2023, { struttureFilter: ['1234', '5678'], fileUnico: true });
+     */
+    async generaReportPrestazioni(anno, config = {}) {
+        let {
+            struttureFilter = [],
+            fileUnico = false
+        } = config;
         let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let tabs = {
             1: '1 - Gennaio',
