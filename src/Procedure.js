@@ -481,7 +481,7 @@ class Procedure {
         let {
             nomeFilePdfAssistiti = "assistiti.pdf",
             cartellaElaborazione = "elaborazioni",
-            numParallelsJobs = 10,
+            numParallelsJobs = 5,
             visibile = false,
             workingPath = await Utils.getWorkingPath()
         } = config;

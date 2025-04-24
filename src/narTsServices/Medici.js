@@ -103,7 +103,7 @@ export class Medici {
     }*/
 
 
-    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, singoloCedolino,annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
+    async analizzaBustaPaga(matricola, mesePagamentoDa, annoPagamentoDa, mesePagamentoA, annoPagamentoA, singoloCedolino, annoRiferimentoDa = null, meseRiferimentoDa = null, annoRiferimentoA = null, meseRiferimentoA = null, salvaReport = true) {
         let out = null;
         let retry = this._retry;
         do {
@@ -351,7 +351,7 @@ export class Medici {
                     await page.keyboard.press("F4");
                     await utils.waitForTimeout(500);
                     await page.waitForSelector("input[name='annoPagamentoA@Filter']");
-                  await page.$eval(
+                    await page.$eval(
                         "input[name='annoPagamentoA@Filter']",
                         (element, newValue) => {
                             element.value = newValue;
@@ -1019,21 +1019,23 @@ export class Medici {
         let lista = {perDistretto: {}, nonTrovati: []};
         if (!dataQuote)
             dataQuote = moment().format("YYYY-MM-DD");
-        let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".json");
+        let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".zip");
         let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistitiNar.json");
         for (let medico in codToCfDistrettoMap) {
             let fileMedico = allfiles.filter(file => file.includes(medico));
             if (fileMedico.length === 0)
                 lista.nonTrovati.push(codToCfDistrettoMap[medico]);
             else if (fileMedico.length === 1) {
-                let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
+                //let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
+                let fileData = await utils.decomprimiELeggiFile(fileMedico[0])
+                if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
+                    lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {
+                        recuperi: [],
+                        problemi: [],
+                        anagrafica: [],
+                        medici: {}
+                    };
                 for (let deceduto of Object.values(fileData.deceduti)) {
-                    if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
-                        lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {
-                            recuperi: [],
-                            problemi: [],
-                            medici: {}
-                        };
                     let allAssistitiMedicoMap = {};
                     for (let assistito of Object.values(allAssistiti[medico].assistiti)) {
                         allAssistitiMedicoMap[assistito.codiceFiscale] = assistito;
@@ -1048,13 +1050,13 @@ export class Medici {
                     deceduto.nomeCognomeMedico = codToCfDistrettoMap[medico].nome_cognome;
                     deceduto.distretto = distretti[codToCfDistrettoMap[medico].distretto];
                     deceduto.ambito = codToCfDistrettoMap[medico].ambito;
-                    if (deceduto.hasOwnProperty('data_decesso') && deceduto.data_decesso !== "" && deceduto.data_decesso !== null && moment(deceduto.data_decesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
-                        let dataInizio = moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.data_decesso;
+                    if (deceduto.hasOwnProperty('dataDecesso') && deceduto.dataDecesso !== "" && deceduto.dataDecesso !== null && moment(deceduto.dataDecesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
+                        let dataInizio = moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.dataDecesso;
                         // se la data di decesso è superiore al 1 gennaio 1900
                         numQuote = utils.calcolaMesiDifferenza(dataInizio, dataQuote);
                         deceduto.numQuoteDaRecuperare = numQuote;
                         deceduto.note = "";
-                        if (moment(deceduto.data_decesso, "DD/MM/YYYY").isBefore(dataScelta)) {
+                        if (moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta)) {
                             deceduto.note = "Data decesso precedente alla data di scelta";
                             lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
                         } else {
@@ -1077,6 +1079,9 @@ export class Medici {
                         lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
                     }
                 }
+                // add ambito and distretto to ...Object.values(Object.values(fileData.vivi)
+                lista.perDistretto[codToCfDistrettoMap[medico].distretto].anagrafica.push(...Object.values(Object.values(fileData.vivi)));
+
             }
         }
         let out = {};
@@ -1099,9 +1104,14 @@ export class Medici {
             fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep);
         if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep))
             fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep);
+        if (!fs.existsSync(pathData + path.sep + "anagrafica"))
+            fs.mkdirSync(pathData + path.sep + "anagrafica");
+        let allAnagraficaTuttiDistretti = [];
         for (let distretto in out) {
             await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_recuperi.xlsx", out[distretto].recuperi);
             await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_problemi.xlsx", out[distretto].problemi);
+            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "anagrafica" + path.sep + distretto + "_anagrafica.xlsx", lista.perDistretto[distretto].anagrafica);
+            allAnagraficaTuttiDistretti.push(...lista.perDistretto[distretto].anagrafica);
         }
         await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_recuperi.xlsx", global.recuperi);
         await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_problemi.xlsx", global.problemi);
