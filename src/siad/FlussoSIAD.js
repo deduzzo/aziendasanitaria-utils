@@ -669,20 +669,24 @@ export class FlussoSIAD {
                         const idErog = erogazione['ATTR']['data'] + "-" + erogazione['TipoOperatore'][0] + "-" + erogazione['Prestazioni'][0]['TipoPrestazione'][0];
                         let dataAttivita = moment(erogazione['ATTR']['data'],'YYYY-MM-DD');
                         const etaAssistitoAttivita = utils.ottieniEtaDaDataDiNascita(dataNascita,dataAttivita.format("DD/MM/YYYY"));
-                        if (out.report[cfFromId].ultimaAttivita === "" || moment(out.report[cfFromId].ultimaAttivita,"DD/MM/YYYY").isBefore(dataAttivita)) {
-                            out.report[cfFromId].ultimaAttivita = dataAttivita.format("DD/MM/YYYY");
-                            out.report[cfFromId].etaUltimaAttivita = etaAssistitoAttivita;
-                        }
+                        if (!out.report[cfFromId])
+                            console.log("cfFromId: " + cfFromId + "non presente");
+                        else {
+                            if (out.report[cfFromId].ultimaAttivita === "" || moment(out.report[cfFromId].ultimaAttivita, "DD/MM/YYYY").isBefore(dataAttivita)) {
+                                out.report[cfFromId].ultimaAttivita = dataAttivita.format("DD/MM/YYYY");
+                                out.report[cfFromId].etaUltimaAttivita = etaAssistitoAttivita;
+                            }
                             out.report[cfFromId].numAttivita++;
-                        //out.report[cfFromId].attivita.push(dataAttivita.format("DD/MM/YYYY"));
-                        if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
-                            out.errors.push({
-                                id: idErog,
-                                file: fileT2,
-                                msg: "Erogazione duplicata"
-                            });
-                        } else
-                            out.data[cfFromId][id].prestazioni[idErog] = erogazione;
+                            //out.report[cfFromId].attivita.push(dataAttivita.format("DD/MM/YYYY"));
+                            if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
+                                out.errors.push({
+                                    id: idErog,
+                                    file: fileT2,
+                                    msg: "Erogazione duplicata"
+                                });
+                            } else
+                                out.data[cfFromId][id].prestazioni[idErog] = erogazione;
+                        }
                     }
                     if (conclusione)
                         out.data[cfFromId][id].chiusure.push(conclusione);
@@ -1013,7 +1017,33 @@ export class FlussoSIAD {
         return outData;
     }
 
-    async generaFlussoRettificaScarti(anno, pathFilePIC, pathFileDitte, pathChiaviValideMinistero, portalePicFileJson = null, folderOut = null, regione = 190, asp = 205, dbFile = "siad.mpdb") {
+
+    /**
+     * Asynchronously generates a flow for rectifying discards based on various input data sources such as file paths for PIC, companies, and ministry validation keys.
+     *
+     * @param {number} anno - The year for which the flow needs to be generated.
+     * @param {string} pathFilePIC - The file path to the PIC files.
+     * @param {string} pathFileDitte - The file path to the company files to process.
+     * @param {string} pathChiaviValideMinistero - The file path to the ministry validation keys.
+     * @param {object} [config={}] - Optional configuration object.
+     * @param {string|null} [config.portalePicFileJson=null] - Optional JSON file path for additional PIC data.
+     * @param {string|null} [config.folderOut=null] - Optional path for the output directory.
+     * @param {number} [config.regione=190] - Regional code for processing.
+     * @param {number} [config.asp=205] - ASP code for processing.
+     * @param {string} [config.dbFile="siad.mpdb"] - Local database file name used during processing.
+     * @param {boolean} [config.chiudiPicAnnoPrecedente=true] - Flag indicating whether to close the previous year PIC process.
+     *
+     * @return {Promise<object>} A promise that resolves to an object containing the output data, structured logs, and mapping results or any errors encountered during processing.
+     */
+    async generaFlussoRettificaScarti(anno, pathFilePIC, pathFileDitte, pathChiaviValideMinistero, config = {}) {
+        let {
+            portalePicFileJson = null,
+            folderOut = null,
+            regione = 190,
+            asp = 205,
+            dbFile = "siad.mpdb",
+            chiudiPicAnnoPrecedente = true,
+        } = config;
         let out = {
             errors: {
                 globals: [],
@@ -1223,16 +1253,16 @@ export class FlussoSIAD {
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
         // PER CREARE IL FLUSSO PULITO
-        data.mappaDatiMinistero.perCf = {};
-        data.mappaDatiMinistero.allCfTrattati.perCf = {};
+        //data.mappaDatiMinistero.perCf = {};
+        //data.mappaDatiMinistero.allCfTrattati.perCf = {};
 
         for (let key of t2bykeyOrdered) {
 
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            if (key.includes("CLSNGL40B63F158O"))
-                console.log("check");
+            //if (key.includes("CLSNGL40B63F158O"))
+            //    console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno)) {
@@ -1327,6 +1357,14 @@ export class FlussoSIAD {
                             datiPicAperteMinistero.corrente = null;
                         }
                     }
+                }
+                //in caso di decisione di chiudere pic aperte negli anni precedenti
+                if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && config.chiudiPicAnnoPrecedente &&
+                    (moment(datiPicAperteMinistero.corrente.substring(6,16), "YYYY-MM-DD").year() !== anno)) {
+                    datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
+                    delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
+                    datiPicAperteMinistero.corrente = null;
+
                 }
                 // chiudo tutto quello aperto e precedente alla pic corrente
                 if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 0) {
@@ -2603,7 +2641,44 @@ export class FlussoSIAD {
     }
 
 
-    async sviluppaDatiADPDitta(pathCartellaIn, pathChiaviValideAttive, anno, numTrimestre, nomeFileTracciatoADP = "datiADP.xlsx", nomeFileMorti = "morti.xlsx", nomeFileVivi = "vivi.xlsx", nomeFileSostituti = "sostituti.xlsx", nomeColonnaCf = "cf", nomeColonnaAccessiAdp = "numAccessi", nomecolonnaCfSostituto = "cfOk", colonnaIdRecordChiaviValide = "Id Record", colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico", colonnaConclusioneChiaviValide = "Data Conclusione") {
+
+    /**
+     * Processes and develops ADP data for a company by reading and analyzing various input Excel files
+     * containing data for active keys, living individuals, deceased individuals, and replacements.
+     * The method generates structured output data for further consumption.
+     *
+     * @param {string} pathCartellaIn - The input folder path containing the necessary data files.
+     * @param {string} pathChiaviValideAttive - The file path for the active valid keys data.
+     * @param {number} anno - The year to process data for.
+     * @param {number} numTrimestre - The quarter (1-4) to process data for.
+     * @param {Object} [config={}] - Configuration options for file names and column identifiers.
+     * @param {string} [config.nomeFileTracciatoADP='datiADP.xlsx'] - The file name for the ADP data track.
+     * @param {string} [config.nomeFileMorti='morti.xlsx'] - The file name for the deceased individuals' data.
+     * @param {string} [config.nomeFileVivi='vivi.xlsx'] - The file name for the living individuals' data.
+     * @param {string} [config.nomeFileSostituti='sostituti.xlsx'] - The file name for the replacements data.
+     * @param {string} [config.nomeColonnaCf='cf'] - The column name representing the tax code in associated files.
+     * @param {string} [config.nomeColonnaAccessiAdp='numAccessi'] - The column name representing ADP access counts.
+     * @param {string} [config.nomecolonnaCfSostituto='cfOk'] - The column name representing valid replacement tax codes.
+     * @param {string} [config.colonnaIdRecordChiaviValide='Id Record'] - The column name representing the ID of active keys.
+     * @param {string} [config.colonnaDataPresaInCaricoChiaviValide='Data  Presa In Carico'] - The column name for active keys' start date.
+     * @param {string} [config.colonnaConclusioneChiaviValide='Data Conclusione'] - The column name for active keys' conclusion date.
+     * @return {Promise<void>} Returns a promise that resolves once the data processing is completed.
+     */
+    async sviluppaDatiADPDitta(pathCartellaIn, pathChiaviValideAttive, anno, numTrimestre, config = {}) {
+        let {
+            nomeFileTracciatoADP = "datiADP.xlsx",
+            nomeFileMorti = "morti.xlsx",
+            nomeFileVivi = "vivi.xlsx",
+            nomeFileSostituti = "sostituti.xlsx",
+            nomeColonnaCf = "cf",
+            nomeColonnaAccessiAdp = "numAccessi",
+            nomecolonnaCfSostituto = "cfOk",
+            colonnaIdRecordChiaviValide = "Id Record",
+            colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico",
+            colonnaConclusioneChiaviValide = "Data Conclusione",
+            ignoraSeNessunSostituto = true,
+        } = config;
+
         // put int dataInizio the first day of the correct trimester
         let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY").add(numTrimestre * 3 - 3, 'months');
         let dataFine = moment("31/12/" + anno, "DD/MM/YYYY");
@@ -2646,7 +2721,8 @@ export class FlussoSIAD {
                 if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ", "")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
-                else
+
+
                     allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
             }
         }
@@ -2661,93 +2737,95 @@ export class FlussoSIAD {
             if (rigaAdp[1] !== "") {
                 let chiaviValideAperte = Object.keys(allChiaviValideAperte).filter(key => key.includes(rigaAdp[0]));
 
-                let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ", "")) ? allSostituti[rigaAdp[0].trim().replaceAll(" ", "")] : rigaAdp[0].trim().replaceAll(" ", "");
-                let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataDecesso'], "DD/MM/YYYY") : null;
-                let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['dataNascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataNascita'], "DD/MM/YYYY") : null);
-                let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
-                if (dataDecesso !== null)
-                    console.log(dataDecesso.format("DD/MM/YYYY"))
+                if ((allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ", "")) && allSostituti[rigaAdp[0].trim().replaceAll(" ", "")].trim().replaceAll(" ", "") !== "") || Object.keys(allSostituti) === 0 || !allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ", ""))) {
+                    let codFiscale = allSostituti.hasOwnProperty(rigaAdp[0].trim().replaceAll(" ", "")) ? allSostituti[rigaAdp[0].trim().replaceAll(" ", "")] : rigaAdp[0].trim().replaceAll(" ", "");
+                    let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataDecesso'], "DD/MM/YYYY") : null;
+                    let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['dataNascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataNascita'], "DD/MM/YYYY") : null);
+                    let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
+                    if (dataDecesso !== null)
+                        console.log(dataDecesso.format("DD/MM/YYYY"))
 
-                if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
-                    allCf[codFiscale] = rigaAdp[1];
-                    let rigaT1 = {};
-                    rigaT1[0] = ""; // tipo
-                    rigaT1[1] = codFiscale;
-                    rigaT1[2] = ""; // validita ci
-                    rigaT1[3] = ""; // tipologia ci
-                    rigaT1[4] = annoNascita;
-                    rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
-                    rigaT1[6] = codFiscale.substring(11, 12) !== "Z" ? "IT" : "XX";
-                    rigaT1[7] = "9";
-                    rigaT1[8] = "190";
-                    rigaT1[9] = "205";
-                    rigaT1[10] = "083048";
-                    rigaT1[11] = "1";
-                    rigaT1[12] = "2";
-                    rigaT1[13] = "190";
-                    rigaT1[14] = "205";
-                    rigaT1[15] = dataInizio.format("DD/MM/YYYY");
-                    rigaT1[16] = ""; // id record
-                    rigaT1[17] = "2";
-                    rigaT1[18] = "1";
-                    rigaT1[19] = dataInizio.format("DD/MM/YYYY");
-                    rigaT1[20] = "1";
-                    rigaT1[21] = "1";
-                    rigaT1[22] = "3";
-                    rigaT1[23] = "9";
-                    rigaT1[24] = "2";
-                    rigaT1[25] = "9";
-                    rigaT1[26] = "2";
-                    rigaT1[27] = "2";
-                    rigaT1[28] = "2";
-                    rigaT1[29] = "2";
-                    rigaT1[30] = "2";
-                    rigaT1[31] = "2";
-                    rigaT1[32] = "2";
-                    rigaT1[33] = "2";
-                    rigaT1[34] = "2";
-                    rigaT1[35] = "2";
-                    rigaT1[36] = "2";
-                    rigaT1[37] = "2";
-                    rigaT1[38] = "2";
-                    rigaT1[39] = "2";
-                    rigaT1[40] = "2";
-                    rigaT1[41] = "2";
-                    rigaT1[42] = "2";
-                    rigaT1[43] = "2";
-                    rigaT1[44] = "2";
-                    rigaT1[45] = "2";
-                    rigaT1[46] = "2";
-                    rigaT1[47] = "3";
-                    rigaT1[48] = "3";
-                    rigaT1[49] = "3";
-                    rigaT1[50] = "3";
-                    rigaT1[51] = "3";
-                    rigaT1[52] = "3";
-                    rigaT1[53] = "3";
-                    let patologie = [
-                        "401", // ipertensione
-                        "413", // angina
-                        "427", // tachicardia
-                        "715", // artrosi
-                        "518", // insufficenza respiratoria
-                        "493", // asma
-                        "715", // osteortrite
-                        "707", // ulcera da decubito
-                    ]
-                    // put random value of patologie
-                    rigaT1[54] = patologie[Math.floor(Math.random() * patologie.length)];
-                    rigaT1[55] = "";
-                    if (chiaviValideAperte.length > 0) {
-                        rigaT1[56] = chiaviValideAperte[0];
-                        rigaT1[57] = moment(allChiaviValideAperte[chiaviValideAperte[0]][colonnaDataPresaInCaricoChiaviValide]).format("DD/MM/YYYY");
-                    } else {
-                        rigaT1[56] = "";
-                        rigaT1[57] = "";
+                    if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
+                        allCf[codFiscale] = rigaAdp[1];
+                        let rigaT1 = {};
+                        rigaT1[0] = ""; // tipo
+                        rigaT1[1] = codFiscale;
+                        rigaT1[2] = ""; // validita ci
+                        rigaT1[3] = ""; // tipologia ci
+                        rigaT1[4] = annoNascita;
+                        rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
+                        rigaT1[6] = codFiscale.substring(11, 12) !== "Z" ? "IT" : "XX";
+                        rigaT1[7] = "9";
+                        rigaT1[8] = "190";
+                        rigaT1[9] = "205";
+                        rigaT1[10] = "083048";
+                        rigaT1[11] = "1";
+                        rigaT1[12] = "2";
+                        rigaT1[13] = "190";
+                        rigaT1[14] = "205";
+                        rigaT1[15] = dataInizio.format("DD/MM/YYYY");
+                        rigaT1[16] = ""; // id record
+                        rigaT1[17] = "2";
+                        rigaT1[18] = "1";
+                        rigaT1[19] = dataInizio.format("DD/MM/YYYY");
+                        rigaT1[20] = "1";
+                        rigaT1[21] = "1";
+                        rigaT1[22] = "3";
+                        rigaT1[23] = "9";
+                        rigaT1[24] = "2";
+                        rigaT1[25] = "9";
+                        rigaT1[26] = "2";
+                        rigaT1[27] = "2";
+                        rigaT1[28] = "2";
+                        rigaT1[29] = "2";
+                        rigaT1[30] = "2";
+                        rigaT1[31] = "2";
+                        rigaT1[32] = "2";
+                        rigaT1[33] = "2";
+                        rigaT1[34] = "2";
+                        rigaT1[35] = "2";
+                        rigaT1[36] = "2";
+                        rigaT1[37] = "2";
+                        rigaT1[38] = "2";
+                        rigaT1[39] = "2";
+                        rigaT1[40] = "2";
+                        rigaT1[41] = "2";
+                        rigaT1[42] = "2";
+                        rigaT1[43] = "2";
+                        rigaT1[44] = "2";
+                        rigaT1[45] = "2";
+                        rigaT1[46] = "2";
+                        rigaT1[47] = "3";
+                        rigaT1[48] = "3";
+                        rigaT1[49] = "3";
+                        rigaT1[50] = "3";
+                        rigaT1[51] = "3";
+                        rigaT1[52] = "3";
+                        rigaT1[53] = "3";
+                        let patologie = [
+                            "401", // ipertensione
+                            "413", // angina
+                            "427", // tachicardia
+                            "715", // artrosi
+                            "518", // insufficenza respiratoria
+                            "493", // asma
+                            "715", // osteortrite
+                            "707", // ulcera da decubito
+                        ]
+                        // put random value of patologie
+                        rigaT1[54] = patologie[Math.floor(Math.random() * patologie.length)];
+                        rigaT1[55] = "";
+                        if (chiaviValideAperte.length > 0) {
+                            rigaT1[56] = chiaviValideAperte[0];
+                            rigaT1[57] = moment(allChiaviValideAperte[chiaviValideAperte[0]][colonnaDataPresaInCaricoChiaviValide]).format("DD/MM/YYYY");
+                        } else {
+                            rigaT1[56] = "";
+                            rigaT1[57] = "";
+                        }
+                        rigaT1[58] = allMorti.hasOwnProperty(codFiscale) ? allMorti[codFiscale]['dataDecesso'] : "";
+
+                        outTracciato1.push(rigaT1);
                     }
-                    rigaT1[58] = allMorti.hasOwnProperty(codFiscale) ? allMorti[codFiscale]['dataDecesso'] : "";
-
-                    outTracciato1.push(rigaT1);
                 }
             }
         }

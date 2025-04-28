@@ -125,12 +125,22 @@ import { Client } from "@gradio/client";
     //await flussoSiad.statisticheFLS21('/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/anno ignorando maggioli pseudo completo (da correggere per eventuali scarti)',
     //process.exit(0);
     //Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2023-2024 pulito\\",
-    let res = await flussoSiad.generaFlussoRettificaScarti(
+/*    let res = await flussoSiad.generaFlussoRettificaScarti(
         2025,
         "G:\\Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\INVII\\2022-2023-2024-2025 pulito\\",
         "G:\\Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\IMPORTAZIONE MAGGIOLI\\DATI INVIATI A DITTA\\2025\\",
         'G:\\Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\CHIAVI VALIDE DEL MINISTERO\\2025-04\\',
         "G:\\Drive condivisi\\LAVORO ASP\\flussi\\SIAD\\JSON PORTALE PIC\\adi_pic_2025_01_08.json",
+    )*/
+    let res = await flussoSiad.generaFlussoRettificaScarti(
+        2025,
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024-2025 pulito',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025/',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-04/',
+        {
+            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_04_24.json',
+            chiudiPicAnnoPrecedente: true
+        },
     )
     //let data = await utils.getObjectFromFileExcel(nomeFile);
     //let out = flussoSiad.generaRigheTracciato1ConDefault("/Users/deduzzo/Desktop/outFolder", data, nomeFile, 2024, 3);
