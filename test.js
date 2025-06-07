@@ -139,7 +139,8 @@ import { Client } from "@gradio/client";
         '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-04/',
         {
             portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_04_24.json',
-            chiudiPicAnnoPrecedente: true
+            chiudiPicAnnoPrecedente: true,
+            folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2025/1trim/1invio'
         },
     )
     //let data = await utils.getObjectFromFileExcel(nomeFile);

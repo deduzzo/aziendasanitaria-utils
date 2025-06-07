@@ -602,10 +602,10 @@ export class FlussoSIAD {
         }
     }
 
-    creaMappaTracciati(fileT1, fileT2,datiAssistitiTs = null) {
+    creaMappaTracciati(fileT1, fileT2, datiAssistitiTs = null) {
         if (!fileT1 || !fileT2)
             throw new Error("File non validi");
-        let out = {data: {}, errors: [], duplicati: {}, report: {}};
+        let out = {data: {}, errors: [], duplicati: {}, report: {}, perTrimestre: {1: {}, 2: {}, 3: {}, 4: {}}};
         let xml_string = fs.readFileSync(fileT1, "utf8");
         const parser = new xml2js.Parser({attrkey: "ATTR"});
         console.log("file:" + fileT1);
@@ -641,8 +641,8 @@ export class FlussoSIAD {
                         }
                     }
                 }
-                for(let cf in out.data)
-                    out.report[cf] = {cf: cf,ultimaAttivita: "", etaUltimaAttivita: "", numAttivita: 0};
+                for (let cf in out.data)
+                    out.report[cf] = {cf: cf, ultimaAttivita: "",  primaAttivita: "", etaUltimaAttivita: "", numAttivita: 0, trimestre: ""};
 
             }
         });
@@ -667,26 +667,40 @@ export class FlussoSIAD {
                         dataNascita = utils.estraiDataDiNascita(cfFromId);
                     for (let erogazione of erogazioni) {
                         const idErog = erogazione['ATTR']['data'] + "-" + erogazione['TipoOperatore'][0] + "-" + erogazione['Prestazioni'][0]['TipoPrestazione'][0];
-                        let dataAttivita = moment(erogazione['ATTR']['data'],'YYYY-MM-DD');
-                        const etaAssistitoAttivita = utils.ottieniEtaDaDataDiNascita(dataNascita,dataAttivita.format("DD/MM/YYYY"));
-                        if (!out.report[cfFromId])
-                            console.log("cfFromId: " + cfFromId + "non presente");
-                        else {
-                            if (out.report[cfFromId].ultimaAttivita === "" || moment(out.report[cfFromId].ultimaAttivita, "DD/MM/YYYY").isBefore(dataAttivita)) {
-                                out.report[cfFromId].ultimaAttivita = dataAttivita.format("DD/MM/YYYY");
-                                out.report[cfFromId].etaUltimaAttivita = etaAssistitoAttivita;
-                            }
-                            out.report[cfFromId].numAttivita++;
-                            //out.report[cfFromId].attivita.push(dataAttivita.format("DD/MM/YYYY"));
-                            if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
-                                out.errors.push({
-                                    id: idErog,
-                                    file: fileT2,
-                                    msg: "Erogazione duplicata"
-                                });
-                            } else
-                                out.data[cfFromId][id].prestazioni[idErog] = erogazione;
+                        let dataAttivita = moment(erogazione['ATTR']['data'], 'YYYY-MM-DD');
+                        const trimestreDataAttivita = dataAttivita.month() < 3 ? 1 : (dataAttivita.month() < 6 ? 2 : (dataAttivita.month() < 9 ? 3 : 4));
+                        const etaAssistitoAttivita = utils.ottieniEtaDaDataDiNascita(dataNascita, dataAttivita.format("DD/MM/YYYY"));
+                        if (!out.report[cfFromId]) {
+                            //console.log("cfFromId: " + cfFromId + "non presente");
+                            out.report[cfFromId] = {
+                                cf: cfFromId,
+                                ultimaAttivita: "",
+                                primaAttivita: "",
+                                etaUltimaAttivita: "",
+                                numAttivita: 0,
+                                trimestre: ""
+                            };
                         }
+
+                        if (out.report[cfFromId].ultimaAttivita === "" || moment(out.report[cfFromId].ultimaAttivita, "DD/MM/YYYY").isBefore(dataAttivita)) {
+                            out.report[cfFromId].ultimaAttivita = dataAttivita.format("DD/MM/YYYY");
+                            out.report[cfFromId].etaUltimaAttivita = etaAssistitoAttivita;
+                        }
+                        if (out.report[cfFromId].trimestre === "")
+                            out.report[cfFromId].trimestre = trimestreDataAttivita;
+                        if (out.report[cfFromId].primaAttivita === "")
+                            out.report[cfFromId].primaAttivita = dataAttivita.format("DD/MM/YYYY");
+                        out.report[cfFromId].numAttivita++;
+                        //out.report[cfFromId].attivita.push(dataAttivita.format("DD/MM/YYYY"));
+                        if (out.data[cfFromId][id].prestazioni.hasOwnProperty(idErog)) {
+                            out.errors.push({
+                                id: idErog,
+                                file: fileT2,
+                                msg: "Erogazione duplicata"
+                            });
+                        } else
+                            out.data[cfFromId][id].prestazioni[idErog] = erogazione;
+
                     }
                     if (conclusione)
                         out.data[cfFromId][id].chiusure.push(conclusione);
@@ -694,7 +708,7 @@ export class FlussoSIAD {
             }
         });
         out.stats = {over65Trattati: 0}
-        for(let cf in out.report) {
+        for (let cf in out.report) {
             if (out.report[cf].numAttivita !== "" && out.report[cf].numAttivita > 0 && out.report[cf].etaUltimaAttivita >= 65)
                 out.stats.over65Trattati++;
         }
@@ -1261,8 +1275,8 @@ export class FlussoSIAD {
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            //if (key.includes("CLSNGL40B63F158O"))
-            //    console.log("check");
+            if (key.includes("CLSNGL40B63F158O"))
+                console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
             if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno)) {
@@ -1300,9 +1314,9 @@ export class FlussoSIAD {
                     erogato = true;
 
                 // sort datiPicAperteMinistero.precedenti
-                if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length >1)
+                if (datiPicAperteMinistero && datiPicAperteMinistero.precedenti.length > 1)
                     datiPicAperteMinistero.precedenti = datiPicAperteMinistero.precedenti.sort();
-                if (datiPicAperteMinistero && datiPicAperteMinistero.successive.length >1)
+                if (datiPicAperteMinistero && datiPicAperteMinistero.successive.length > 1)
                     datiPicAperteMinistero.successive = datiPicAperteMinistero.successive.sort();
 
                 if (dataUltimaErogazioneMinistero && dataUltimaErogazioneMinistero.isAfter(dataAttivita)) {
@@ -1360,7 +1374,7 @@ export class FlussoSIAD {
                 }
                 //in caso di decisione di chiudere pic aperte negli anni precedenti
                 if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && config.chiudiPicAnnoPrecedente &&
-                    (moment(datiPicAperteMinistero.corrente.substring(6,16), "YYYY-MM-DD").year() !== anno)) {
+                    (moment(datiPicAperteMinistero.corrente.substring(6, 16), "YYYY-MM-DD").year() !== anno)) {
                     datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
                     delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];
                     datiPicAperteMinistero.corrente = null;
@@ -1767,7 +1781,7 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.ControlloDolore = rigaSorgente.Eventi[0].Valutazione[0].ControlloDolore[0];
         if (tipoPic === "2") {
             rigaDestinazione.Erogatore.AppartenenzaRete = rigaSorgente.Eventi[0].Valutazione[0].AppartenenzaRete ? rigaSorgente.Eventi[0].Valutazione[0].AppartenenzaRete[0] : 1;
-            rigaDestinazione.Erogatore.TipoRete = rigaSorgente.Eventi[0].Valutazione[0].TipoRete ? rigaSorgente.Eventi[0].Valutazione[0].TipoRete[0]: 1;
+            rigaDestinazione.Erogatore.TipoRete = rigaSorgente.Eventi[0].Valutazione[0].TipoRete ? rigaSorgente.Eventi[0].Valutazione[0].TipoRete[0] : 1;
             rigaDestinazione.Eventi.PresaInCarico.$.PianificazioneCondivisa = rigaSorgente.Eventi[0].PresaInCarico[0]['ATTR'].PianificazioneCondivisa ?? 9;
             rigaDestinazione.Eventi.Valutazione.CurePalliative = rigaSorgente.Eventi[0].Valutazione[0].CurePalliative ? rigaSorgente.Eventi[0].Valutazione[0].CurePalliative[0] : 1;
         }
@@ -1781,9 +1795,9 @@ export class FlussoSIAD {
         rigaDestinazione.Eventi.Valutazione.SupportoCareGiver = rigaSorgente.Eventi[0].Valutazione[0].SupportoCareGiver[0];
         if (tipoPic === "2") {
             rigaDestinazione.Eventi.Valutazione.ValutazioneUCPDOM = {
-                SegnoSintomoClinico: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].SegnoSintomoClinico[0]: "V65.8",
+                SegnoSintomoClinico: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].SegnoSintomoClinico[0] : "V65.8",
                 UtilStrumentoIdentBisognoCP: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].UtilStrumentoIdentBisognoCP[0] : 1,
-                UtilStrumentoValMultid: rigaSorgente.Eventi[0].ValutazioneUCPDOM ?rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].UtilStrumentoValMultid[0] : 1
+                UtilStrumentoValMultid: rigaSorgente.Eventi[0].ValutazioneUCPDOM ? rigaSorgente.Eventi[0].ValutazioneUCPDOM[0].UtilStrumentoValMultid[0] : 1
             }
         }
         return rigaDestinazione;
@@ -2641,7 +2655,6 @@ export class FlussoSIAD {
     }
 
 
-
     /**
      * Processes and develops ADP data for a company by reading and analyzing various input Excel files
      * containing data for active keys, living individuals, deceased individuals, and replacements.
@@ -2723,7 +2736,7 @@ export class FlussoSIAD {
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
 
 
-                    allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
+                allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
             }
         }
         let outTracciato1 = [];
