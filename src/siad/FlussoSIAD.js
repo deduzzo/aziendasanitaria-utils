@@ -1046,6 +1046,8 @@ export class FlussoSIAD {
      * @param {number} [config.asp=205] - ASP code for processing.
      * @param {string} [config.dbFile="siad.mpdb"] - Local database file name used during processing.
      * @param {boolean} [config.chiudiPicAnnoPrecedente=true] - Flag indicating whether to close the previous year PIC process.
+     * @param {array} [config.trimestriDaConsiderare=[1, 2, 3, 4]] - Optional array of quarters to consider for processing.
+     * @param {string|null} [config.nonConsiderareSeSuccessivoA=null] - Optional date to skip processing if the data is newer than this date.
      *
      * @return {Promise<object>} A promise that resolves to an object containing the output data, structured logs, and mapping results or any errors encountered during processing.
      */
@@ -1057,6 +1059,8 @@ export class FlussoSIAD {
             asp = 205,
             dbFile = "siad.mpdb",
             chiudiPicAnnoPrecedente = true,
+            trimestriDaConsiderare = [1, 2, 3, 4],
+            nonConsiderareSeSuccessivoA = null
         } = config;
         let out = {
             errors: {
@@ -1264,6 +1268,7 @@ export class FlussoSIAD {
         const ultimaPicAttivitaPerAssistito = {};
         let mappingIdPicAperte = {};
         let cfNonValidiTs = {};
+        let dataDaNonConsiderare = config.nonConsiderareSeSuccessivoA ? moment(config.nonConsiderareSeSuccessivoA, "DD/MM/YYYY") : null;
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
         // PER CREARE IL FLUSSO PULITO
@@ -1275,16 +1280,16 @@ export class FlussoSIAD {
             console.log(key);
             //x debug
             //key = "2024-02-23_GTTBTL30E67A638U_1_1";
-            if (key.includes("CLSNGL40B63F158O"))
-                console.log("check");
+            //if (key.includes("CLSNGL40B63F158O"))
+            //    console.log("check");
             const splitted = key.split("_");
             const dataAttivita = moment(splitted[0], "YYYY-MM-DD");
-            if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno)) {
+            const trimestreAttivita = dataAttivita.quarter();
+            if (dataAttivita.isSameOrAfter(inizioAnno) && dataAttivita.isSameOrBefore(fineAnno) && trimestriDaConsiderare.includes(trimestreAttivita) && (!dataDaNonConsiderare || dataAttivita.isSameOrBefore(dataDaNonConsiderare))) {
                 const cf = splitted[1];
                 const datiAssistitoTs = data.fromTS.out ? (data.fromTS.out.vivi.hasOwnProperty(cf) ? data.fromTS.out.vivi[cf] : (data.fromTS.out.morti.hasOwnProperty(cf) ? data.fromTS.out.morti[cf] : null)) : null;
                 const tipoOperatore = parseInt(splitted[2]).toString();
                 const tipoPrestazione = parseInt(splitted[3]).toString();
-                const trimestreAttivita = dataAttivita.quarter();
 
                 if (!mappingIdPicAperte.hasOwnProperty(cf))
                     mappingIdPicAperte[cf] = {ultimaMinistero: null, ministeroPortaleMap: {}};
@@ -1657,7 +1662,7 @@ export class FlussoSIAD {
                     }
                 }
             } else
-                logger.info("Skip attività " + key + " in quanto precedente al trimestre in corso");
+                logger.info("Skip attività " + key + " in quanto precedente al trimestre in corso oppure di un trimestre da non considerare");
             /*            if (++index % 400000 === 0)
                             break;*/
         }
@@ -2734,8 +2739,6 @@ export class FlussoSIAD {
                 if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ", "")) || !sostituto.hasOwnProperty(nomeColonnaCf))
                     // error and break
                     throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
-
-
                 allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
             }
         }
@@ -2867,6 +2870,7 @@ export class FlussoSIAD {
         for (let k = 0; k < 3; k++)
             for (let codFiscale of allCfKey) {
                 for (let i = 0; i < allCf[codFiscale]; i++) {
+                    console.log(codFiscale)
                     let giorniFrequenza = giorniBase[allCf[codFiscale]];
                     let giorno = giorniFrequenza[i] + Math.floor(Math.random() * 4) + 1;
                     giorno = giorno < 10 ? "0" + giorno : giorno;
