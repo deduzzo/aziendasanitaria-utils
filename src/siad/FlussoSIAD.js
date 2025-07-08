@@ -985,6 +985,58 @@ export class FlussoSIAD {
 
     }
 
+    async generaT2ChiusureDaFileAA2Ministero(pathFile, anniPic, dataChiusura, config = {}) {
+        let {
+            regione = "190",
+            asp = "205",
+            anno = moment().format("YYYY"),
+            trimestre = "1"
+        } = config;
+        let allRowsFile = await utils.getObjectFromFileExcel(pathFile);
+        let allRows = [];
+        let rigaTipo = {
+            Trasmissione: {$: {"tipo": "I"}},
+            Erogatore: {CodiceRegione: null, CodiceASL: null},
+            Eventi: {
+                PresaInCarico: {
+                    $: {"data": null},
+                    Id_Rec: null
+                },
+                Conclusione: {
+                    $: {"dataAD": null},
+                    Motivazione: 99
+                }
+            }
+        };
+        for (let row of allRowsFile) {
+            // deep copy
+            if (anniPic.includes(row['Anno Presa In Carico']) && (!row['Data Conclusione'] || row['Data Conclusione'] === '')) {
+                let tempRiga = _.cloneDeep(rigaTipo);
+                tempRiga.Eventi.PresaInCarico.$.data = moment(row['Data  Presa In Carico']).format("YYYY-MM-DD");
+                tempRiga.Eventi.PresaInCarico.Id_Rec = row['Id Record'];
+                tempRiga.Erogatore.CodiceRegione = row['Codice Regione'];
+                tempRiga.Erogatore.CodiceASL = row['Codice ASL'];
+                tempRiga.Eventi.Conclusione.$.dataAD = moment(dataChiusura, "DD/MM/YYYY").format("YYYY-MM-DD");
+                allRows.push(tempRiga);
+            }
+        }
+        const Assistenza = [...allRows];
+        const t = {
+            ["FlsAssDom_2"]: {
+                $: {
+                    "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+                    "xmlns:xsd": "http://www.w3.org/2001/XMLSchema",
+                    "xmlns": "http://flussi.mds.it/flsassdom_2"
+                },
+                Assistenza
+            }
+        };
+        const builder = new xml2js.Builder();
+        const xml = builder.buildObject(t);
+        let parentFolder = path.dirname(pathFile);
+        fs.writeFileSync(parentFolder + path.sep + regione.toString() + asp.toString() + "_000_" + anno.toString() + "_" + trimestre.toString() + "_SIAD_AP2" + "_al_" + moment().date() + "_" + ((moment().month() + 1) < 10 ? ("0" + (moment().month() + 1)) : (moment().month() + 1)) + "_" + moment().year() + ".xml", xml);
+    }
+
     generaRigheChiusura(rows, outData) {
         if (rows.length === 1) {
             let dato = rows[0];

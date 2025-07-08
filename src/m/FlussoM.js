@@ -238,8 +238,8 @@ export class FlussoM {
         for (let key of Object.keys(out.date)) {
             if (chiaveDataPrevalente === null)
                 chiaveDataPrevalente = key;
-            out.date[key].percentuale = ((out.date[key].count * 100) / totale).toFixed(2);
-            if (out.date[key].percentuale > out.date[chiaveDataPrevalente].percentuale)
+            out.date[key].percentuale = parseFloat(((out.date[key].count * 100) / totale).toFixed(2));
+            if (out.date[key].percentuale > parseFloat(out.date[chiaveDataPrevalente].percentuale))
                 chiaveDataPrevalente = key;
         }
         return {
