@@ -9,7 +9,8 @@ class Stipendi {
         let cedolini = {};
         let errors = [];
         const splitPagina = "ASP MESSINA - ";
-        const startPagina = "\n                                               ASP MESSINA -"
+        const startPagina = "\n                                               ASP MESSINA -";
+
         const datiCed = await utils.getHtmlFromPdf(pathPdf);
         try {
             if (datiCed.includes(splitPagina) && datiCed.startsWith(startPagina)) {

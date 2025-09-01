@@ -704,10 +704,18 @@ const decodeHtml = (html) => {
     return txt.value;
 }
 
+/**
+ * Asynchronously reads a JSON file and parses its content into a JavaScript object.
+ *
+ * @param {string} filename - The full path to the JSON file.
+ * @returns {Promise<Object|Array>} A promise that resolves to the parsed JavaScript object or array contained in the JSON file.
+ * @throws {Error} Throws an error if the file cannot be read or parsed.
+ */
 const leggiOggettoDaFileJSON = async (filename) => {
     let out = [];
     let data = await fs.readFileSync(filename, 'utf8');
     out = JSON.parse(data);
+
     return out;
 }
 

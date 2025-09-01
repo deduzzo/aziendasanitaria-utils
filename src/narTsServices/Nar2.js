@@ -10,9 +10,14 @@ export class Nar2 {
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
     static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable";
+    static GET_MEDICI_BYAMBITO = "https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable";
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
+
+    static CAT_PEDIATRI = "90000000046";
+    static CAT_MMG = "90000000045";
+    static TIPO_AMBITI = "90000000038";
 
     static #token = null;
     static #tokenPromise = null; // Variabile per la chiamata in corso
@@ -97,6 +102,77 @@ export class Nar2 {
             // Resetta la promise in modo che le future chiamate possano eventualmente rinnovare il token
             Nar2.#tokenPromise = null;
         }
+    }
+
+    async getAmbitiAssistito(){
+        //https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomTable?situazione_assistenziale=4&azienda=83&tipo=90000000038
+        // 83 =  "pz_com_res": "83",
+    }
+
+    async getMediciByAmbito(ambito, config = {}) {
+        //ambito=140&tipo_medico=P&dataScelta=2025-09-01&pagination=yes&sit_ass=4&cat_citt=90000000052&check_fisrt_doctor=true&idPaziente=1128286
+        const {
+        } = config;
+        let getParams = {
+            "azienda": "ME",
+        }
+    }
+
+
+    /**
+     * Retrieves medical data from the specified NAR2 endpoint.
+     *
+     * @param {Object} config - Configuration options for the method.
+     * @param {boolean} [config.soloAttivi=true] - Flag indicating whether to include only active records.
+     * @param {boolean} [config.nascondiCessati=true] - Flag indicating whether to exclude ceased records.
+     * @param {boolean} [config.normalizza=true] - Flag indicating whether to normalize the data.
+     * @param {boolean} [config.soloPediatri=false] - Flag indicating whether to include only pediatric records.
+     * @param {boolean} [config.soloMMG=false] - Flag indicating whether to include only MMG records.
+     *
+     * @return {Promise<Object>} A promise that resolves to the retrieved medical data.
+     */
+    async getMediciFromNar2(config = {}) {
+       const {
+            soloAttivi = true,
+            nascondiCessati = true,
+           normalizza = true,
+           soloPediatri = false,
+           soloMMG = false
+        } = config;
+       let getParams = {
+           "azienda": "ME",
+           "tipo_rapporto": "Medico_base",
+           "aspOaltro": "ASP",
+           "asl": "281",
+           "esitoFineConvenzione": "rapporto_disattivato",
+           "intervalloVariazione": "modificato",
+           "rapportoAttivo": "true"
+       };
+        if ((soloMMG || soloPediatri) && !(soloMMG === true && soloPediatri === true)) {
+            if (soloMMG === true)
+                getParams.categoriaMedico = Nar2.CAT_MMG;
+            else
+                getParams.categoriaMedico = Nar2.CAT_PEDIATRI;
+        }
+        const data = await this.#getDataFromUrlIdOrParams(Nar2.GET_MEDICI, {
+            getParams
+        });
+        if (data && data.ok === true) {
+            // Normalizza l'array risultante (può essere direttamente data.data o incapsulato)
+            let medici = Array.isArray(data.data) ? data.data
+                : (Array.isArray(data.data?.data) ? data.data.data : []);
+
+            // Applica i filtri richiesti
+            if (soloAttivi)
+                medici = medici.filter(m => m && m.stato === "A");
+            if (normalizza)
+                medici = medici.filter(m => m.cod_regionale !== null && m.codice_fiscale !== null) ;
+            if (nascondiCessati)
+                medici = medici.filter(m => m && (m.fine_rapporto === null || typeof m.fine_rapporto === "undefined"));
+
+            return { ok: true, data: medici };
+        }
+        return data;
     }
 
 
@@ -187,24 +263,52 @@ export class Nar2 {
         }
     }
 
-    async #getDataFromUrlIdOrParams(url, urlId = null, params = null) {
+
+    /**
+     * Fetches data from a given URL, supporting dynamic URL substitution and additional parameters.
+     * Handles token retrieval and retries on failures with a specified maximum retry limit.
+     *
+     * @param {string} url - The base URL for the request. Use "{id}" in the URL for substitution if `urlId` is provided.
+     * @param {Object} [config={}] - Configuration options for the request.
+     * @param {string|number} [config.urlId=null] - An ID to substitute into the URL if specified.
+     * @param {Object} [config.params=null] - Query parameters to include in the request.
+     * @param {Object} [config.getParams=null] - Parameters to append as part of the URL query string.
+     * @return {Promise<Object>} An object containing a boolean `ok` and the fetched `data` in the `result` if successful, or `null` on failure.
+     */
+    async #getDataFromUrlIdOrParams(url, config = {}) {
+        const {
+            urlId = null,
+            params = null,
+            getParams = null,
+
+        } = config;
         let out = {ok: false, data: null};
         let ok = false;
+
+        // Build URL with get parameters if provided
+        let finalUrl = url;
+        if (getParams) {
+            const queryParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(getParams)) {
+                queryParams.append(key, value);
+            }
+            finalUrl = `${url}?${queryParams.toString()}`;
+        }
 
         for (let i = 0; i < this._maxRetry && !ok; i++) {
             try {
                 await this.getToken();
                 let response = null;
                 if (urlId)
-                    response = await axios.get(url.replace("{id}", urlId.toString()), {
+                    response = await axios.get(finalUrl.replace("{id}", urlId.toString()), {
                         headers: {
                             Authorization: `Bearer ${Nar2.#token}`,
                         },
                     });
                 else
-                    response = await axios.get(url, {
+                    response = await axios.get(finalUrl, {
                         headers: {
-                            Authorization: `Bearer ${Nar2.#token}`, // Usa token statico
+                            Authorization: `Bearer ${Nar2.#token}`,
                         },
                         params: params,
                     });
@@ -225,20 +329,20 @@ export class Nar2 {
     }
 
     async getAssistitoFromId(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITO_NAR_FROM_ID, id);
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITO_NAR_FROM_ID, {urlId:id});
     }
 
     async getMedicoFromId(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_MEDICO_FROM_ID, id);
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_MEDICO_FROM_ID, {urlId:id});
     }
 
     async getNumAssistitiMedico(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_NUM_ASSISTITI_MEDICO, id);
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_NUM_ASSISTITI_MEDICO, {urlId:id});
     }
 
     async getAssistitiFromParams(params) {
         // params in uri: codiceFiscale, nome, cognome, dataNascita
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, null, params);
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, {params:params});
     }
 
     /**
