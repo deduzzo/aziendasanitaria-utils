@@ -10,7 +10,7 @@ export class Nar2 {
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
     static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable";
-    static GET_MEDICI_BYAMBITO = "https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable";
+    static GET_MEDICI_BY_AMBITO = "https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable";
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
@@ -380,6 +380,12 @@ export class Nar2 {
         }
 
         return assistito;
+    }
+
+    async revocaAssistito(id) {
+        //https://nar2.regione.sicilia.it/services/index.php/api/motiviOperazioneFromMotivoRevoca/39100000038
+        //https://nar2.regione.sicilia.it/services/index.php/api/pazienti/aggiornaSceltaMedico/13122455
+        // {"data":{"pm_paz":970248,"pm_fstato":"A","pm_medico":10968,"pm_dt_scad":null,"pm_dt_enable":"2022-11-04","pm_mot_scelta":"90000000073"},"dett_pazientemedico":{"dm_ambito_dom":"148","dm_situazione_ass":"6","dm_eta_scelta":74,"dm_ambito_scelta":"148","dm_motivo_scelta":"90000000073","dm_tipoop_scelta":"39100000036","dm_dt_fine_proroga_ped":null,"dm_motivo_pror_scad_ped":null},"revoca":{"pm_dt_disable":"2025-08-29","dm_dt_ins_revoca":"2025-09-03","dm_motivo_revoca":"90000000029","dm_tipoop_revoca":"39100000038","revoca_id":13122455}}
     }
 
     async getDatiAssistitoFromCfSuSogeiNew(cf, assistito = null, fallback = false) {
