@@ -14,6 +14,8 @@ export class Nar2 {
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
+    static GET_DATI_PAZIENTE_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/PazienteMedico/{id}/{id_cambio_medico}"
+    static AGGIORNA_CAMBIO_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/aggiornaSceltaMedico/{id_cambio_medico}"
 
     static CAT_PEDIATRI = "90000000046";
     static CAT_MMG = "90000000045";
@@ -102,6 +104,36 @@ export class Nar2 {
             // Resetta la promise in modo che le future chiamate possano eventualmente rinnovare il token
             Nar2.#tokenPromise = null;
         }
+    }
+
+    async aggiornaCambioMedico() {
+/*        {
+            "data": {
+            "pm_paz": 1150422,
+                "pm_fstato": "A",
+                "pm_medico": 13971,
+                "pm_dt_scad": null,
+                "pm_dt_enable": "2025-03-20",
+                "pm_mot_scelta": "90000000025"
+        },
+            "dett_pazientemedico": {
+            "dm_ambito_dom": "140",
+                "dm_situazione_ass": "6",
+                "dm_eta_scelta": 89,
+                "dm_ambito_scelta": "140",
+                "dm_motivo_scelta": "90000000025",
+                "dm_tipoop_scelta": "39100000036",
+                "dm_dt_fine_proroga_ped": null,
+                "dm_motivo_pror_scad_ped": null
+        },
+            "revoca": {
+            "pm_dt_disable": "2025-08-17",
+                "dm_dt_ins_revoca": "2025-09-08",
+                "dm_motivo_revoca": "90000000029",
+                "dm_tipoop_revoca": "39100000038",
+                "revoca_id": 15182808
+        }
+        }*/
     }
 
     async getAmbitiAssistito(){

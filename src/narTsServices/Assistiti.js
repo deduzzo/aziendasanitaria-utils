@@ -207,7 +207,7 @@ export class Assistiti {
                         console.log("#" + index + " " + cf + " data decesso recuperata da NAR2: " + assistito.dataDecesso);
                     }
                 }
-                if (assistito.dataDecesso !== "" && assistito.dataDecesso !== null && assistito.dataDecesso !== undefined) {
+                if (!assistito.hasOwnProperty("dataDecesso") || assistito.dataDecesso !== "" && assistito.dataDecesso !== null && assistito.dataDecesso !== undefined) {
                     let attempts = 0;
                     const maxAttempts = this.retryTimeout;
 
