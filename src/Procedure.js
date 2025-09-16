@@ -169,7 +169,36 @@ class Procedure {
 
     }
 
-    static async getControlliEsenzione(pathElenco, colonnaProtocolli, colonnaEsenzione, anno, arrayEsenzioni, impostazioniServizi, workingPath = null, parallels = 50, maxItemPerJob = 50, includiPrestazioni = true, visibile = false) {
+
+    /**
+     * Processes exemption controls for specified year and configuration.
+     *
+     * @param {string} pathElenco - Path to the list of entries to be processed.
+     * @param {string} anno - The year for which exemptions are being processed.
+     * @param {Object} impostazioniServizi - Configuration or service settings necessary for processing.
+     * @param {Object} [config={}] - Additional configuration options.
+     * @param {string} [config.colonnaProtocolli="PROTOCOLLO"] - Column name to identify protocols in the data.
+     * @param {string} [config.colonnaEsenzione="ESENZIONE"] - Column name to identify exemptions in the data.
+     * @param {string[]} [config.arrayEsenzioni=["E01", "E02", "E03", "E04"]] - List of exemption codes for validation.
+     * @param {string} [config.workingPath] - Path for storing temporary or working files.
+     * @param {number} [config.parallels=50] - Number of parallel processes allowed.
+     * @param {number} [config.maxItemPerJob=50] - Maximum items to process per job.
+     * @param {boolean} [config.includiPrestazioni=true] - Whether to include performance data in the process.
+     * @param {boolean} [config.visibile=false] - Visibility flag for the processing operation.
+     *
+     * @return {Promise<number>} Returns 0 upon successful processing.
+     */
+    static async getControlliEsenzione(pathElenco, anno,impostazioniServizi, config={}){
+        let {
+            colonnaProtocolli = "PROTOCOLLO",
+            colonnaEsenzione = "ESENZIONE",
+            arrayEsenzioni = ["E01", "E02", "E03", "E04"],
+            workingPath = await utils.getWorkingPath(),
+            parallels = 50,
+            maxItemPerJob = 50,
+            includiPrestazioni = true,
+            visibile = false
+        } = config;
         let risultato = {};
         do {
             let datiRecupero = null;

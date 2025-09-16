@@ -642,7 +642,14 @@ export class FlussoSIAD {
                     }
                 }
                 for (let cf in out.data)
-                    out.report[cf] = {cf: cf, ultimaAttivita: "",  primaAttivita: "", etaUltimaAttivita: "", numAttivita: 0, trimestre: ""};
+                    out.report[cf] = {
+                        cf: cf,
+                        ultimaAttivita: "",
+                        primaAttivita: "",
+                        etaUltimaAttivita: "",
+                        numAttivita: 0,
+                        trimestre: ""
+                    };
 
             }
         });
@@ -2510,26 +2517,32 @@ export class FlussoSIAD {
         outTracciato2.push(rigaHeaderTracciato2);
 
         for (let rigaTracciato2 of tracciato2Originale) {
-            if (rigaTracciato2[0] !== "") {
-                let rigaT2 = {}
-                let codFiscale = allSostituti.hasOwnProperty(rigaTracciato2[0]) ? allSostituti[rigaTracciato2[0]] : rigaTracciato2[0];
-                rigaT2[0] = codFiscale;
-                rigaT2[1] = ""; // tipo
-                rigaT2[2] = "190";
-                rigaT2[3] = "205";
-                rigaT2[4] = cfPreseInCarico.hasOwnProperty(codFiscale) ? cfPreseInCarico[codFiscale] : moment(rigaTracciato2[4], "DD/MM/YYYY").format("DD/MM/YYYY");
-                rigaT2[5] = "";
-                rigaT2[6] = rigaTracciato2[6].toString();
-                rigaT2[7] = rigaT2[6] !== "" ? (rigaT2[6] !== "" ? rigaT2[6].toString() : "2") : "";
-                rigaT2[8] = rigaT2[6] !== "" ? ("1") : "";
-                rigaT2[9] = rigaTracciato2[9] !== "" ? rigaTracciato2[9].toString() : "1";
-                rigaT2[10] = (typeof rigaTracciato2[10] === "string") ? rigaTracciato2[10].toString() : moment(rigaTracciato2[10]).format("DD/MM/YYYY");
-                rigaT2[11] = rigaTracciato2[11].toString(); // tipo operatore
-                rigaT2[12] = rigaTracciato2[12] !== "" ? rigaTracciato2[12].toString() : "99";
-                rigaT2[13] = (typeof rigaTracciato2[13] === "string") ? rigaTracciato2[13].toString() : moment(rigaTracciato2[13]).format("DD/MM/YYYY");
-                rigaT2[14] = rigaTracciato2[14].toString();
-                rigaT2[15] = (typeof rigaTracciato2[15] === "string") ? rigaTracciato2[15].toString() : moment(rigaTracciato2[15]).format("DD/MM/YYYY");
-                outTracciato2.push(rigaT2);
+            try {
+                if (rigaTracciato2[0] !== "") {
+                    let rigaT2 = {}
+                    let codFiscale = allSostituti.hasOwnProperty(rigaTracciato2[0]) ? allSostituti[rigaTracciato2[0]] : rigaTracciato2[0];
+                    rigaT2[0] = codFiscale;
+                    rigaT2[1] = ""; // tipo
+                    rigaT2[2] = "190";
+                    rigaT2[3] = "205";
+                    rigaT2[4] = cfPreseInCarico.hasOwnProperty(codFiscale) ? cfPreseInCarico[codFiscale] : moment(rigaTracciato2[4], "DD/MM/YYYY").format("DD/MM/YYYY");
+                    rigaT2[5] = "";
+                    rigaT2[6] = rigaTracciato2[6].toString();
+                    rigaT2[7] = rigaT2[6] !== "" ? (rigaT2[6] !== "" ? rigaT2[6].toString() : "2") : "";
+                    rigaT2[8] = rigaT2[6] !== "" ? ("1") : "";
+                    rigaT2[9] = rigaTracciato2[9] !== "" ? rigaTracciato2[9].toString() : "1";
+                    rigaT2[10] = (typeof rigaTracciato2[10] === "string") ? rigaTracciato2[10].toString() : moment(rigaTracciato2[10]).format("DD/MM/YYYY");
+                    rigaT2[11] = rigaTracciato2[11].toString(); // tipo operatore
+                    rigaT2[12] = rigaTracciato2[12] !== "" ? rigaTracciato2[12].toString() : "99";
+                    rigaT2[13] = (typeof rigaTracciato2[13] === "string") ? rigaTracciato2[13].toString() : moment(rigaTracciato2[13]).format("DD/MM/YYYY");
+                    rigaT2[14] = rigaTracciato2[14].toString();
+                    rigaT2[15] = (typeof rigaTracciato2[15] === "string") ? rigaTracciato2[15].toString() : moment(rigaTracciato2[15]).format("DD/MM/YYYY");
+                    outTracciato2.push(rigaT2);
+                }
+            } catch (ex) {
+                console.log(rigaTracciato2);
+                console.log(ex);
+                throw ex;
             }
         }
 
