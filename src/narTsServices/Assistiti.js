@@ -946,7 +946,7 @@ export class Assistiti {
         return datoFinale;
     }
 
-    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiPrestazioni = true, visibile = false) {
+    static async controlliEsenzioneAssistitoParallels(configImpostazioniServizi, protocolli, arrayEsenzioni, anno, workingPath, numParallelsJobs = 10, maxItemsPerJob = 40, includiPrestazioni = true, visibile = false, maxRetries = 3) {
         EventEmitter.defaultMaxListeners = 200;
         let out = {error: false, out: Object.assign({}, protocolli)};
         let protocolliMancanti = {}
@@ -971,6 +971,8 @@ export class Assistiti {
                 });
             }
 
+            const retryMap = new Map();
+
             // Funzione per processare un singolo job
             async function processJob(job, index = 1) {
                 let assistitiTemp = new Assistiti(configImpostazioniServizi);
@@ -978,40 +980,64 @@ export class Assistiti {
                 try {
                     result = await assistitiTemp.controlliEsenzioneAssistito(job, arrayEsenzioni, anno, index, includiPrestazioni, visibile);
                 } catch (e) {
-                    console.log("[" + index + "] errore elaborazione job:" + job);
+                    console.log("[" + index + "] errore elaborazione job:" + job + " -> " + (e?.message || e));
                     result = {error: true, out: "errore elaborazione job:" + job};
+                } finally {
+                    try { await assistitiTemp._ts?.doLogout(); } catch (e) {}
+                    try { if (assistitiTemp._ts && assistitiTemp._ts._browser) { await assistitiTemp._ts._browser.close(); } } catch (e) {}
+                    // help GC by dropping references
+                    if (assistitiTemp && assistitiTemp._ts) assistitiTemp._ts._browser = null;
+                    if (assistitiTemp) {
+                        assistitiTemp._ts = null;
+                        assistitiTemp._nar = null;
+                        assistitiTemp._nar2 = null;
+                    }
                 }
-                await assistitiTemp._ts.doLogout();
-                assistitiTemp = null;
                 if (!result.error) {
                     await lock.acquire('updateData', async function () {
                         for (const key in result.out) {
                             out.out[key] = result.out[key];
                         }
                     });
-                    if (index % numParallelsJobs === 0)
+                    if (index % (numParallelsJobs) === 0)
                         await aggiornaFile(index);
-                } else
-                    out.error = true;
+                    return {success: true};
+                } else {
+                    return {success: false};
+                }
             }
 
-            // Gestisce l'esecuzione parallela dei jobs
+            // Gestisce l'esecuzione parallela dei jobs con retry automatico
             async function manageParallelJobs(jobs) {
                 let activeJobs = [];
                 let index = 1;
-                while (jobs.length > 0) {
-                    if (activeJobs.length < numParallelsJobs) {
+                while (jobs.length > 0 || activeJobs.length > 0) {
+                    while (jobs.length > 0 && activeJobs.length < numParallelsJobs) {
                         let job = jobs.shift();
                         console.log("Rimangono " + jobs.length + " jobs ");
-                        let jobPromise = processJob(job, index++).then(() => {
+                        let jobPromise = processJob(job, index++).then((res) => {
+                            // Rimuovi dalla lista dei job attivi
                             activeJobs = activeJobs.filter(j => j !== jobPromise);
+                            // Se fallito, riprova finché non supera maxRetries
+                            if (!res.success) {
+                                const key = JSON.stringify(job);
+                                const attempts = (retryMap.get(key) || 0) + 1;
+                                retryMap.set(key, attempts);
+                                if (attempts <= maxRetries) {
+                                    console.log(`Job fallito, riprovo (${attempts}/${maxRetries})`);
+                                    jobs.push(job);
+                                } else {
+                                    console.log(`Job fallito definitivamente dopo ${attempts} tentativi`);
+                                    out.error = true;
+                                }
+                            }
                         });
                         activeJobs.push(jobPromise);
-                    } else {
+                    }
+                    if (activeJobs.length > 0) {
                         await Promise.race(activeJobs);
                     }
                 }
-                await Promise.all(activeJobs);
             }
 
             await manageParallelJobs(jobs);

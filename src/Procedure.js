@@ -194,8 +194,8 @@ class Procedure {
             colonnaEsenzione = "ESENZIONE",
             arrayEsenzioni = ["E01", "E02", "E03", "E04"],
             workingPath = await utils.getWorkingPath(),
-            parallels = 50,
-            maxItemPerJob = 50,
+            parallels = 30,
+            maxItemPerJob = 20,
             includiPrestazioni = true,
             visibile = false
         } = config;
