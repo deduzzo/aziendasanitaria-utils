@@ -404,59 +404,104 @@ class Procedure {
             await utils.scriviOggettoSuNuovoFileExcel(medici._nar.getWorkingPath() + path.sep + "cedolino_dettaglio-report_" + matricola + "_da_" + daAnno + daMese + "_a_" + aAnno + aMese + ".xlsx", Object.values(outDettaglioMese));
     }
 
-    static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = true) {
+    /**
+     * Genera un database MySQL partendo da un file JSON contenente prestazioni sanitarie.
+     *
+     * @param {string} pathFilePrestazioni - Percorso del file JSON contenente le prestazioni
+     * @param {Object} datiDb - Configurazione della connessione al database MySQL
+     * @param {string} anno - Anno di riferimento delle prestazioni
+     * @param {boolean} [cancellaDb=true] - Se true, cancella i dati esistenti prima dell'inserimento
+     * @returns {Promise<number>} Restituisce 0 se l'operazione è completata con successo
+     */
+    static async generaDbMysqlDaFilePrestazioni(pathFilePrestazioni, datiDb, anno, cancellaDb = false) {
         const db = knex({
             client: 'mysql',
             connection: datiDb
         });
+
+        console.log("Lettura file prestazioni...");
         let datiPrestazioni = await Utils.leggiOggettoDaFileJSON(pathFilePrestazioni);
+
+        const totaleProtocolli = Object.keys(datiPrestazioni).length;
+        console.log(`Trovati ${totaleProtocolli} protocolli da elaborare`);
+        let protocolliElaborati = 0;
+
         if (cancellaDb) {
+            console.log("Pulizia database in corso...");
+            // Aggiungere qui la logica per la cancellazione
+            // remove all data from table "prestazione" "ricetta" "protocollo" in this order using knex
+            // prestazione
+            await db("prestazione").del();
+            // ricetta
+            await db("ricetta").del();
+            // protocollo
+            await db("protocollo").del();
+            console.log("Pulizia database completata");
         }
+
         for (let protocollo of Object.keys(datiPrestazioni)) {
             let rigaProtocollo = datiPrestazioni[protocollo];
-            let prot = await db("protocollo").insert({
-                protocollo: protocollo,
-                anno: anno,
-                cf_esente: rigaProtocollo.cfEsente,
-                cf_dichiarante: rigaProtocollo.cfDichiarante,
-                cf_titolare: rigaProtocollo.cfTitolare,
-                esenzione: rigaProtocollo.esenzione,
-                data_inizio: rigaProtocollo.dataInizio,
-                data_fine: rigaProtocollo.dataFine,
-                esito: rigaProtocollo.esito,
-                descrizione: rigaProtocollo.descrizione,
-                importo_totale: parseFloat(rigaProtocollo.ricette.totaleGlobale.toString()).toFixed(2),
+            protocolliElaborati++;
 
-            });
-            // get id of prot
-            for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
-                for (let ricetta of rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio) {
-                    let idRicetta = await db("ricetta").insert({
-                        numero: ricetta.ricetta,
-                        tipologia: tipoRicetta === "ricette_specialistiche" ? "specialistica" : "farmaceutica",
-                        struttura: ricetta.struttura,
-                        ubicazione: ricetta.ubicazione,
-                        data_prescrizione: ricetta.data_prescrizione,
-                        data_spedizione: ricetta.data_spedizione,
-                        ticket: parseFloat(ricetta.ticket).toFixed(2),
-                        id_protocollo: prot[0],
-                    })
-                    if (ricetta.hasOwnProperty("prestazioni") && ricetta.prestazioni.hasOwnProperty("dettaglio"))
-                        for (let prestazione of ricetta.prestazioni.dettaglio) {
-                            let idPrestazione = await db("prestazione").insert({
-                                regione: prestazione.regione,
-                                data_erogazione: prestazione.data_erogazione,
-                                quantita: prestazione.quantita,
-                                codice_prodotto: prestazione.codice_prodotto,
-                                descrizione: prestazione.descrizione,
-                                tariffa: prestazione.tariffa,
-                                id_ricetta: idRicetta[0],
-                            })
-                        }
+            try {
+                let prot = await db("protocollo").insert({
+                    protocollo: protocollo,
+                    anno: anno,
+                    cf_esente: rigaProtocollo.cfEsente,
+                    cf_dichiarante: rigaProtocollo.cfDichiarante,
+                    cf_titolare: rigaProtocollo.cfTitolare,
+                    esenzione: rigaProtocollo.esenzione,
+                    data_inizio: rigaProtocollo.dataInizio,
+                    data_fine: rigaProtocollo.dataFine,
+                    esito: rigaProtocollo.esito,
+                    descrizione: rigaProtocollo.descrizione,
+                    importo_totale: parseFloat(rigaProtocollo.ricette.totaleGlobale.toString()).toFixed(2),
+                });
+
+                let totaleRicette = 0;
+                for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
+                    totaleRicette += rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio.length;
                 }
+
+                for (let tipoRicetta of Object.keys(rigaProtocollo.ricette.dettaglio)) {
+                    for (let ricetta of rigaProtocollo.ricette.dettaglio[tipoRicetta].dettaglio) {
+                        let idRicetta = await db("ricetta").insert({
+                            numero: ricetta.ricetta,
+                            tipologia: tipoRicetta === "ricette_specialistiche" ? "specialistica" : "farmaceutica",
+                            struttura: ricetta.struttura,
+                            ubicazione: ricetta.ubicazione,
+                            data_prescrizione: ricetta.data_prescrizione,
+                            data_spedizione: ricetta.data_spedizione,
+                            ticket: parseFloat(ricetta.ticket).toFixed(2),
+                            id_protocollo: prot[0],
+                        });
+
+                        if (ricetta.hasOwnProperty("prestazioni") && ricetta.prestazioni.hasOwnProperty("dettaglio")) {
+                            for (let prestazione of ricetta.prestazioni.dettaglio) {
+                                await db("prestazione").insert({
+                                    regione: prestazione.regione,
+                                    data_erogazione: prestazione.data_erogazione,
+                                    quantita: prestazione.quantita,
+                                    codice_prodotto: prestazione.codice_prodotto,
+                                    descrizione: prestazione.descrizione,
+                                    tariffa: prestazione.tariffa,
+                                    id_ricetta: idRicetta[0],
+                                });
+                            }
+                        }
+                    }
+                }
+
+                const percentualeCompletamento = ((protocolliElaborati / totaleProtocolli) * 100).toFixed(2);
+                console.log(`Protocollo ${protocollo} inserito (${protocolliElaborati}/${totaleProtocolli} - ${percentualeCompletamento}%)`);
+
+            } catch (error) {
+                console.error(`Errore nell'elaborazione del protocollo ${protocollo}:`, error);
+                throw error;
             }
-            console.log("protocollo " + protocollo + " inserito");
         }
+
+        console.log("Elaborazione completata con successo");
         return 0;
     }
 
