@@ -1200,5 +1200,7 @@ export const utils = {
     getHtmlFromPdf,
     removeEmptyValuesFromArray,
     getUnixRangeFromRangeEta,
-    estraiPagineDaPdf
+    estraiPagineDaPdf,
+    hashPasswordArgon2,
+    verifyPasswordArgon2,
 }
