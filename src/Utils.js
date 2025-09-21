@@ -21,6 +21,7 @@ import unzipper from 'unzipper';
 import _ from "lodash";
 import crypto from "crypto";
 import AdmZip from 'adm-zip';
+import * as argon2 from "argon2";
 
 moment.tz.setDefault('Europe/Rome');
 
@@ -1029,7 +1030,7 @@ function getUnixRangeFromRangeEta(etaIniziale, etaFinale, inMillisecondi = true,
         out.unixStart = dataInizio ? dataInizio[fn]() : null;
         out.unixEnd = dataFine ? dataFine[fn]() : null;
     }
-    return Object.keys(out).length === 0 ? null :out;
+    return Object.keys(out).length === 0 ? null : out;
 }
 
 /**
@@ -1072,6 +1073,21 @@ const removeEmptyValuesFromArray = (array) => {
     });
 }
 
+const hashPasswordArgon2 = async (password) => {
+    // Argon2id consigliato (default nella libreria)
+    const hash = await argon2.hash(password, {
+        type: argon2.argon2id,
+        memoryCost: 2 ** 16,   // es. 64 MiB
+        timeCost: 3,           // iterazioni
+        parallelism: 1
+    });
+    return hash; // memorizza tutta la stringa hash (contiene salt e parametri)
+}
+
+const verifyPasswordArgon2 = async (hash, password) => {
+    return await argon2.verify(hash, password);
+}
+
 /**
  * Estrae pagine specifiche da un file PDF e le salva in nuovi file PDF separati
  * @param {string} pathPdf - Percorso del file PDF sorgente
@@ -1080,7 +1096,7 @@ const removeEmptyValuesFromArray = (array) => {
  */
 const estraiPagineDaPdf = async (pathPdf, mapPagine, cartellaPdf = "singoli") => {
     // Richiede il modulo pdf-lib (potrebbe essere necessario installarlo con npm install pdf-lib)
-    const { PDFDocument } = await import('pdf-lib');
+    const {PDFDocument} = await import('pdf-lib');
     const dirname = path.dirname(pathPdf);
 
     // Crea la sottocartella di destinazione
