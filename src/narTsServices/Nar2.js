@@ -17,7 +17,8 @@ export class Nar2 {
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
     static GET_DATI_PAZIENTEMEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/PazienteMedico/{id}/NaN/{az_id}/{tipo_medico}/null"
     static AGGIORNA_CAMBIO_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/aggiornaSceltaMedico/{id_cambio_medico}"
-
+    static MEDICO_DI_BASE = "M";
+    static PEDIATRA = "P";
 
     static CAT_PEDIATRI = "90000000046";
     static CAT_MMG = "90000000045";
@@ -171,7 +172,7 @@ export class Nar2 {
         });
         if (data && data.ok === true){
             // dividi ambiti e distretto
-            let out = {ambiti:[], distretto: null};
+            let out = {assistito: dati.fullData.data, ambiti:[], distretto: null};
             for (let elemento of data.data){
                 console.log("ciao");
                 if (elemento.tipi_strutture.tipo.eg_desc1.toLowerCase().includes("ambito"))
@@ -186,13 +187,53 @@ export class Nar2 {
 
     }
 
-    async getMediciByAmbito(ambito, config = {}) {
+
+    /**
+     * Retrieves doctors by region/area (ambito) with optional filtering.
+     *
+     * @param {string|number} idAmbito - The ID of the region/area to search doctors in
+     * @param {Object} fullAssistitoData - Complete patient data object from NAR2
+     * @param {Object} [config={}] - Configuration options
+     * @param {string} [config.dataScelta=current date] - The date to check doctor availability (YYYY-MM-DD)
+     * @param {number} [config.sitAssistenziale=4] - Assistance situation code (4 = resident and domiciled in region)
+     * @param {boolean} [config.escludiMassimalisti=false] - If true, excludes doctors who reached max patient limit
+     * @returns {Promise<Object>} Promise object representing the doctors list with pagination info
+     */
+    async getMediciByAmbito(idAmbito, fullAssistitoData, tipoMedico, config = {}) {
+        //https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable?ambito=140&tipo_medico=M&dataScelta=2025-09-26&start=0&length=0&pagination=yes&sit_ass=4&cat_citt=90000000052&check_first_doctor=true&not_search_after=null&idPaziente=1128286
         //ambito=140&tipo_medico=P&dataScelta=2025-09-01&pagination=yes&sit_ass=4&cat_citt=90000000052&check_fisrt_doctor=true&idPaziente=1128286
         const {
+            dataScelta = moment().format("YYYY-MM-DD"),
+            sitAssistenziale = 4, // domiciliato e residente in regione
+            escludiMassimalisti= false,
         } = config;
         let getParams = {
-            "azienda": "ME",
+            ambito: idAmbito,
+            tipo_medico: tipoMedico,
+            dataScelta: dataScelta,
+            start: 0,
+            length:0,
+            pagination: "yes",
+            sit_ass: sitAssistenziale,
+            cat_citt: fullAssistitoData.pz_categoria_citt,
+            check_first_doctor: true,
+            not_search_after: null,
+            idPaziente: fullAssistitoData.pz_id
         }
+        const data = await this.#getDataFromUrlIdOrParams(Nar2.GET_MEDICI_BY_AMBITO, {
+            getParams
+        });
+        if (data && data.ok === true) {
+            let out = {liberi:[], massimalisti:[]}
+            for (let riga of data.data) {
+                if (riga.medico_massimalista)
+                    out.massimalisti.push(riga);
+                else
+                    out.liberi.push(riga);
+            }
+            return out;
+        }
+        return {ok: false, data: []};
     }
 
 
