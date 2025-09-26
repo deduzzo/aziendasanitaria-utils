@@ -10,12 +10,14 @@ export class Nar2 {
     static GET_ASSISTITI_NAR = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti";
     static GET_DATI_ASSISTITO_FROM_SOGEI = "https://nar2.regione.sicilia.it/services/index.php/api/sogei/ricercaAssistito";
     static GET_MEDICI = "https://nar2.regione.sicilia.it/services/index.php/api/searchMediciDatatable";
+    static GET_AMBITI_DOMICILIO = "https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomTable";
     static GET_MEDICI_BY_AMBITO = "https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable";
     static GET_DATI_MEDICO_FROM_ID = "https://nar2.regione.sicilia.it/services/index.php/api/medici/{id}";
     static GET_NUM_ASSISTITI_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/medici/getNumAssistitiMedico/{id}";
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
-    static GET_DATI_PAZIENTE_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/PazienteMedico/{id}/{id_cambio_medico}"
+    static GET_DATI_PAZIENTEMEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/PazienteMedico/{id}/NaN/{az_id}/{tipo_medico}/null"
     static AGGIORNA_CAMBIO_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/aggiornaSceltaMedico/{id_cambio_medico}"
+
 
     static CAT_PEDIATRI = "90000000046";
     static CAT_MMG = "90000000045";
@@ -106,6 +108,7 @@ export class Nar2 {
         }
     }
 
+
     async aggiornaCambioMedico() {
 /*        {
             "data": {
@@ -136,9 +139,51 @@ export class Nar2 {
         }*/
     }
 
-    async getAmbitiAssistito(){
+    async getSituazioniAssistenziali(codFiscaleAssistito){
+        let dati = await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito);
+        const paziente_id = dati.fullData.data.pz_id;
+        const tipoMed = "M";
+        const az_id = dati.fullData.data.comune_domicilio._azienda[0].az_azie ?? "ME";
+        let data =  await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_PAZIENTEMEDICO, {
+            replaceFromUrl: {
+                "id": paziente_id,
+                "tipo_medico": tipoMed,
+                "az_id": az_id
+            }
+        });
+        if (data && data.ok === true) {
+            return data.data;
+        }
+    }
+
+    async getAmbitiDomicilioAssistito(codFiscale,situazioneAssistenziale = 4)  {
+
         //https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomTable?situazione_assistenziale=4&azienda=83&tipo=90000000038
         // 83 =  "pz_com_res": "83",
+        // volendo , tipo= "90000000038" ambito, tipo="90000000040" distretto
+
+        const dati = await this.getDatiAssistitoNar2FromCf(codFiscale);
+        let data = await this.#getDataFromUrlIdOrParams(Nar2.GET_AMBITI_DOMICILIO, {
+            getParams: {
+                situazione_assistenziale: situazioneAssistenziale,
+                azienda: dati.fullData.data.pz_com_res
+            }
+        });
+        if (data && data.ok === true){
+            // dividi ambiti e distretto
+            let out = {ambiti:[], distretto: null};
+            for (let elemento of data.data){
+                console.log("ciao");
+                if (elemento.tipi_strutture.tipo.eg_desc1.toLowerCase().includes("ambito"))
+                    out.ambiti.push(elemento);
+             else if (elemento.tipi_strutture.tipo.eg_desc1.toLowerCase().includes("distretto"))
+                    out.distretto = elemento;
+            }
+            return out;
+        }
+
+
+
     }
 
     async getMediciByAmbito(ambito, config = {}) {
@@ -305,6 +350,7 @@ export class Nar2 {
      * @param {string|number} [config.urlId=null] - An ID to substitute into the URL if specified.
      * @param {Object} [config.params=null] - Query parameters to include in the request.
      * @param {Object} [config.getParams=null] - Parameters to append as part of the URL query string.
+     * @param {Object} [config.replaceFromUrl=null] - Key-value pairs for dynamic URL segment replacement.
      * @return {Promise<Object>} An object containing a boolean `ok` and the fetched `data` in the `result` if successful, or `null` on failure.
      */
     async #getDataFromUrlIdOrParams(url, config = {}) {
@@ -312,6 +358,7 @@ export class Nar2 {
             urlId = null,
             params = null,
             getParams = null,
+            replaceFromUrl = null,
 
         } = config;
         let out = {ok: false, data: null};
@@ -325,6 +372,10 @@ export class Nar2 {
                 queryParams.append(key, value);
             }
             finalUrl = `${url}?${queryParams.toString()}`;
+        }
+        if (replaceFromUrl && typeof replaceFromUrl === "object") {
+            for (const [key, value] of Object.entries(replaceFromUrl))
+                finalUrl = finalUrl.replace(`{${key}}`, value.toString());
         }
 
         for (let i = 0; i < this._maxRetry && !ok; i++) {
