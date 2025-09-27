@@ -246,6 +246,8 @@ export class Nar2 {
      * @param {boolean} [config.normalizza=true] - Flag indicating whether to normalize the data.
      * @param {boolean} [config.soloPediatri=false] - Flag indicating whether to include only pediatric records.
      * @param {boolean} [config.soloMMG=false] - Flag indicating whether to include only MMG records.
+     * @param {string} [config.asl="281"] - The ASL code to filter the records (default is "281" for Messina).
+     * @param {string} [config.azienda="ME"] - The company code to filter the records (default is "ME" for Messina).
      *
      * @return {Promise<Object>} A promise that resolves to the retrieved medical data.
      */
@@ -255,16 +257,18 @@ export class Nar2 {
             nascondiCessati = true,
            normalizza = true,
            soloPediatri = false,
-           soloMMG = false
+           soloMMG = false,
+           asl = "281", // messina,
+           azienda = "ME", //messina
         } = config;
        let getParams = {
-           "azienda": "ME",
            "tipo_rapporto": "Medico_base",
            "aspOaltro": "ASP",
-           "asl": "281",
            "esitoFineConvenzione": "rapporto_disattivato",
            "intervalloVariazione": "modificato",
-           "rapportoAttivo": "true"
+           "rapportoAttivo": "true",
+           "asl": asl,
+           "azienda": azienda,
        };
         if ((soloMMG || soloPediatri) && !(soloMMG === true && soloPediatri === true)) {
             if (soloMMG === true)
