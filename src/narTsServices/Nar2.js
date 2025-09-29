@@ -145,16 +145,13 @@ export class Nar2 {
         const paziente_id = dati.fullData.data.pz_id;
         const tipoMed = "M";
         const az_id = dati.fullData.data.comune_domicilio._azienda[0].az_azie ?? "ME";
-        let data =  await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_PAZIENTEMEDICO, {
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_PAZIENTEMEDICO, {
             replaceFromUrl: {
                 "id": paziente_id,
                 "tipo_medico": tipoMed,
                 "az_id": az_id
             }
         });
-        if (data && data.ok === true) {
-            return data.data;
-        }
     }
 
     async getAmbitiDomicilioAssistito(codFiscale,situazioneAssistenziale = 4)  {
