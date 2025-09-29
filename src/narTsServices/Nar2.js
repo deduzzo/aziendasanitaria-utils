@@ -140,7 +140,7 @@ export class Nar2 {
         }*/
     }
 
-    async getSituazioniAssistenziali(codFiscaleAssistito) {
+    async getSituazioniAssistenziali(codFiscaleAssistito, includeFullData= true) {
         try {
             let dati = await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito);
             const paziente_id = dati.fullData.data.pz_id;
@@ -154,10 +154,15 @@ export class Nar2 {
                 }
             });
             if (data && data.ok === true) {
-                return {
+                let out = {
                     ok: true,
-                    data: data.data.sceltaMedico.sitAss_
-                }
+                    data: {
+                        situazioni: data.data.sceltaMedico.sitAss_,
+                    }
+                };
+                if (includeFullData)
+                    out.data.fullData = data.data;
+                return out;
             } else return {ok: false, data: null};
         } catch (e) {
             return {ok: false, data: null};
