@@ -208,8 +208,8 @@ export class Nar2 {
                     const desc = (elemento?.tipi_strutture?.tipo?.eg_desc1 || "").toLowerCase();
                     if (desc.includes("ambito")) {
                         if (dividiAmbitiMMGPediatri) {
-                            if (/\d/.test(desc)) out.ambiti.pediatri.push(elemento);
-                            else out.ambiti.mmg.push(elemento);
+                            if (/\d/.test(elemento.sr_desc)) out.ambiti.mmg.push(elemento);
+                            else out.ambiti.pediatri.push(elemento);
                         } else {
                             out.ambiti.push(elemento);
                         }
