@@ -140,20 +140,32 @@ export class Nar2 {
         }*/
     }
 
-    async getSituazioniAssistenziali(codFiscaleAssistito){
-        let dati = await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito);
-        const paziente_id = dati.fullData.data.pz_id;
-        const tipoMed = "M";
-        const az_id = dati.fullData.data.comune_domicilio._azienda[0].az_azie ?? "ME";
-        let data =  await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_PAZIENTEMEDICO, {
-            replaceFromUrl: {
-                "id": paziente_id,
-                "tipo_medico": tipoMed,
-                "az_id": az_id
-            }
-        });
-        if (data && data.ok === true) {
-            return data.data;
+    async getSituazioniAssistenziali(codFiscaleAssistito, includeFullData= true) {
+        try {
+            let dati = await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito);
+            const paziente_id = dati.fullData.data.pz_id;
+            const tipoMed = "M";
+            const az_id = dati.fullData.data.comune_domicilio._azienda[0].az_azie ?? "ME";
+            let data = await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_PAZIENTEMEDICO, {
+                replaceFromUrl: {
+                    "id": paziente_id,
+                    "tipo_medico": tipoMed,
+                    "az_id": az_id
+                }
+            });
+            if (data && data.ok === true) {
+                let out = {
+                    ok: true,
+                    data: {
+                        situazioni: data.data.sceltaMedico.sitAss_,
+                    }
+                };
+                if (includeFullData)
+                    out.data.fullData = data.data;
+                return out;
+            } else return {ok: false, data: null};
+        } catch (e) {
+            return {ok: false, data: null};
         }
     }
 
@@ -193,10 +205,10 @@ export class Nar2 {
      *
      * @param {string|number} idAmbito - The ID of the region/area to search doctors in
      * @param {Object} fullAssistitoData - Complete patient data object from NAR2
+     * @param {string} tipoMedico - Type of doctor to search for ("M" for general practitioners, "P" for pediatricians)
      * @param {Object} [config={}] - Configuration options
      * @param {string} [config.dataScelta=current date] - The date to check doctor availability (YYYY-MM-DD)
      * @param {number} [config.sitAssistenziale=4] - Assistance situation code (4 = resident and domiciled in region)
-     * @param {boolean} [config.escludiMassimalisti=false] - If true, excludes doctors who reached max patient limit
      * @returns {Promise<Object>} Promise object representing the doctors list with pagination info
      */
     async getMediciByAmbito(idAmbito, fullAssistitoData, tipoMedico, config = {}) {
@@ -205,7 +217,7 @@ export class Nar2 {
         const {
             dataScelta = moment().format("YYYY-MM-DD"),
             sitAssistenziale = 4, // domiciliato e residente in regione
-            escludiMassimalisti= false,
+
         } = config;
         let getParams = {
             ambito: idAmbito,
@@ -231,7 +243,7 @@ export class Nar2 {
                 else
                     out.liberi.push(riga);
             }
-            return out;
+            return {ok:true,data: out};
         }
         return {ok: false, data: []};
     }
