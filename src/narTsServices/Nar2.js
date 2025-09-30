@@ -111,36 +111,36 @@ export class Nar2 {
 
 
     async aggiornaCambioMedico() {
-/*        {
-            "data": {
-            "pm_paz": 1150422,
-                "pm_fstato": "A",
-                "pm_medico": 13971,
-                "pm_dt_scad": null,
-                "pm_dt_enable": "2025-03-20",
-                "pm_mot_scelta": "90000000025"
-        },
-            "dett_pazientemedico": {
-            "dm_ambito_dom": "140",
-                "dm_situazione_ass": "6",
-                "dm_eta_scelta": 89,
-                "dm_ambito_scelta": "140",
-                "dm_motivo_scelta": "90000000025",
-                "dm_tipoop_scelta": "39100000036",
-                "dm_dt_fine_proroga_ped": null,
-                "dm_motivo_pror_scad_ped": null
-        },
-            "revoca": {
-            "pm_dt_disable": "2025-08-17",
-                "dm_dt_ins_revoca": "2025-09-08",
-                "dm_motivo_revoca": "90000000029",
-                "dm_tipoop_revoca": "39100000038",
-                "revoca_id": 15182808
-        }
-        }*/
+        /*        {
+                    "data": {
+                    "pm_paz": 1150422,
+                        "pm_fstato": "A",
+                        "pm_medico": 13971,
+                        "pm_dt_scad": null,
+                        "pm_dt_enable": "2025-03-20",
+                        "pm_mot_scelta": "90000000025"
+                },
+                    "dett_pazientemedico": {
+                    "dm_ambito_dom": "140",
+                        "dm_situazione_ass": "6",
+                        "dm_eta_scelta": 89,
+                        "dm_ambito_scelta": "140",
+                        "dm_motivo_scelta": "90000000025",
+                        "dm_tipoop_scelta": "39100000036",
+                        "dm_dt_fine_proroga_ped": null,
+                        "dm_motivo_pror_scad_ped": null
+                },
+                    "revoca": {
+                    "pm_dt_disable": "2025-08-17",
+                        "dm_dt_ins_revoca": "2025-09-08",
+                        "dm_motivo_revoca": "90000000029",
+                        "dm_tipoop_revoca": "39100000038",
+                        "revoca_id": 15182808
+                }
+                }*/
     }
 
-    async getSituazioniAssistenziali(codFiscaleAssistito, includeFullData= true) {
+    async getSituazioniAssistenziali(codFiscaleAssistito, includeFullData = true) {
         try {
             let dati = await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito);
             const paziente_id = dati.fullData.data.pz_id;
@@ -181,9 +181,10 @@ export class Nar2 {
      *                           - `ambiti`: An array of ambiti objects (areas).
      *                           - `distretto`: The associated distretto object (district), if available.
      */
-    async getAmbitiDomicilioAssistito(codFiscale, config = {})  {
+    async getAmbitiDomicilioAssistito(codFiscale, config = {}) {
         let {
-            situazioneAssistenziale = 4 // domiciliato e residente in regione
+            situazioneAssistenziale = 4, // domiciliato e residente in regione
+            dividiAmbitiMMGPediatri = true, // se true divide ambiti e distretto
         } = config;
 
         //https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomTable?situazione_assistenziale=4&azienda=83&tipo=90000000038
@@ -197,18 +198,29 @@ export class Nar2 {
                 azienda: dati.fullData.data.pz_com_res
             }
         });
-        if (data && data.ok === true){
-            // dividi ambiti e distretto
-            let out = {assistito: dati.fullData.data, ambiti:[], distretto: null};
-            for (let elemento of data.data){
-                console.log("ciao");
-                if (elemento.tipi_strutture.tipo.eg_desc1.toLowerCase().includes("ambito"))
-                    out.ambiti.push(elemento);
-             else if (elemento.tipi_strutture.tipo.eg_desc1.toLowerCase().includes("distretto"))
-                    out.distretto = elemento;
+        if (data && data.ok === true) {
+            let out = {
+                ambiti: dividiAmbitiMMGPediatri ? {pediatri: [], mmg: []} : [],
+                distretto: null
+            };
+            for (let elemento of data.data) {
+                for (const elemento of data.data) {
+                    const desc = (elemento?.tipi_strutture?.tipo?.eg_desc1 || "").toLowerCase();
+                    if (desc.includes("ambito")) {
+                        if (dividiAmbitiMMGPediatri) {
+                            if (/\d/.test(desc)) out.ambiti.pediatri.push(elemento);
+                            else out.ambiti.mmg.push(elemento);
+                        } else {
+                            out.ambiti.push(elemento);
+                        }
+                    } else if (desc.includes("distretto")) {
+                        out.distretto = elemento;
+                    }
+                }
+                return {ok: true, data: out};
             }
-            return out;
         }
+        return {ok: false, data: null};
     }
 
 
@@ -216,14 +228,14 @@ export class Nar2 {
      * Retrieves doctors by region/area (ambito) with optional filtering.
      *
      * @param {string|number} idAmbito - The ID of the region/area to search doctors in
-     * @param {Object} fullAssistitoData - Complete patient data object from NAR2
+     * @param {Object} codFiscale - Codice fiscale data of the assistito
      * @param {string} tipoMedico - Type of doctor to search for ("M" for general practitioners, "P" for pediatricians)
      * @param {Object} [config={}] - Configuration options
      * @param {string} [config.dataScelta=current date] - The date to check doctor availability (YYYY-MM-DD)
      * @param {number} [config.sitAssistenziale=4] - Assistance situation code (4 = resident and domiciled in region)
      * @returns {Promise<Object>} Promise object representing the doctors list with pagination info
      */
-    async getMediciByAmbito(idAmbito, fullAssistitoData, tipoMedico, config = {}) {
+    async getMediciByAmbito(idAmbito, codFiscale, tipoMedico, config = {}) {
         //https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbitoTable?ambito=140&tipo_medico=M&dataScelta=2025-09-26&start=0&length=0&pagination=yes&sit_ass=4&cat_citt=90000000052&check_first_doctor=true&not_search_after=null&idPaziente=1128286
         //ambito=140&tipo_medico=P&dataScelta=2025-09-01&pagination=yes&sit_ass=4&cat_citt=90000000052&check_fisrt_doctor=true&idPaziente=1128286
         const {
@@ -231,12 +243,13 @@ export class Nar2 {
             sitAssistenziale = 4, // domiciliato e residente in regione
 
         } = config;
+        const fullAssistitoData = (await this.getDatiAssistitoNar2FromCf(codFiscale)).fullData.data;
         let getParams = {
             ambito: idAmbito,
             tipo_medico: tipoMedico,
             dataScelta: dataScelta,
             start: 0,
-            length:0,
+            length: 0,
             pagination: "yes",
             sit_ass: sitAssistenziale,
             cat_citt: fullAssistitoData.pz_categoria_citt,
@@ -248,14 +261,14 @@ export class Nar2 {
             getParams
         });
         if (data && data.ok === true) {
-            let out = {liberi:[], massimalisti:[]}
+            let out = {liberi: [], massimalisti: []}
             for (let riga of data.data) {
                 if (riga.medico_massimalista)
                     out.massimalisti.push(riga);
                 else
                     out.liberi.push(riga);
             }
-            return {ok:true,data: out};
+            return {ok: true, data: out};
         }
         return {ok: false, data: []};
     }
@@ -276,24 +289,24 @@ export class Nar2 {
      * @return {Promise<Object>} A promise that resolves to the retrieved medical data.
      */
     async getMediciFromNar2(config = {}) {
-       const {
+        const {
             soloAttivi = true,
             nascondiCessati = true,
-           normalizza = true,
-           soloPediatri = false,
-           soloMMG = false,
-           asl = "281", // messina,
-           azienda = "ME", //messina
+            normalizza = true,
+            soloPediatri = false,
+            soloMMG = false,
+            asl = "281", // messina,
+            azienda = "ME", //messina
         } = config;
-       let getParams = {
-           "tipo_rapporto": "Medico_base",
-           "aspOaltro": "ASP",
-           "esitoFineConvenzione": "rapporto_disattivato",
-           "intervalloVariazione": "modificato",
-           "rapportoAttivo": "true",
-           "asl": asl,
-           "azienda": azienda,
-       };
+        let getParams = {
+            "tipo_rapporto": "Medico_base",
+            "aspOaltro": "ASP",
+            "esitoFineConvenzione": "rapporto_disattivato",
+            "intervalloVariazione": "modificato",
+            "rapportoAttivo": "true",
+            "asl": asl,
+            "azienda": azienda,
+        };
         if ((soloMMG || soloPediatri) && !(soloMMG === true && soloPediatri === true)) {
             if (soloMMG === true)
                 getParams.categoriaMedico = Nar2.CAT_MMG;
@@ -312,11 +325,11 @@ export class Nar2 {
             if (soloAttivi)
                 medici = medici.filter(m => m && m.stato === "A");
             if (normalizza)
-                medici = medici.filter(m => m.cod_regionale !== null && m.codice_fiscale !== null) ;
+                medici = medici.filter(m => m.cod_regionale !== null && m.codice_fiscale !== null);
             if (nascondiCessati)
                 medici = medici.filter(m => m && (m.fine_rapporto === null || typeof m.fine_rapporto === "undefined"));
 
-            return { ok: true, data: medici };
+            return {ok: true, data: medici};
         }
         return data;
     }
@@ -351,7 +364,7 @@ export class Nar2 {
                 else datiAssistito = {ok: false, data: datiIdAssistito.data};
             }
             if (datiAssistito && datiAssistito.ok) break;
-                else console.log("Errore durante il recupero dei dati assistito da Nar2, tentativi rimanenti:" + (retry - i));
+            else console.log("Errore durante il recupero dei dati assistito da Nar2, tentativi rimanenti:" + (retry - i));
         }
         if (datiAssistito && datiAssistito.ok) {
             try {
@@ -481,20 +494,20 @@ export class Nar2 {
     }
 
     async getAssistitoFromId(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITO_NAR_FROM_ID, {urlId:id});
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITO_NAR_FROM_ID, {urlId: id});
     }
 
     async getMedicoFromId(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_MEDICO_FROM_ID, {urlId:id});
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_DATI_MEDICO_FROM_ID, {urlId: id});
     }
 
     async getNumAssistitiMedico(id) {
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_NUM_ASSISTITI_MEDICO, {urlId:id});
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_NUM_ASSISTITI_MEDICO, {urlId: id});
     }
 
     async getAssistitiFromParams(params) {
         // params in uri: codiceFiscale, nome, cognome, dataNascita
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, {params:params});
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, {params: params});
     }
 
     /**
