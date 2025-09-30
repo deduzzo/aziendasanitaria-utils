@@ -169,7 +169,22 @@ export class Nar2 {
         }
     }
 
-    async getAmbitiDomicilioAssistito(codFiscale,situazioneAssistenziale = 4)  {
+
+    /**
+     * Retrieves the ambiti (areas) and distretto (district) of an assistito (assisted person) based on their codice fiscale (tax code).
+     *
+     * @param {string} codFiscale - The codice fiscale (tax code) of the assistito.
+     * @param {Object} [config={}] - Optional configuration object.
+     * @param {number} [config.situazioneAssistenziale=4] - The assistential situation, default is 4 (domiciled and resident in the region).
+     * @return {Promise<Object>} A promise resolving to an object containing:
+     *                           - `assistito`: The general assistito data.
+     *                           - `ambiti`: An array of ambiti objects (areas).
+     *                           - `distretto`: The associated distretto object (district), if available.
+     */
+    async getAmbitiDomicilioAssistito(codFiscale, config = {})  {
+        let {
+            situazioneAssistenziale = 4 // domiciliato e residente in regione
+        } = config;
 
         //https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomTable?situazione_assistenziale=4&azienda=83&tipo=90000000038
         // 83 =  "pz_com_res": "83",
@@ -194,9 +209,6 @@ export class Nar2 {
             }
             return out;
         }
-
-
-
     }
 
 
