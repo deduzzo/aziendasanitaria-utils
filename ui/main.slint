@@ -77,6 +77,8 @@ export component MainWindow {
     callback reset_cf_fields();
     callback reset_detail_fields();
     callback on-search-type-changed(string);
+    // Copia negli appunti il JSON del paziente
+    callback copia_json();
 
     VerticalBox {
         HorizontalLayout {
@@ -144,6 +146,12 @@ export component MainWindow {
                                     root.cerca_paziente();
                                 }
                             }
+                            Button {
+                                text: "Copia JSON";
+                                height: 35px;
+                                enabled: !root.is_loading;
+                                clicked => { root.copia_json(); }
+                            }
                         }
 
                                 // Ricerca per dettagli
@@ -182,6 +190,12 @@ export component MainWindow {
                                 clicked => {
                                     root.cerca_paziente();
                                 }
+                            }
+                            Button {
+                                text: "Copia JSON";
+                                height: 35px;
+                                enabled: !root.is_loading;
+                                clicked => { root.copia_json(); }
                             }
                         }
                     }
@@ -283,6 +297,7 @@ export component MainWindow {
                                 }
                             }
                         }
+
                     }
                 }
 
