@@ -79,6 +79,8 @@ export component MainWindow {
     callback on-search-type-changed(string);
     // Copia negli appunti il JSON del paziente
     callback copia_json();
+    // Copia negli appunti il solo Codice Fiscale del paziente
+    callback copia_cf();
 
     VerticalBox {
         HorizontalLayout {
@@ -152,6 +154,12 @@ export component MainWindow {
                                 enabled: !root.is_loading;
                                 clicked => { root.copia_json(); }
                             }
+                            Button {
+                                text: "Copia CF";
+                                height: 35px;
+                                enabled: !root.is_loading && root.paziente_data.cf != "";
+                                clicked => { root.copia_cf(); }
+                            }
                         }
 
                                 // Ricerca per dettagli
@@ -196,6 +204,12 @@ export component MainWindow {
                                 height: 35px;
                                 enabled: !root.is_loading;
                                 clicked => { root.copia_json(); }
+                            }
+                            Button {
+                                text: "Copia CF";
+                                height: 35px;
+                                enabled: !root.is_loading && root.paziente_data.cf != "";
+                                clicked => { root.copia_cf(); }
                             }
                         }
                     }

@@ -16,22 +16,24 @@
     /* =============================== CSS =============================== */
     const css = `
 .tm-mini-modal {
-  position: fixed; top: 16px; right: 16px; width: 380px; max-width: 90vw;
+  position: fixed; top: 16px; right: 16px; width: 340px; max-width: 90vw; min-width: 280px;
   background: #f9fafb; color: #111; border: 1px solid #ccc; border-radius: 10px;
   z-index: 999999999; box-shadow: 0 6px 20px rgba(0,0,0,.25);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue";
+  resize: both; overflow: auto;
 }
 .tm-mm-header { display:flex; align-items:center; justify-content:space-between;
-  padding:8px 10px; background:#e5e7eb; font-weight:600; font-size:14px; cursor:move; user-select:none; border-bottom:1px solid #ccc;
+  padding:6px 8px; background:#e5e7eb; font-weight:600; font-size:13px; cursor:move; user-select:none; border-bottom:1px solid #ccc;
 }
-.tm-mm-body { padding:10px; display:flex; flex-direction:column; gap:8px; }
-.tm-mm-textarea { width:100%; min-height:130px; resize:vertical; border-radius:6px; border:1px solid #bbb; background:#fff; color:#000; padding:8px; box-sizing:border-box; outline:none; }
-.tm-input { width:100%; border:1px solid #bbb; background:#fff; color:#000; padding:8px; border-radius:6px; }
-.tm-small { font-size:12px; color:#333; }
-.tm-row { display:flex; gap:8px; align-items:center; }
-.tm-btn { appearance:none; border:1px solid #888; background:#f3f4f6; color:#111; padding:8px 10px; border-radius:6px; cursor:pointer; font-weight:600; transition:background .2s, color .2s; }
+.tm-mm-body { padding:8px; display:flex; flex-direction:column; gap:6px; }
+.tm-mm-textarea { width:100%; min-height:100px; resize:vertical; border-radius:6px; border:1px solid #bbb; background:#fff; color:#000; padding:6px; box-sizing:border-box; outline:none; font-size:12px; }
+.tm-input { width:100%; border:1px solid #bbb; background:#fff; color:#000; padding:6px; border-radius:6px; font-size:12px; user-select:text; cursor:text; }
+.tm-input:focus { outline: 2px solid #3b82f6; outline-offset: 1px; }
+.tm-small { font-size:11px; color:#555; margin:0; }
+.tm-row { display:flex; gap:6px; align-items:center; }
+.tm-btn { appearance:none; border:1px solid #888; background:#f3f4f6; color:#111; padding:6px 8px; border-radius:6px; cursor:pointer; font-weight:600; transition:background .2s, color .2s; font-size:12px; }
 .tm-btn:hover { background:#d1d5db; }
-.tm-close { background:transparent; border:none; color:#333; cursor:pointer; font-size:18px; }
+.tm-close { background:transparent; border:none; color:#333; cursor:pointer; font-size:18px; padding:0 4px; }
 `;
     if (typeof GM_addStyle === 'function') GM_addStyle(css);
     else { const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s); }

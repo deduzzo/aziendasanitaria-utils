@@ -86,8 +86,6 @@ async function main() {
                 if (data.ok) {
                     // Aggiorna l'interfaccia usando gli stessi nomi delle proprietà del file Slint
                     mainWindow.paziente_data = data.dati();
-                    // Copia automaticamente il JSON negli appunti e mostra un avviso temporaneo
-                    mainWindow.copia_json();
                     if (!mainWindow.paziente_data.inVita)
                         showAlert("Il paziente è deceduto", "warning");
                 }
@@ -125,6 +123,41 @@ async function main() {
                     proc.stdin.end(jsonText);
                 } else {
                     // Fallback basico per altri OS (non garantito se utility non presenti)
+                    showAlert("Copia negli appunti supportata attualmente solo su Windows.", "warning");
+                }
+            } catch (err) {
+                showAlert("Errore inaspettato durante la copia: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Copia negli appunti il solo Codice Fiscale del paziente
+        mainWindow.copia_cf = async () => {
+            try {
+                const cf = mainWindow.paziente_data?.cf ?? "";
+                if (!cf) {
+                    showAlert("Nessun CF da copiare", "warning");
+                    return;
+                }
+                if (process.platform === "win32") {
+                    const proc = spawn("clip");
+                    let hadError = false;
+                    proc.stdin.on("error", (e) => {
+                        hadError = true;
+                        showAlert("Errore nella copia negli appunti: " + e.message, "error");
+                    });
+                    proc.on("error", (e) => {
+                        hadError = true;
+                        showAlert("Errore nell'esecuzione di clip: " + e.message, "error");
+                    });
+                    proc.on("close", (code) => {
+                        if (!hadError && code === 0) {
+                            showAlert("CF copiato negli appunti.", "success");
+                        } else if (!hadError) {
+                            showAlert("Impossibile copiare negli appunti (codice: " + code + ")", "error");
+                        }
+                    });
+                    proc.stdin.end(cf);
+                } else {
                     showAlert("Copia negli appunti supportata attualmente solo su Windows.", "warning");
                 }
             } catch (err) {
