@@ -4,10 +4,50 @@ import configData from './config/config.json' with { type: 'json' };
 import {Nar2} from "./src/narTsServices/Nar2.js";
 import {utils} from "./src/Utils.js";
 import { spawn } from "child_process";
+import { WebSocketServer } from "ws";
 
 
 async function main() {
     try {
+        // WebSocket Server Setup
+        const wss = new WebSocketServer({ port: 12345 });
+        const clients = new Set();
+
+        wss.on('connection', (ws) => {
+            clients.add(ws);
+            console.log(`Nuovo client connesso. Totale client: ${clients.size}`);
+
+            ws.on('close', () => {
+                clients.delete(ws);
+                console.log(`Client disconnesso. Totale client: ${clients.size}`);
+                if (mainWindow) {
+                    mainWindow.ws_connected_clients = clients.size;
+                }
+            });
+
+            ws.on('error', (error) => {
+                console.error('Errore WebSocket:', error);
+                clients.delete(ws);
+                if (mainWindow) {
+                    mainWindow.ws_connected_clients = clients.size;
+                }
+            });
+
+            if (mainWindow) {
+                mainWindow.ws_connected_clients = clients.size;
+            }
+        });
+
+        wss.on('error', (error) => {
+            console.error('Errore server WebSocket:', error);
+            if (mainWindow) {
+                mainWindow.ws_server_active = false;
+            }
+        });
+
+        wss.on('listening', () => {
+            console.log('Server WebSocket attivo sulla porta 12345');
+        });
 
         const searchTypeMapping = {
             0: { value: "cf", text: "Codice Fiscale" },
@@ -17,6 +57,10 @@ async function main() {
         const ui = await slint.loadFile("ui/main.slint",{ style: "cosmic" });
         const mainWindow = new ui.MainWindow();
         // change mainWindow theme to cupertino-light
+
+        // Initialize WebSocket status
+        mainWindow.ws_server_active = true;
+        mainWindow.ws_connected_clients = 0;
 
         mainWindow.combo_options = Object.values(searchTypeMapping).map(item => item.text);
 
@@ -162,6 +206,103 @@ async function main() {
                 }
             } catch (err) {
                 showAlert("Errore inaspettato durante la copia: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Funzione helper per inviare comandi WebSocket strutturati
+        const sendWebSocketCommand = (command, data = {}) => {
+            if (clients.size === 0) {
+                showAlert("Nessun client connesso al server WebSocket", "warning");
+                return false;
+            }
+
+            const message = JSON.stringify({ command, data });
+            let successCount = 0;
+            let errorCount = 0;
+
+            clients.forEach((client) => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                    try {
+                        client.send(message);
+                        successCount++;
+                    } catch (err) {
+                        errorCount++;
+                        console.error("Errore nell'invio al client:", err);
+                    }
+                } else {
+                    errorCount++;
+                }
+            });
+
+            if (errorCount === 0) {
+                showAlert(`Comando "${command}" inviato a ${successCount} client`, "success");
+            } else {
+                showAlert(`Comando inviato a ${successCount} client, ${errorCount} errori`, "warning");
+            }
+            return true;
+        };
+
+        // Invia i dati del paziente a tutti i client WebSocket connessi
+        mainWindow.invia_dati_ws = () => {
+            try {
+                const pazienteData = mainWindow.paziente_data ?? {};
+                sendWebSocketCommand("inviaDatiPaziente", pazienteData);
+            } catch (err) {
+                showAlert("Errore nell'invio dei dati: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Apri menu ricerca assistito
+        mainWindow.apri_menu_ricerca = () => {
+            try {
+                sendWebSocketCommand("apriMenuRicercaAssistito");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Inserisci CF nella ricerca e clicca OK
+        mainWindow.inserisci_ricerca_cf = () => {
+            try {
+                sendWebSocketCommand("inserisciRicercaCf");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Aggiungi nuovo assistito e compila form
+        mainWindow.aggiungi_nuovo_assistito = () => {
+            try {
+                sendWebSocketCommand("aggiungiNuovoAssistito");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Salva modifiche
+        mainWindow.salva = () => {
+            try {
+                sendWebSocketCommand("salva");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Apri scheda indirizzo
+        mainWindow.scheda_indirizzo = () => {
+            try {
+                sendWebSocketCommand("schedaIndirizzo");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
+            }
+        };
+
+        // Configura metodo di pagamento
+        mainWindow.metodo_pagamento = () => {
+            try {
+                sendWebSocketCommand("metodoPagamento");
+            } catch (err) {
+                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
             }
         };
 

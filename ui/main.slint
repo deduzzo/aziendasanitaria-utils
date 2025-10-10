@@ -43,6 +43,17 @@ export component MainWindow {
     in-out property <string> alert-message: "";
     callback close-alert();
 
+    // WebSocket
+    in-out property <bool> ws_server_active: false;
+    in-out property <int> ws_connected_clients: 0;
+    callback invia_dati_ws();
+    callback apri_menu_ricerca();
+    callback inserisci_ricerca_cf();
+    callback aggiungi_nuovo_assistito();
+    callback salva();
+    callback scheda_indirizzo();
+    callback metodo_pagamento();
+
     callback cf_input_changed(string);
     in-out property <[string]> combo_options: [];
 
@@ -83,6 +94,57 @@ export component MainWindow {
     callback copia_cf();
 
     VerticalBox {
+        // WebSocket Status Badge
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 10px;
+            alignment: end;
+            height: 40px;
+
+            Rectangle {
+                width: 250px;
+                height: 30px;
+                background: root.ws_server_active ? green : red;
+                border-radius: 15px;
+
+                HorizontalLayout {
+                    padding-left: 15px;
+                    padding-right: 15px;
+                    padding-top: 5px;
+                    padding-bottom: 5px;
+                    spacing: 10px;
+                    alignment: center;
+
+                    Rectangle {
+                        width: 12px;
+                        height: 12px;
+                        background: white;
+                        border-radius: 6px;
+                    }
+
+                    Text {
+                        text: root.ws_server_active ? "Server Attivo" : "Server Inattivo";
+                        color: white;
+                        font-weight: 600;
+                        font-size: 12px;
+                    }
+
+                    Rectangle {
+                        width: 1px;
+                        height: 20px;
+                        background: white;
+                    }
+
+                    Text {
+                        text: root.ws_connected_clients + " client";
+                        color: white;
+                        font-weight: 600;
+                        font-size: 12px;
+                    }
+                }
+            }
+        }
+
         HorizontalLayout {
             padding: 10px;
             spacing: 10px;
@@ -211,6 +273,91 @@ export component MainWindow {
                                 enabled: !root.is_loading && root.paziente_data.cf != "";
                                 clicked => { root.copia_cf(); }
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // WebSocket Control Panel
+        HorizontalLayout {
+            padding: 10px;
+            spacing: 10px;
+            alignment: center;
+
+            GroupBox {
+                title: "Pannello di Controllo WebSocket";
+                width: parent.width;
+                vertical-stretch: 0;
+
+                VerticalLayout {
+                    padding: 10px;
+                    spacing: 8px;
+
+                    Text {
+                        text: root.ws_connected_clients == 0 ? "⚠ Nessun client connesso" : "✓ " + root.ws_connected_clients + " client connessi";
+                        horizontal-alignment: center;
+                        color: root.ws_connected_clients == 0 ? #dc3545 : #28a745;
+                        font-weight: 600;
+                        font-size: 12px;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        Button {
+                            text: "Invia Dati";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.invia_dati_ws(); }
+                        }
+
+                        Button {
+                            text: "Apri Menu";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.apri_menu_ricerca(); }
+                        }
+
+                        Button {
+                            text: "Ricerca CF";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.inserisci_ricerca_cf(); }
+                        }
+
+                        Button {
+                            text: "Nuovo Assistito";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.aggiungi_nuovo_assistito(); }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+
+                        Button {
+                            text: "Salva";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.salva(); }
+                        }
+
+                        Button {
+                            text: "Indirizzo";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.scheda_indirizzo(); }
+                        }
+
+                        Button {
+                            text: "Metodo Pagamento";
+                            height: 35px;
+                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                            clicked => { root.metodo_pagamento(); }
                         }
                     }
                 }
