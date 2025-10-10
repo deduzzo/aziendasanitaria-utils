@@ -132,6 +132,12 @@ async function main() {
                     mainWindow.paziente_data = data.dati();
                     if (!mainWindow.paziente_data.inVita)
                         showAlert("Il paziente è deceduto", "warning");
+
+                    // Invia automaticamente i dati se ci sono client connessi
+                    if (clients.size > 0) {
+                        const pazienteData = mainWindow.paziente_data ?? {};
+                        sendWebSocketCommand("inviaDatiPaziente", pazienteData);
+                    }
                 }
             } catch (error) {
                 console.error("Errore durante la ricerca:", error);
@@ -252,19 +258,10 @@ async function main() {
             }
         };
 
-        // Apri menu ricerca assistito
-        mainWindow.apri_menu_ricerca = () => {
+        // Ricerca anagrafica: apri menu + inserisci CF + ricerca
+        mainWindow.ricerca_anagrafica = () => {
             try {
-                sendWebSocketCommand("apriMenuRicercaAssistito");
-            } catch (err) {
-                showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
-            }
-        };
-
-        // Inserisci CF nella ricerca e clicca OK
-        mainWindow.inserisci_ricerca_cf = () => {
-            try {
-                sendWebSocketCommand("inserisciRicercaCf");
+                sendWebSocketCommand("ricercaAnagrafica");
             } catch (err) {
                 showAlert("Errore nell'invio comando: " + (err?.message ?? String(err)), "error");
             }

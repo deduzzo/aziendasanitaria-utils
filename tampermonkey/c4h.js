@@ -34,6 +34,14 @@
 .tm-btn { appearance:none; border:1px solid #888; background:#f3f4f6; color:#111; padding:6px 8px; border-radius:6px; cursor:pointer; font-weight:600; transition:background .2s, color .2s; font-size:12px; }
 .tm-btn:hover { background:#d1d5db; }
 .tm-close { background:transparent; border:none; color:#333; cursor:pointer; font-size:18px; padding:0 4px; }
+.tm-info-box { background:#fff; border:1px solid #bbb; border-radius:6px; padding:8px; font-size:12px; }
+.tm-info-row { display:flex; gap:4px; margin-bottom:4px; }
+.tm-info-row:last-child { margin-bottom:0; }
+.tm-info-label { font-weight:600; color:#666; min-width:60px; }
+.tm-info-value { color:#111; flex:1; }
+.tm-json-section { display:none; }
+.tm-json-section.visible { display:block; }
+.tm-toggle-btn { width:100%; }
 `;
     if (typeof GM_addStyle === 'function') GM_addStyle(css);
     else { const s = document.createElement('style'); s.textContent = css; document.head.appendChild(s); }
@@ -258,8 +266,31 @@
       <button class="tm-close" id="tmCloseBtn" title="Chiudi">×</button>
     </div>
     <div class="tm-mm-body">
-      <div class="tm-small">Incolla qui il JSON (nome, cognome, cf, dataNascita, indirizzoResidenza, ...)</div>
-      <textarea id="tmTextarea" class="tm-mm-textarea" placeholder='{"nome":"ROBERTO","cognome":"DE DOMENICO","cf":"...","dataNascita":"dd/MM/yyyy","indirizzoResidenza":"PACE SALITA BISIGNANI 3, 98167 MESSINA (ME)"}'></textarea>
+      <div class="tm-info-box" id="tmInfoBox">
+        <div class="tm-info-row">
+          <span class="tm-info-label">Nome:</span>
+          <span class="tm-info-value" id="tmInfoNome">-</span>
+        </div>
+        <div class="tm-info-row">
+          <span class="tm-info-label">Cognome:</span>
+          <span class="tm-info-value" id="tmInfoCognome">-</span>
+        </div>
+        <div class="tm-info-row">
+          <span class="tm-info-label">CF:</span>
+          <span class="tm-info-value" id="tmInfoCF">-</span>
+        </div>
+        <div class="tm-info-row">
+          <span class="tm-info-label">Nato il:</span>
+          <span class="tm-info-value" id="tmInfoDN">-</span>
+        </div>
+      </div>
+
+      <button id="btnToggleJson" class="tm-btn tm-toggle-btn">Mostra JSON completo</button>
+
+      <div class="tm-json-section" id="tmJsonSection">
+        <div class="tm-small">Incolla qui il JSON (nome, cognome, cf, dataNascita, indirizzoResidenza, ...)</div>
+        <textarea id="tmTextarea" class="tm-mm-textarea" placeholder='{"nome":"ROBERTO","cognome":"DE DOMENICO","cf":"...","dataNascita":"dd/MM/yyyy","indirizzoResidenza":"PACE SALITA BISIGNANI 3, 98167 MESSINA (ME)"}'></textarea>
+      </div>
 
       <div class="tm-small">Note fisse (testo uguale per tutti i record, fuori dal JSON)</div>
       <input id="tmNoteFixed" class="tm-input" placeholder="Note da copiare nel campo Note" />
@@ -286,6 +317,12 @@
     const addr  = modal.querySelector('#tmAddr');
     const cap   = modal.querySelector('#tmCap');
     const city  = modal.querySelector('#tmCity');
+    const btnToggleJson = modal.querySelector('#btnToggleJson');
+    const jsonSection = modal.querySelector('#tmJsonSection');
+    const infoNome = modal.querySelector('#tmInfoNome');
+    const infoCognome = modal.querySelector('#tmInfoCognome');
+    const infoCF = modal.querySelector('#tmInfoCF');
+    const infoDN = modal.querySelector('#tmInfoDN');
 
     function save(key, val){
         if (typeof GM_setValue === 'function') GM_setValue(key, val);
@@ -303,6 +340,23 @@
     cap.value = load('tm_cap','');
     city.value = load('tm_city','');
 
+    // Aggiorna info box
+    function updateInfoBox() {
+        const raw = sanitizeJSONText(ta.value);
+        try {
+            const data = JSON.parse(raw);
+            infoNome.textContent = data.nome ?? data.Nome ?? data["MMGNome"] ?? data["MMG Nome"] ?? '-';
+            infoCognome.textContent = data.cognome ?? data.Cognome ?? data["MMGCognome"] ?? data["MMG Cognome"] ?? '-';
+            infoCF.textContent = data.cf ?? data.CF ?? data.codiceFiscale ?? data.CodiceFiscale ?? '-';
+            infoDN.textContent = data.dataNascita ?? data.DataNascita ?? '-';
+        } catch (_) {
+            infoNome.textContent = '-';
+            infoCognome.textContent = '-';
+            infoCF.textContent = '-';
+            infoDN.textContent = '-';
+        }
+    }
+
     const autoParseFromTextarea = debounce(() => {
         const raw = sanitizeJSONText(ta.value);
         try {
@@ -316,9 +370,21 @@
         } catch (_) {
             // JSON parziale/non valido: non mostro errori mentre digiti
         }
+        updateInfoBox();
     }, 300);
 
+    // Toggle JSON section
+    btnToggleJson.addEventListener('click', () => {
+        jsonSection.classList.toggle('visible');
+        btnToggleJson.textContent = jsonSection.classList.contains('visible')
+            ? 'Nascondi JSON completo'
+            : 'Mostra JSON completo';
+    });
+
     ta.addEventListener('input', () => { save('tm_json', ta.value); autoParseFromTextarea(); });
+
+    // Aggiorna info box al caricamento
+    updateInfoBox();
     noteFixed.addEventListener('input', ()=>save('tm_notefixed',noteFixed.value));
     addr.addEventListener('input', ()=>save('tm_addr',addr.value));
     cap.addEventListener('input',  ()=>save('tm_cap',cap.value));
@@ -473,21 +539,158 @@
                 toast('📥 Dati paziente ricevuti', false);
                 break;
 
-            case 'apriMenuRicercaAssistito':
-                // Clicca sul menu "Anagrafica Paziente"
-                try {
-                    const menuItem = document.getElementById('z_rk_59');
-                    if (menuItem) {
+            case 'ricercaAnagrafica':
+                // Sequenza completa: apri menu Anagrafica Paziente + inserisci CF e ricerca
+                (async () => {
+                    try {
+                        console.log('=== INIZIO RICERCA ANAGRAFICA ===');
+
+                        // STEP 1: Cerca e clicca sul menu "Anagrafica Paziente" usando il title
+                        console.log('STEP 1: Ricerca menu Anagrafica Paziente...');
+                        const searchDocs = [document];
+                        const frames = document.querySelectorAll('iframe, frame');
+                        frames.forEach(fr => {
+                            try {
+                                const doc = fr.contentDocument || fr.contentWindow?.document;
+                                if (doc) searchDocs.push(doc);
+                            } catch (_) { /* cross-origin */ }
+                        });
+
+                        let menuItem = null;
+                        for (const doc of searchDocs) {
+                            // Cerca tr con title="Anagrafica Paziente"
+                            const menuRows = doc.querySelectorAll('tr[title="Anagrafica Paziente"]');
+                            if (menuRows.length > 0) {
+                                menuItem = menuRows[0];
+                                console.log('  → Menu trovato:', menuItem.id);
+                                break;
+                            }
+                        }
+
+                        if (!menuItem) {
+                            toast('⚠ Menu "Anagrafica Paziente" non trovato', true);
+                            console.error('Menu "Anagrafica Paziente" non trovato');
+                            return;
+                        }
+
                         menuItem.click();
+                        console.log('  ✓ Menu cliccato, attesa 1500ms...');
                         toast('✓ Menu Anagrafica Paziente aperto', false);
-                    } else {
-                        console.warn('Menu item z_rk_59 non trovato');
-                        toast('⚠ Menu non trovato', true);
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+
+                        // STEP 2: Inserisci CF e simula Enter
+                        console.log('STEP 2: Inserimento CF...');
+                        const raw = sanitizeJSONText(ta.value);
+                        if (!raw) {
+                            toast('⚠ Nessun dato JSON disponibile', true);
+                            return;
+                        }
+
+                        const jsonData = JSON.parse(raw);
+                        const cf = jsonData.cf || jsonData.CF || jsonData.codiceFiscale || jsonData.CodiceFiscale || '';
+
+                        if (!cf) {
+                            toast('⚠ CF non trovato nei dati', true);
+                            return;
+                        }
+
+                        console.log('Ricerca campo CF con waitForElement...');
+                        let cfInput;
+                        try {
+                            cfInput = await waitForElement('input.z-textbox[title*="Codice fiscale"][title*="DUNS"]', document, 5000);
+                        } catch (e) {
+                            console.warn('Campo CF con title DUNS non trovato, provo con altri selettori...');
+                            try {
+                                cfInput = await waitForElement('input.z-textbox[title*="Codice fiscale"]', document, 5000);
+                            } catch (e2) {
+                                console.warn('Campo CF con title non trovato, cerco in tutti gli iframe...');
+                                for (const frame of frames) {
+                                    try {
+                                        const doc = frame.contentDocument || frame.contentWindow?.document;
+                                        if (doc) {
+                                            cfInput = doc.querySelector('input.z-textbox[title*="Codice fiscale"]');
+                                            if (cfInput) break;
+                                        }
+                                    } catch (_) { /* cross-origin */ }
+                                }
+                            }
+                        }
+
+                        if (!cfInput) {
+                            toast('⚠ Campo ricerca CF non trovato', true);
+                            console.error('Campo CF non trovato con nessun selettore');
+                            return;
+                        }
+
+                        console.log('Campo CF trovato:', cfInput);
+
+                        // Popola il campo
+                        const prevReadonly = cfInput.hasAttribute('readonly');
+                        if (prevReadonly) cfInput.removeAttribute('readonly');
+
+                        cfInput.focus();
+                        cfInput.value = cf;
+                        cfInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        cfInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                        console.log(`CF "${cf}" inserito nel campo di ricerca`);
+                        toast(`✓ CF "${cf}" inserito`, false);
+
+                        // Dopo 500ms, simula Enter sul campo
+                        setTimeout(() => {
+                            try {
+                                console.log('Simulazione Enter sul campo CF...');
+                                cfInput.focus();
+
+                                const enterEventDown = new KeyboardEvent('keydown', {
+                                    key: 'Enter',
+                                    code: 'Enter',
+                                    keyCode: 13,
+                                    which: 13,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                cfInput.dispatchEvent(enterEventDown);
+
+                                const enterEventPress = new KeyboardEvent('keypress', {
+                                    key: 'Enter',
+                                    code: 'Enter',
+                                    keyCode: 13,
+                                    which: 13,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                cfInput.dispatchEvent(enterEventPress);
+
+                                const enterEventUp = new KeyboardEvent('keyup', {
+                                    key: 'Enter',
+                                    code: 'Enter',
+                                    keyCode: 13,
+                                    which: 13,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                cfInput.dispatchEvent(enterEventUp);
+
+                                console.log('Enter simulato sul campo CF');
+                                toast('✓ Ricerca CF avviata (Enter)', false);
+
+                                cfInput.blur();
+                                if (prevReadonly) cfInput.setAttribute('readonly', 'readonly');
+
+                            } catch (e) {
+                                console.error('Errore nella simulazione Enter:', e);
+                                toast('⚠ Errore simulazione Enter', true);
+                            }
+                        }, 500);
+
+                        console.log('=== RICERCA ANAGRAFICA COMPLETATA ===');
+
+                    } catch (e) {
+                        console.error('Errore ricerca anagrafica:', e);
+                        toast('⚠ Errore ricerca anagrafica', true);
                     }
-                } catch (e) {
-                    console.error('Errore nell\'apertura del menu:', e);
-                    toast('⚠ Errore apertura menu', true);
-                }
+                })();
                 break;
 
             case 'inserisciRicercaCf':
@@ -888,10 +1091,37 @@
                             gridBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0 }));
                             gridBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
                             console.log('  ✓ Eventi mouse eseguiti');
+
+                            // Attendi 1 secondo dopo il click sulla griglia
+                            await new Promise(resolve => setTimeout(resolve, 1000));
                         }
 
-                        // 4. Attendi che il campo Metodo di Pagamento appaia e seleziona "SEPA CREDIT TRANSFER"
-                        console.log('STEP 4/4: Attesa campo Metodo di Pagamento...');
+                        // 4. Check "Per Mandato"
+                        console.log('STEP 4/7: Check Per Mandato...');
+                        let mandatoCheckbox = null;
+                        for (const doc of searchDocs) {
+                            const mandatoSpans = doc.querySelectorAll('span.z-checkbox[title]');
+                            for (const span of mandatoSpans) {
+                                const title = (span.getAttribute('title') || '').trim();
+                                const cleanTitle = title.replace(/[(\)\s]/g, '');
+                                if (cleanTitle.includes('IsPerMandato')) {
+                                    mandatoCheckbox = span.querySelector('input[type="checkbox"]');
+                                    if (mandatoCheckbox) {
+                                        console.log('  → Checkbox trovata:', mandatoCheckbox.id);
+                                        if (!mandatoCheckbox.checked) {
+                                            mandatoCheckbox.click();
+                                            console.log('  ✓ Checkbox selezionata');
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                            if (mandatoCheckbox) break;
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 500));
+
+                        // 5. Attendi che il campo Metodo di Pagamento appaia e seleziona "SEPA CREDIT TRANSFER"
+                        console.log('STEP 5/7: Attesa campo Metodo di Pagamento...');
                         let metodoPagInput = null;
                         let comboDoc = null;
                         let attempts = 0;
@@ -937,60 +1167,108 @@
                         }
 
                         console.log('  → Selezione SEPA CREDIT TRANSFER...');
-                        await selectComboboxValue(metodoPagInput.id, 'SEPA CREDIT TRANSFER', comboDoc);
-                        console.log('  ✓ Valore selezionato');
-                        await new Promise(resolve => setTimeout(resolve, 800));
+                        // Simula comportamento umano completo: click, selezione, digitazione intervallata, autocomplete, Enter
+                        const prevReadonly = metodoPagInput.hasAttribute('readonly');
+                        if (prevReadonly) metodoPagInput.removeAttribute('readonly');
 
-                        // 5. Check "Per Reversale"
-                        console.log('STEP 5/6: Check Per Reversale...');
-                        let reversaleCheckbox = null;
-                        for (const doc of searchDocs) {
-                            const reversaleSpans = doc.querySelectorAll('span.z-checkbox[title]');
-                            for (const span of reversaleSpans) {
-                                const title = (span.getAttribute('title') || '').trim();
-                                const cleanTitle = title.replace(/[(\)\s]/g, '');
-                                if (cleanTitle.includes('IsPerReversale')) {
-                                    reversaleCheckbox = span.querySelector('input[type="checkbox"]');
-                                    if (reversaleCheckbox) {
-                                        console.log('  → Checkbox trovata:', reversaleCheckbox.id);
-                                        if (!reversaleCheckbox.checked) {
-                                            reversaleCheckbox.click();
-                                            console.log('  ✓ Checkbox selezionata');
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            if (reversaleCheckbox) break;
+                        // 1. Click sul campo per attivarlo
+                        metodoPagInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                        metodoPagInput.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                        metodoPagInput.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                        metodoPagInput.focus();
+
+                        await new Promise(resolve => setTimeout(resolve, 50));
+
+                        // 2. Seleziona tutto il testo esistente
+                        metodoPagInput.select();
+                        metodoPagInput.setSelectionRange(0, metodoPagInput.value.length);
+
+                        await new Promise(resolve => setTimeout(resolve, 50));
+
+                        // 3. Scrivi "S" carattere per carattere con delay tra ogni carattere
+                        const text = 'S';
+                        metodoPagInput.value = '';
+
+                        for (let i = 0; i < text.length; i++) {
+                            const char = text[i];
+                            metodoPagInput.value += char;
+
+                            // Simula keydown
+                            metodoPagInput.dispatchEvent(new KeyboardEvent('keydown', {
+                                key: char,
+                                code: 'Key' + char.toUpperCase(),
+                                keyCode: char.charCodeAt(0),
+                                which: char.charCodeAt(0),
+                                bubbles: true,
+                                cancelable: true
+                            }));
+
+                            // Simula keypress
+                            metodoPagInput.dispatchEvent(new KeyboardEvent('keypress', {
+                                key: char,
+                                code: 'Key' + char.toUpperCase(),
+                                keyCode: char.charCodeAt(0),
+                                which: char.charCodeAt(0),
+                                bubbles: true,
+                                cancelable: true
+                            }));
+
+                            // Evento input per attivare l'autocomplete
+                            metodoPagInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                            // Simula keyup
+                            metodoPagInput.dispatchEvent(new KeyboardEvent('keyup', {
+                                key: char,
+                                code: 'Key' + char.toUpperCase(),
+                                keyCode: char.charCodeAt(0),
+                                which: char.charCodeAt(0),
+                                bubbles: true,
+                                cancelable: true
+                            }));
+
+                            // Attendi tra ogni carattere per dare tempo all'autocomplete di attivarsi
+                            await new Promise(resolve => setTimeout(resolve, 10));
                         }
-                        await new Promise(resolve => setTimeout(resolve, 600));
 
-                        // 6. Check "Per Mandato"
-                        console.log('STEP 6/6: Check Per Mandato...');
-                        let mandatoCheckbox = null;
-                        for (const doc of searchDocs) {
-                            const mandatoSpans = doc.querySelectorAll('span.z-checkbox[title]');
-                            for (const span of mandatoSpans) {
-                                const title = (span.getAttribute('title') || '').trim();
-                                const cleanTitle = title.replace(/[(\)\s]/g, '');
-                                if (cleanTitle.includes('IsPerMandato')) {
-                                    mandatoCheckbox = span.querySelector('input[type="checkbox"]');
-                                    if (mandatoCheckbox) {
-                                        console.log('  → Checkbox trovata:', mandatoCheckbox.id);
-                                        if (!mandatoCheckbox.checked) {
-                                            mandatoCheckbox.click();
-                                            console.log('  ✓ Checkbox selezionata');
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            if (mandatoCheckbox) break;
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 800));
+                        // 4. Attendi che l'autocomplete si attivi completamente
+                        await new Promise(resolve => setTimeout(resolve, 300));
 
-                        // 7. Seleziona "ESENTE" nel combobox Soggetto Destinatario Delle Spese
-                        console.log('STEP 7/8: Selezione ESENTE in Soggetto Destinatario...');
+                        // 5. Simula Enter per confermare la selezione dall'autocomplete
+                        metodoPagInput.dispatchEvent(new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        }));
+                        metodoPagInput.dispatchEvent(new KeyboardEvent('keypress', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        }));
+                        metodoPagInput.dispatchEvent(new KeyboardEvent('keyup', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        }));
+
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                        metodoPagInput.blur();
+                        if (prevReadonly) metodoPagInput.setAttribute('readonly', 'readonly');
+
+                        console.log('  ✓ SEPA digitato e confermato con Enter (comportamento umano)');
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // 6. Seleziona "ESENTE" nel combobox Soggetto Destinatario Delle Spese
+                        console.log('STEP 6/7: Selezione ESENTE in Soggetto Destinatario...');
                         let soggettoInput = null;
                         let soggettoDoc = null;
                         for (const doc of searchDocs) {
@@ -1010,13 +1288,104 @@
                             if (soggettoInput) break;
                         }
                         if (soggettoInput) {
-                            await selectComboboxValue(soggettoInput.id, 'ESENTE', soggettoDoc);
-                            console.log('  ✓ ESENTE selezionato');
-                        }
-                        await new Promise(resolve => setTimeout(resolve, 800));
+                            // Simula comportamento umano: click, selezione, digitazione "E", Enter
+                            const prevReadonlySogg = soggettoInput.hasAttribute('readonly');
+                            if (prevReadonlySogg) soggettoInput.removeAttribute('readonly');
 
-                        // 8. Seleziona "Nessuna" nel combobox Causale Esenzione Spese
-                        console.log('STEP 8/8: Selezione Nessuna in Causale Esenzione...');
+                            // 1. Click sul campo
+                            soggettoInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                            soggettoInput.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                            soggettoInput.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                            soggettoInput.focus();
+
+                            await new Promise(resolve => setTimeout(resolve, 50));
+
+                            // 2. Seleziona tutto il testo esistente
+                            soggettoInput.select();
+                            soggettoInput.setSelectionRange(0, soggettoInput.value.length);
+
+                            await new Promise(resolve => setTimeout(resolve, 50));
+
+                            // 3. Scrivi "E"
+                            const textSogg = 'E';
+                            soggettoInput.value = '';
+
+                            for (let i = 0; i < textSogg.length; i++) {
+                                const char = textSogg[i];
+                                soggettoInput.value += char;
+
+                                soggettoInput.dispatchEvent(new KeyboardEvent('keydown', {
+                                    key: char,
+                                    code: 'Key' + char.toUpperCase(),
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                soggettoInput.dispatchEvent(new KeyboardEvent('keypress', {
+                                    key: char,
+                                    code: 'Key' + char.toUpperCase(),
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                soggettoInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                                soggettoInput.dispatchEvent(new KeyboardEvent('keyup', {
+                                    key: char,
+                                    code: 'Key' + char.toUpperCase(),
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                await new Promise(resolve => setTimeout(resolve, 10));
+                            }
+
+                            // 4. Attendi autocomplete
+                            await new Promise(resolve => setTimeout(resolve, 300));
+
+                            // 5. Simula Enter
+                            soggettoInput.dispatchEvent(new KeyboardEvent('keydown', {
+                                key: 'Enter',
+                                code: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }));
+                            soggettoInput.dispatchEvent(new KeyboardEvent('keypress', {
+                                key: 'Enter',
+                                code: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }));
+                            soggettoInput.dispatchEvent(new KeyboardEvent('keyup', {
+                                key: 'Enter',
+                                code: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            }));
+
+                            await new Promise(resolve => setTimeout(resolve, 100));
+
+                            soggettoInput.blur();
+                            if (prevReadonlySogg) soggettoInput.setAttribute('readonly', 'readonly');
+
+                            console.log('  ✓ ESENTE digitato e confermato con Enter');
+                        }
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+
+                        // 7. Seleziona "Nessuna" nel combobox Causale Esenzione Spese
+                        console.log('STEP 7/7: Selezione Nessuna in Causale Esenzione...');
                         let causaleInput = null;
                         let causaleDoc = null;
                         for (const doc of searchDocs) {

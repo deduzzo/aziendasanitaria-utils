@@ -47,8 +47,7 @@ export component MainWindow {
     in-out property <bool> ws_server_active: false;
     in-out property <int> ws_connected_clients: 0;
     callback invia_dati_ws();
-    callback apri_menu_ricerca();
-    callback inserisci_ricerca_cf();
+    callback ricerca_anagrafica();
     callback aggiungi_nuovo_assistito();
     callback salva();
     callback scheda_indirizzo();
@@ -314,17 +313,10 @@ export component MainWindow {
                         }
 
                         Button {
-                            text: "Apri Menu";
+                            text: "Ricerca Anagrafica";
                             height: 35px;
                             enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.apri_menu_ricerca(); }
-                        }
-
-                        Button {
-                            text: "Ricerca CF";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.inserisci_ricerca_cf(); }
+                            clicked => { root.ricerca_anagrafica(); }
                         }
 
                         Button {
