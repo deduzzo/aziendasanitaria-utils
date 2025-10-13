@@ -127,11 +127,26 @@
         const prevClass = input.className;
         if (prevReadonly) input.removeAttribute('readonly');
         if (prevClass) input.className = prevClass.replace(/-readonly\b/g, '');
+
+        // Simula click del mouse per attivare eventuali controlli script esterni
+        input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        input.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+        input.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Seleziona tutto il contenuto esistente
         input.focus();
+        input.select();
+        input.setSelectionRange(0, input.value.length);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         input.value = value ?? '';
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
         input.blur();
+
         setTimeout(() => {
             if (prevReadonly) input.setAttribute('readonly', 'readonly');
             input.className = prevClass;
@@ -144,11 +159,26 @@
         if (!inp) throw new Error(`Campo data non trovato: ${selector}`);
         const prevReadonly = inp.hasAttribute('readonly');
         if (prevReadonly) inp.removeAttribute('readonly');
+
+        // Simula click del mouse per attivare eventuali controlli script esterni
+        inp.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+        inp.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+        inp.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Seleziona tutto il contenuto esistente
         inp.focus();
+        inp.select();
+        inp.setSelectionRange(0, inp.value.length);
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
         inp.value = valueDDMMYYYY;
         inp.dispatchEvent(new Event('input', { bubbles: true }));
         inp.dispatchEvent(new Event('change', { bubbles: true }));
         inp.blur();
+
         if (prevReadonly) inp.setAttribute('readonly','readonly');
     }
 
