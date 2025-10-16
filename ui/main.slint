@@ -1,4 +1,4 @@
-import { Button, VerticalBox, LineEdit, ScrollView, GroupBox, ComboBox } from "std-widgets.slint";
+import { Button, VerticalBox, LineEdit, ScrollView, GroupBox, ComboBox, CheckBox } from "std-widgets.slint";
 import {Alert} from "alert.slint";
 
 struct PazienteData {
@@ -23,19 +23,38 @@ struct PazienteData {
     dataDecesso: string,
 }
 
-component ReadOnlyLineEdit inherits LineEdit {
+component CompactLineEdit inherits LineEdit {
     read_only: true;
-    height: 35px;
+    height: 28px;
+    font-size: 11px;
 }
 
 component FieldLabel inherits Text {
-    font_weight: 500;
-    vertical_alignment: center;
+    font-weight: 600;
+    font-size: 10px;
+    color: #b0b0b0;
+    vertical-alignment: center;
+}
+
+component DataField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    spacing: 2px;
+
+    FieldLabel {
+        text: root.label;
+    }
+
+    CompactLineEdit {
+        text: root.value;
+    }
 }
 
 export component MainWindow {
-    width: 1200px;
-    height: 900px;
+    preferred-width: 800px;
+    preferred-height: 600px;
+    min-width: 700px;
+    min-height: 450px;
 
     // ALERT
     in-out property <string> alert-type: "info";
@@ -46,6 +65,7 @@ export component MainWindow {
     // WebSocket
     in-out property <bool> ws_server_active: false;
     in-out property <int> ws_connected_clients: 0;
+    in-out property <bool> ws_panel_collapsed: false;
     callback invia_dati_ws();
     callback ricerca_anagrafica();
     callback aggiungi_nuovo_assistito();
@@ -58,10 +78,11 @@ export component MainWindow {
 
     in-out property <bool> is_loading: false;
     in-out property <string> cf_input: "";
-    in-out property <string> search_type: "cf"; // "cf" o "details"
+    in-out property <string> search_type: "cf";
     in-out property <string> nome: "";
     in-out property <string> cognome: "";
     in-out property <string> dataNascita: "";
+    in-out property <bool> auto_copy_json: true;
     in-out property <PazienteData> paziente_data: {
         inVita: false,
         cf: "",
@@ -87,536 +108,447 @@ export component MainWindow {
     callback reset_cf_fields();
     callback reset_detail_fields();
     callback on-search-type-changed(string);
-    // Copia negli appunti il JSON del paziente
     callback copia_json();
-    // Copia negli appunti il solo Codice Fiscale del paziente
     callback copia_cf();
 
-    VerticalBox {
-        // WebSocket Status Badge
-        HorizontalLayout {
-            padding: 10px;
-            spacing: 10px;
-            alignment: end;
-            height: 40px;
+    Rectangle {
+        background: #1e1e1e;
 
-            Rectangle {
-                width: 250px;
-                height: 30px;
-                background: root.ws_server_active ? green : red;
-                border-radius: 15px;
+        VerticalBox {
+            padding: 0px;
+            spacing: 0px;
 
+        // Top Bar - Status and Search
+        Rectangle {
+            background: #2d2d2d;
+
+            VerticalLayout {
+                padding: 8px;
+                spacing: 8px;
+
+                // WebSocket Status Badge
                 HorizontalLayout {
-                    padding-left: 15px;
-                    padding-right: 15px;
-                    padding-top: 5px;
-                    padding-bottom: 5px;
-                    spacing: 10px;
-                    alignment: center;
-
-                    Rectangle {
-                        width: 12px;
-                        height: 12px;
-                        background: white;
-                        border-radius: 6px;
-                    }
-
-                    Text {
-                        text: root.ws_server_active ? "Server Attivo" : "Server Inattivo";
-                        color: white;
-                        font-weight: 600;
-                        font-size: 12px;
-                    }
-
-                    Rectangle {
-                        width: 1px;
-                        height: 20px;
-                        background: white;
-                    }
-
-                    Text {
-                        text: root.ws_connected_clients + " client";
-                        color: white;
-                        font-weight: 600;
-                        font-size: 12px;
-                    }
-                }
-            }
-        }
-
-        HorizontalLayout {
-            padding: 10px;
-            spacing: 10px;
-            alignment: center;
-
-            GroupBox {
-                title: "Dati di Ricerca";
-                width: parent.width;
-                vertical-stretch: 0; // Impedisce al GroupBox di espandersi verticalmente più del necessario
-
-                        VerticalLayout {
-                    padding: 10px;
-                    spacing: 10px;
-                    vertical-stretch: 0; // Anche il layout interno non deve espandersi
-
-                            // Selezione tipo ricerca
-                    HorizontalLayout {
-                        spacing: 10px;
-                        alignment: start;
-                        vertical-stretch: 0;
-
-                        Text {
-                            text: "Tipo di ricerca:";
-                            vertical-alignment: center;
-                        }
-
-                        ComboBox {
-                            width: 200px;
-                            model: root.combo_options;
-                            selected => {
-                                root.on-search-type-changed(self.current-index);
-                            }
-                        }
-                    }
-
-                    // Campi di ricerca
-                    HorizontalLayout {
-                        spacing: 10px;
-                        alignment: start;
-                        vertical-stretch: 0;
-
-                                // Ricerca per CF
-                        if root.search_type == "cf": HorizontalLayout {
-                            spacing: 10px;
-                            vertical-stretch: 0;
-
-                            LineEdit {
-                                placeholder-text: "Inserisci Codice Fiscale";
-                                text <=> root.cf_input;
-                                height: 35px;
-                                width: 250px;
-                                enabled: !root.is_loading;
-                                edited(text) => {
-                                    root.cf_input_changed(text);
-                                }
-                            }
-
-                            Button {
-                                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
-                                height: 35px;
-                                enabled: !root.is_loading;
-                                clicked => {
-                                    root.cerca_paziente();
-                                }
-                            }
-                            Button {
-                                text: "Copia JSON";
-                                height: 35px;
-                                enabled: !root.is_loading;
-                                clicked => { root.copia_json(); }
-                            }
-                            Button {
-                                text: "Copia CF";
-                                height: 35px;
-                                enabled: !root.is_loading && root.paziente_data.cf != "";
-                                clicked => { root.copia_cf(); }
-                            }
-                        }
-
-                                // Ricerca per dettagli
-                        if root.search_type == "details": HorizontalLayout {
-                            spacing: 10px;
-                            vertical-stretch: 0;
-
-                            LineEdit {
-                                placeholder-text: "Nome";
-                                text <=> root.nome;
-                                height: 35px;
-                                width: 150px;
-                                enabled: !root.is_loading;
-                            }
-
-                            LineEdit {
-                                placeholder-text: "Cognome";
-                                text <=> root.cognome;
-                                height: 35px;
-                                width: 150px;
-                                enabled: !root.is_loading;
-                            }
-
-                            LineEdit {
-                                placeholder-text: "Data di Nascita";
-                                text <=> root.dataNascita;
-                                height: 35px;
-                                width: 150px;
-                                enabled: !root.is_loading;
-                            }
-
-                            Button {
-                                text: root.is_loading ? "Ricerca in corso..." : "Cerca";
-                                height: 35px;
-                                enabled: !root.is_loading && root.nome != "" && root.cognome != "" && root.dataNascita != "";
-                                clicked => {
-                                    root.cerca_paziente();
-                                }
-                            }
-                            Button {
-                                text: "Copia JSON";
-                                height: 35px;
-                                enabled: !root.is_loading;
-                                clicked => { root.copia_json(); }
-                            }
-                            Button {
-                                text: "Copia CF";
-                                height: 35px;
-                                enabled: !root.is_loading && root.paziente_data.cf != "";
-                                clicked => { root.copia_cf(); }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // WebSocket Control Panel
-        HorizontalLayout {
-            padding: 10px;
-            spacing: 10px;
-            alignment: center;
-
-            GroupBox {
-                title: "Pannello di Controllo WebSocket";
-                width: parent.width;
-                vertical-stretch: 0;
-
-                VerticalLayout {
-                    padding: 10px;
                     spacing: 8px;
+                    alignment: space-between;
+                    height: 28px;
+
+                    Rectangle {
+                        width: 200px;
+                        height: 24px;
+                        background: root.ws_server_active ? #28a745 : #dc3545;
+                        border-radius: 12px;
+
+                        HorizontalLayout {
+                            padding: 6px;
+                            spacing: 6px;
+                            alignment: center;
+
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                background: white;
+                                border-radius: 4px;
+                            }
+
+                            Text {
+                                text: root.ws_server_active ? "Server Attivo" : "Inattivo";
+                                color: white;
+                                font-weight: 600;
+                                font-size: 11px;
+                            }
+
+                            Rectangle {
+                                width: 1px;
+                                height: 16px;
+                                background: white;
+                            }
+
+                            Text {
+                                text: root.ws_connected_clients + " client";
+                                color: white;
+                                font-weight: 600;
+                                font-size: 11px;
+                            }
+                        }
+                    }
+
+                    // Toggle WebSocket Panel Button
+                    Button {
+                        text: root.ws_panel_collapsed ? "Mostra Comandi ▼" : "Nascondi Comandi ▲";
+                        height: 24px;
+                        clicked => {
+                            root.ws_panel_collapsed = !root.ws_panel_collapsed;
+                        }
+                    }
+                }
+
+                // Search Section
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
 
                     Text {
-                        text: root.ws_connected_clients == 0 ? "⚠ Nessun client connesso" : "✓ " + root.ws_connected_clients + " client connessi";
-                        horizontal-alignment: center;
-                        color: root.ws_connected_clients == 0 ? #dc3545 : #28a745;
-                        font-weight: 600;
-                        font-size: 12px;
+                        text: "Tipo:";
+                        vertical-alignment: center;
+                        font-size: 11px;
+                        width: 35px;
+                        color: #e0e0e0;
                     }
 
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
-
-                        Button {
-                            text: "Invia Dati";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.invia_dati_ws(); }
-                        }
-
-                        Button {
-                            text: "Ricerca Anagrafica";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.ricerca_anagrafica(); }
-                        }
-
-                        Button {
-                            text: "Nuovo Assistito";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.aggiungi_nuovo_assistito(); }
+                    ComboBox {
+                        width: 180px;
+                        height: 28px;
+                        model: root.combo_options;
+                        selected => {
+                            root.on-search-type-changed(self.current-index);
                         }
                     }
 
-                    HorizontalLayout {
-                        spacing: 8px;
-                        alignment: start;
+                    CheckBox {
+                        text: "Auto-copia JSON";
+                        checked <=> root.auto_copy_json;
+                        height: 28px;
+                    }
+                }
 
-                        Button {
-                            text: "Salva";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.salva(); }
+                // Search Fields
+                HorizontalLayout {
+                    spacing: 6px;
+                    alignment: start;
+
+                    if root.search_type == "cf": HorizontalLayout {
+                        spacing: 6px;
+
+                        LineEdit {
+                            placeholder-text: "Codice Fiscale";
+                            text <=> root.cf_input;
+                            height: 32px;
+                            width: 200px;
+                            enabled: !root.is_loading;
+                            edited(text) => {
+                                root.cf_input_changed(text);
+                            }
                         }
 
                         Button {
-                            text: "Indirizzo";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.scheda_indirizzo(); }
+                            text: root.is_loading ? "Cerco..." : "Cerca";
+                            height: 32px;
+                            enabled: !root.is_loading;
+                            primary: true;
+                            clicked => {
+                                root.cerca_paziente();
+                            }
                         }
 
                         Button {
-                            text: "Metodo Pagamento";
-                            height: 35px;
-                            enabled: root.ws_server_active && root.ws_connected_clients > 0;
-                            clicked => { root.metodo_pagamento(); }
+                            text: "JSON";
+                            height: 32px;
+                            enabled: !root.is_loading;
+                            clicked => { root.copia_json(); }
+                        }
+
+                        Button {
+                            text: "CF";
+                            height: 32px;
+                            enabled: !root.is_loading && root.paziente_data.cf != "";
+                            clicked => { root.copia_cf(); }
+                        }
+                    }
+
+                    if root.search_type == "details": HorizontalLayout {
+                        spacing: 6px;
+
+                        LineEdit {
+                            placeholder-text: "Nome";
+                            text <=> root.nome;
+                            height: 32px;
+                            width: 130px;
+                            enabled: !root.is_loading;
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Cognome";
+                            text <=> root.cognome;
+                            height: 32px;
+                            width: 130px;
+                            enabled: !root.is_loading;
+                        }
+
+                        LineEdit {
+                            placeholder-text: "Data Nascita";
+                            text <=> root.dataNascita;
+                            height: 32px;
+                            width: 130px;
+                            enabled: !root.is_loading;
+                        }
+
+                        Button {
+                            text: root.is_loading ? "Cerco..." : "Cerca";
+                            height: 32px;
+                            enabled: !root.is_loading && root.nome != "" && root.cognome != "" && root.dataNascita != "";
+                            primary: true;
+                            clicked => {
+                                root.cerca_paziente();
+                            }
+                        }
+
+                        Button {
+                            text: "JSON";
+                            height: 32px;
+                            enabled: !root.is_loading;
+                            clicked => { root.copia_json(); }
+                        }
+
+                        Button {
+                            text: "CF";
+                            height: 32px;
+                            enabled: !root.is_loading && root.paziente_data.cf != "";
+                            clicked => { root.copia_cf(); }
                         }
                     }
                 }
             }
         }
 
+        // WebSocket Control Panel (Collapsible)
+        if !root.ws_panel_collapsed: Rectangle {
+            background: #252525;
+
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 6px;
+                alignment: start;
+
+                Text {
+                    text: root.ws_connected_clients == 0 ? "⚠ Nessun client" : "✓ " + root.ws_connected_clients + " client";
+                    vertical-alignment: center;
+                    color: root.ws_connected_clients == 0 ? #dc3545 : #28a745;
+                    font-weight: 600;
+                    font-size: 11px;
+                    width: 100px;
+                }
+
+                Button {
+                    text: "Invia Dati";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.invia_dati_ws(); }
+                }
+
+                Button {
+                    text: "Ricerca Anagrafica";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.ricerca_anagrafica(); }
+                }
+
+                Button {
+                    text: "Nuovo Assistito";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.aggiungi_nuovo_assistito(); }
+                }
+
+                Button {
+                    text: "Salva";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.salva(); }
+                }
+
+                Button {
+                    text: "Indirizzo";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.scheda_indirizzo(); }
+                }
+
+                Button {
+                    text: "Pagamento";
+                    height: 28px;
+                    enabled: root.ws_server_active && root.ws_connected_clients > 0;
+                    clicked => { root.metodo_pagamento(); }
+                }
+            }
+        }
+
+        // Patient Data Section
         ScrollView {
             VerticalLayout {
-                padding: 20px;
-                spacing: 15px;
+                padding: 8px;
+                spacing: 8px;
 
-                       // Dati Paziente
+                // Dati Anagrafici
                 GroupBox {
-                    title: "Dati Paziente";
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 10px;
+                    title: "Dati Anagrafici";
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "CF:";
-                                }
+                    GridLayout {
+                        padding: 6px;
+                        spacing: 6px;
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.cf;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Cognome:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.cognome;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Nome:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.nome;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Sesso:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.sesso;
-                                }
-                            }
+                        DataField {
+                            label: "Codice Fiscale";
+                            value: root.paziente_data.cf;
+                            row: 0;
+                            col: 0;
+                            colspan: 2;
                         }
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Data Nascita:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.dataNascita;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Luogo Nascita:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.comuneNascita;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Indirizzo:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.indirizzoResidenza;
-                                }
-                            }
+                        DataField {
+                            label: "Cognome";
+                            value: root.paziente_data.cognome;
+                            row: 0;
+                            col: 2;
                         }
 
+                        DataField {
+                            label: "Nome";
+                            value: root.paziente_data.nome;
+                            row: 0;
+                            col: 3;
+                        }
+
+                        DataField {
+                            label: "Sesso";
+                            value: root.paziente_data.sesso;
+                            row: 0;
+                            col: 4;
+                        }
+
+                        DataField {
+                            label: "Data Nascita";
+                            value: root.paziente_data.dataNascita;
+                            row: 1;
+                            col: 0;
+                        }
+
+                        DataField {
+                            label: "Comune Nascita";
+                            value: root.paziente_data.comuneNascita;
+                            row: 1;
+                            col: 1;
+                            colspan: 2;
+                        }
+
+                        DataField {
+                            label: "Indirizzo Residenza";
+                            value: root.paziente_data.indirizzoResidenza;
+                            row: 1;
+                            col: 3;
+                            colspan: 2;
+                        }
                     }
                 }
 
-               // Dati CF
-               GroupBox {
-                    title: "Dati CF";
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 10px;
+                // Dati Sanitari
+                GroupBox {
+                    title: "Dati Sanitari";
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "ASP:";
-                                }
+                    GridLayout {
+                        padding: 6px;
+                        spacing: 6px;
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.asp;
-                                }
-                            }
+                        DataField {
+                            label: "ASP";
+                            value: root.paziente_data.asp;
+                            row: 0;
+                            col: 0;
+                        }
 
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "N° Tessera:";
-                                }
+                        DataField {
+                            label: "N° Tessera";
+                            value: root.paziente_data.ssnNumeroTessera;
+                            row: 0;
+                            col: 1;
+                        }
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.ssnNumeroTessera;
-                                }
-                            }
+                        DataField {
+                            label: "Tipo Assistito";
+                            value: root.paziente_data.ssnTipoAssistito;
+                            row: 0;
+                            col: 2;
+                        }
 
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Vivo:";
-                                }
+                        DataField {
+                            label: "In Vita";
+                            value: root.paziente_data.inVita ? "SI" : "NO";
+                            row: 0;
+                            col: 3;
+                        }
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.inVita ? "SI" : "NO";
-                                }
-                            }
+                        DataField {
+                            label: "Data Decesso";
+                            value: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
+                            row: 0;
+                            col: 4;
+                        }
+
+                        DataField {
+                            label: "Inizio Assistenza";
+                            value: root.paziente_data.ssnInizioAssistenza;
+                            row: 1;
+                            col: 0;
+                        }
+
+                        DataField {
+                            label: "Fine Assistenza";
+                            value: root.paziente_data.ssnFineAssistenza;
+                            row: 1;
+                            col: 1;
+                        }
+
+                        DataField {
+                            label: "Motivazione Fine";
+                            value: root.paziente_data.ssnMotivazioneFineAssistenza;
+                            row: 1;
+                            col: 2;
+                            colspan: 3;
                         }
                     }
                 }
-                // Dati SSN
+
+                // Dati Medico
                 GroupBox {
-                    title: "Dati SSN";
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 10px;
+                    title: "Medico di Medicina Generale";
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Medico CF:";
-                                }
+                    GridLayout {
+                        padding: 6px;
+                        spacing: 6px;
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.MMGCf;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Medico Cognome:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.MMGCognome;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Medico Nome:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.MMGNome;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Medico Data:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.MMGDataScelta;
-                                }
-                            }
+                        DataField {
+                            label: "CF Medico";
+                            value: root.paziente_data.MMGCf;
+                            row: 0;
+                            col: 0;
                         }
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Tipo SSN:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.ssnTipoAssistito;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Inizio SSN:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.ssnInizioAssistenza;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Fine SSN:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.ssnFineAssistenza;
-                                }
-                            }
+                        DataField {
+                            label: "Cognome";
+                            value: root.paziente_data.MMGCognome;
+                            row: 0;
+                            col: 1;
                         }
 
-                        HorizontalLayout {
-                            spacing: 10px;
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Motivo Fine:";
-                                }
+                        DataField {
+                            label: "Nome";
+                            value: root.paziente_data.MMGNome;
+                            row: 0;
+                            col: 2;
+                        }
 
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.ssnMotivazioneFineAssistenza;
-                                }
-                            }
-
-                            VerticalLayout {
-                                spacing: 5px;
-                                FieldLabel {
-                                    text: "Data Decesso:";
-                                }
-
-                                ReadOnlyLineEdit {
-                                    text: root.paziente_data.dataDecesso == "" ? (root.cf_input == "" ? "-" : "in vita") : root.paziente_data.dataDecesso;
-                                }
-                            }
+                        DataField {
+                            label: "Data Scelta";
+                            value: root.paziente_data.MMGDataScelta;
+                            row: 0;
+                            col: 3;
                         }
                     }
                 }
             }
         }
+        }
     }
+
     Alert {
         visible: root.alert-visibile;
         modalvisibile: root.alert-visibile;

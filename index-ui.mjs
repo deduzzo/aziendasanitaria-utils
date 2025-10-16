@@ -129,14 +129,37 @@ async function main() {
                 let data = await nar2.getDatiAssistitoCompleti(mainWindow.cf_input, {replaceNullWithEmptyString: true});
                 if (data.ok) {
                     // Aggiorna l'interfaccia usando gli stessi nomi delle proprietà del file Slint
-                    mainWindow.paziente_data = data.dati();
-                    if (!mainWindow.paziente_data.inVita)
+                    const datiPaziente = data.dati();
+                    mainWindow.paziente_data = datiPaziente;
+
+                    const isPazienteDeceduto = !datiPaziente.inVita;
+
+                    if (isPazienteDeceduto) {
                         showAlert("Il paziente è deceduto", "warning");
+                    }
+
+                    // Copia automaticamente il JSON se l'opzione è attiva
+                    if (mainWindow.auto_copy_json) {
+                        if (isPazienteDeceduto) {
+                            setTimeout(() => {
+                                mainWindow.copia_json();
+                            }, 3500);
+                        } else {
+                            mainWindow.copia_json();
+                        }
+                    }
 
                     // Invia automaticamente i dati se ci sono client connessi
+                    // Ritarda l'invio se il paziente è deceduto per non sovrascrivere l'alert
                     if (clients.size > 0) {
                         const pazienteData = mainWindow.paziente_data ?? {};
-                        sendWebSocketCommand("inviaDatiPaziente", pazienteData);
+                        if (isPazienteDeceduto) {
+                            setTimeout(() => {
+                                sendWebSocketCommand("inviaDatiPaziente", pazienteData);
+                            }, 3500);
+                        } else {
+                            sendWebSocketCommand("inviaDatiPaziente", pazienteData);
+                        }
                     }
                 }
             } catch (error) {
