@@ -336,6 +336,12 @@
         <button id="btnFill" class="tm-btn">Compila da JSON</button>
         <button id="btnClear" class="tm-btn">Svuota</button>
       </div>
+      <div class="tm-row" style="justify-content:space-between; gap:4px;">
+        <button id="btnRicerca" class="tm-btn" style="flex:1">Ricerca</button>
+        <button id="btnNuovo" class="tm-btn" style="flex:1">Nuovo</button>
+        <button id="btnIndirizzo" class="tm-btn" style="flex:1">Indirizzo</button>
+        <button id="btnPagamento" class="tm-btn" style="flex:1">Pagamento</button>
+      </div>
       <div class="tm-small">Suggerimento: la data deve essere nel formato <b>dd/MM/yyyy</b> (es. 03/01/1986).</div>
     </div>
   `;
@@ -517,6 +523,23 @@
     Object.defineProperty(Object.prototype, 'MMG Nome', { get(){ return this['MMG Nome']; }, configurable: true });
 
     modal.querySelector('#btnFill').addEventListener('click', compileFromJSON);
+
+    // Event listeners per i pulsanti delle procedure
+    modal.querySelector('#btnRicerca').addEventListener('click', () => {
+        handleWebSocketCommand('ricercaAnagrafica');
+    });
+
+    modal.querySelector('#btnNuovo').addEventListener('click', () => {
+        handleWebSocketCommand('aggiungiNuovoAssistito');
+    });
+
+    modal.querySelector('#btnIndirizzo').addEventListener('click', () => {
+        handleWebSocketCommand('schedaIndirizzo');
+    });
+
+    modal.querySelector('#btnPagamento').addEventListener('click', () => {
+        handleWebSocketCommand('metodoPagamento');
+    });
 
     /* ====================== WebSocket Connection ====================== */
     let ws = null;
@@ -960,55 +983,341 @@
                 break;
 
             case 'schedaIndirizzo':
-                // Clicca sul pulsante "Indirizzo"
-                try {
-                    console.log('Ricerca pulsante "Indirizzo"...');
+                // Sequenza completa: apri Indirizzo + Nuovo record + Griglia + compila CAP e indirizzo
+                (async () => {
+                    try {
+                        console.log('=== INIZIO SEQUENZA SCHEDA INDIRIZZO ===');
 
-                    // Cerca il pulsante "Indirizzo" in tutti i documenti
-                    let addressButton = null;
-                    const searchDocs = [document];
-                    const frames = document.querySelectorAll('iframe, frame');
-                    frames.forEach(fr => {
-                        try {
-                            const doc = fr.contentDocument || fr.contentWindow?.document;
-                            if (doc) searchDocs.push(doc);
-                        } catch (_) { /* cross-origin */ }
-                    });
+                        const searchDocs = [document];
+                        const frames = document.querySelectorAll('iframe, frame');
+                        frames.forEach(fr => {
+                            try {
+                                const doc = fr.contentDocument || fr.contentWindow?.document;
+                                if (doc) searchDocs.push(doc);
+                            } catch (_) { /* cross-origin */ }
+                        });
 
-                    // Prova con ID specifico
-                    for (const doc of searchDocs) {
-                        addressButton = doc.getElementById('z_9l_oq');
-                        if (addressButton) break;
-                    }
+                        // STEP 1: Click sul pulsante "Indirizzo"
+                        console.log('STEP 1/6: Ricerca pulsante "Indirizzo"...');
+                        let addressButton = null;
 
-                    // Se non trovato, cerca per testo "Indirizzo"
-                    if (!addressButton) {
+                        // Prova con ID specifico
                         for (const doc of searchDocs) {
-                            const buttons = doc.querySelectorAll('button');
-                            for (const btn of buttons) {
-                                if (btn.textContent.trim() === 'Indirizzo') {
-                                    addressButton = btn;
-                                    break;
-                                }
-                            }
+                            addressButton = doc.getElementById('z_9l_oq');
                             if (addressButton) break;
                         }
+
+                        // Se non trovato, cerca per testo "Indirizzo"
+                        if (!addressButton) {
+                            for (const doc of searchDocs) {
+                                const buttons = doc.querySelectorAll('button');
+                                for (const btn of buttons) {
+                                    if (btn.textContent.trim() === 'Indirizzo') {
+                                        addressButton = btn;
+                                        break;
+                                    }
+                                }
+                                if (addressButton) break;
+                            }
+                        }
+
+                        if (!addressButton) {
+                            toast('⚠ Pulsante "Indirizzo" non trovato', true);
+                            console.error('Pulsante "Indirizzo" non trovato');
+                            return;
+                        }
+
+                        console.log('  → Pulsante trovato:', addressButton.id);
+                        addressButton.click();
+                        toast('✓ Scheda Indirizzo aperta', false);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        // STEP 2: Click su "Nuovo record" - cerca per title o immagine
+                        console.log('STEP 2/6: Click su "Nuovo record"...');
+                        let newRecordBtn = null;
+
+                        // Cerca per title="Nuovo record"
+                        for (const doc of searchDocs) {
+                            const buttons = doc.querySelectorAll('a[title="Nuovo record"], button[title="Nuovo record"]');
+                            if (buttons.length > 0) {
+                                // Filtra per quelli che hanno l'immagine New24.png
+                                for (const btn of buttons) {
+                                    const hasNewImg = btn.querySelector('img[src*="New24.png"]');
+                                    if (hasNewImg) {
+                                        newRecordBtn = btn;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (newRecordBtn) break;
+                        }
+
+                        // Se non trovato, cerca solo per immagine
+                        if (!newRecordBtn) {
+                            for (const doc of searchDocs) {
+                                const newImgs = doc.querySelectorAll('img[src*="New24.png"]');
+                                for (const img of newImgs) {
+                                    const btn = img.closest('a[z\\.type="zul.btn.Tbtn"], a.z-toolbar-button, button');
+                                    if (btn) {
+                                        newRecordBtn = btn;
+                                        break;
+                                    }
+                                }
+                                if (newRecordBtn) break;
+                            }
+                        }
+
+                        if (!newRecordBtn) {
+                            throw new Error('Pulsante Nuovo record non trovato');
+                        }
+                        console.log('  → Pulsante trovato:', newRecordBtn.id);
+                        newRecordBtn.click();
+                        toast('✓ Nuovo record creato', false);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        // STEP 3: Click su "Passa alla visualizzazione a Griglia" - cerca per title o immagine
+                        console.log('STEP 3/6: Click su "Griglia"...');
+                        let gridBtn = null;
+
+                        // Cerca per title contenente "Griglia"
+                        for (const doc of searchDocs) {
+                            const buttons = doc.querySelectorAll('a[title*="Griglia"], button[title*="Griglia"]');
+                            if (buttons.length > 0) {
+                                // Filtra per quelli che hanno l'immagine Multi24.png
+                                for (const btn of buttons) {
+                                    const hasMultiImg = btn.querySelector('img[src*="Multi24.png"]');
+                                    if (hasMultiImg) {
+                                        gridBtn = btn;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (gridBtn) break;
+                        }
+
+                        // Se non trovato, cerca solo per immagine
+                        if (!gridBtn) {
+                            for (const doc of searchDocs) {
+                                const multiImgs = doc.querySelectorAll('img[src*="Multi24.png"]');
+                                for (const img of multiImgs) {
+                                    const btn = img.closest('a[z\\.type="zul.btn.Tbtn"], a.z-toolbar-button, button');
+                                    if (btn) {
+                                        gridBtn = btn;
+                                        break;
+                                    }
+                                }
+                                if (gridBtn) break;
+                            }
+                        }
+
+                        if (!gridBtn) {
+                            throw new Error('Pulsante Griglia non trovato');
+                        }
+                        console.log('  → Pulsante trovato:', gridBtn.id);
+                        gridBtn.click();
+                        toast('✓ Vista griglia attivata', false);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        // STEP 4: Click sull'elemento con Location10.png
+                        console.log('STEP 4/6: Click su Location...');
+                        let locationBtn = null;
+                        for (const doc of searchDocs) {
+                            const locationImgs = doc.querySelectorAll('img[src*="Location10.png"]');
+                            if (locationImgs.length > 0) {
+                                locationBtn = locationImgs[0].closest('td, button, a, [role="button"]') || locationImgs[0].parentElement;
+                                if (locationBtn) break;
+                            }
+                        }
+                        if (!locationBtn) {
+                            throw new Error('Pulsante Location non trovato');
+                        }
+                        console.log('  → Pulsante trovato');
+                        locationBtn.click();
+                        toast('✓ Location selezionato', false);
+                        await new Promise(resolve => setTimeout(resolve, 800));
+
+                        // STEP 5: Inserisci CAP cercando il label "CAP" e poi l'input nella riga
+                        console.log('STEP 5/6: Inserimento CAP...');
+                        const capValue = cap.value || '';
+                        if (!capValue) {
+                            toast('⚠ CAP mancante', true);
+                            console.warn('CAP non disponibile');
+                        } else {
+                            // Cerca il label "CAP" in tutti i documenti
+                            let capInput = null;
+                            for (const doc of searchDocs) {
+                                const labels = doc.querySelectorAll('span.z-label');
+                                for (const label of labels) {
+                                    if (label.textContent.trim() === 'CAP') {
+                                        // Trova il tr parent usando closest con 'tr' semplice
+                                        const row = label.closest('tr');
+                                        if (row && row.getAttribute('z.type') === 'Grw') {
+                                            // Trova tutti gli input di tipo textbox nella riga
+                                            const allInputs = row.querySelectorAll('input.textbox');
+                                            for (const inp of allInputs) {
+                                                if (inp.getAttribute('z.type') === 'zul.vd.Txbox') {
+                                                    capInput = inp;
+                                                    console.log('  → Campo CAP trovato:', capInput.id);
+                                                    break;
+                                                }
+                                            }
+                                            if (capInput) break;
+                                        }
+                                    }
+                                }
+                                if (capInput) break;
+                            }
+
+                            if (!capInput) {
+                                throw new Error('Campo CAP non trovato');
+                            }
+
+                            const prevReadonly = capInput.hasAttribute('readonly');
+                            if (prevReadonly) capInput.removeAttribute('readonly');
+
+                            // Simula click del mouse sul campo
+                            capInput.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+                            capInput.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                            capInput.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+                            capInput.focus();
+
+                            await new Promise(resolve => setTimeout(resolve, 50));
+
+                            // Seleziona tutto il contenuto esistente
+                            capInput.select();
+                            capInput.setSelectionRange(0, capInput.value.length);
+
+                            await new Promise(resolve => setTimeout(resolve, 50));
+
+                            // Scrivi il CAP carattere per carattere
+                            capInput.value = '';
+
+                            for (let i = 0; i < capValue.length; i++) {
+                                const char = capValue[i];
+                                const isLastChar = (i === capValue.length - 1);
+
+                                capInput.value += char;
+
+                                // Simula keydown
+                                capInput.dispatchEvent(new KeyboardEvent('keydown', {
+                                    key: char,
+                                    code: 'Digit' + char,
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                // Simula keypress
+                                capInput.dispatchEvent(new KeyboardEvent('keypress', {
+                                    key: char,
+                                    code: 'Digit' + char,
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                // Evento input per attivare eventuali listener
+                                capInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+                                // Simula keyup
+                                capInput.dispatchEvent(new KeyboardEvent('keyup', {
+                                    key: char,
+                                    code: 'Digit' + char,
+                                    keyCode: char.charCodeAt(0),
+                                    which: char.charCodeAt(0),
+                                    bubbles: true,
+                                    cancelable: true
+                                }));
+
+                                // Attendi tra ogni carattere per simulare digitazione umana
+                                if (!isLastChar) {
+                                    await new Promise(resolve => setTimeout(resolve, 50));
+                                }
+                            }
+
+                            // Dispatch evento change dopo la digitazione completa
+                            capInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                            console.log(`  → CAP "${capValue}" digitato, perdita focus...`);
+
+                            // Attendi un attimo prima di perdere il focus
+                            await new Promise(resolve => setTimeout(resolve, 200));
+
+                            // Simula perdita del focus che attiva l'autopopolamento
+                            capInput.blur();
+
+                            toast(`✓ CAP "${capValue}" inserito`, false);
+                            if (prevReadonly) capInput.setAttribute('readonly', 'readonly');
+
+                            console.log('  ✓ Enter simulato su CAP');
+                            await new Promise(resolve => setTimeout(resolve, 600));
+                        }
+
+                        // STEP 6: Inserisci indirizzo cercando il label (Indirizzo, Via, Address Line 1, ecc.)
+                        console.log('STEP 6/6: Inserimento indirizzo...');
+                        const indirizzoValue = addr.value || '';
+                        if (!indirizzoValue) {
+                            toast('⚠ Indirizzo mancante', true);
+                            console.warn('Indirizzo non disponibile');
+                        } else {
+                            // Cerca il label dell'indirizzo in tutti i documenti
+                            let addrInput = null;
+                            const possibleLabels = ['Indirizzo 1', 'Indirizzo', 'Via', 'Address', 'Address Line 1'];
+
+                            for (const doc of searchDocs) {
+                                const labels = doc.querySelectorAll('span.z-label');
+                                for (const label of labels) {
+                                    const labelText = label.textContent.trim();
+                                    // Verifica se il label corrisponde esattamente a uno dei possibili nomi
+                                    if (possibleLabels.includes(labelText)) {
+                                        // Trova il tr parent usando closest con 'tr' semplice
+                                        const row = label.closest('tr');
+                                        if (row && row.getAttribute('z.type') === 'Grw') {
+                                            // Trova tutti gli input di tipo textbox nella riga
+                                            const allInputs = row.querySelectorAll('input.textbox');
+                                            for (const inp of allInputs) {
+                                                if (inp.getAttribute('z.type') === 'zul.vd.Txbox') {
+                                                    addrInput = inp;
+                                                    console.log('  → Campo indirizzo trovato:', addrInput.id, '(label:', labelText + ')');
+                                                    break;
+                                                }
+                                            }
+                                            if (addrInput) break;
+                                        }
+                                    }
+                                }
+                                if (addrInput) break;
+                            }
+
+                            if (!addrInput) {
+                                throw new Error('Campo indirizzo non trovato');
+                            }
+
+                            const prevReadonly = addrInput.hasAttribute('readonly');
+                            if (prevReadonly) addrInput.removeAttribute('readonly');
+
+                            addrInput.focus();
+                            addrInput.value = indirizzoValue;
+                            addrInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            addrInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            addrInput.blur();
+
+                            if (prevReadonly) addrInput.setAttribute('readonly', 'readonly');
+
+                            console.log(`  → Indirizzo "${indirizzoValue}" inserito`);
+                            toast(`✓ Indirizzo compilato`, false);
+                        }
+
+                        console.log('=== SEQUENZA SCHEDA INDIRIZZO COMPLETATA ===');
+                        toast('✓ Scheda indirizzo compilata', false);
+
+                    } catch (e) {
+                        console.error('=== ERRORE NELLA SEQUENZA INDIRIZZO ===', e);
+                        toast('⚠ Errore: ' + e.message, true);
                     }
-
-                    if (!addressButton) {
-                        toast('⚠ Pulsante "Indirizzo" non trovato', true);
-                        console.error('Pulsante "Indirizzo" non trovato');
-                        return;
-                    }
-
-                    console.log('Pulsante "Indirizzo" trovato:', addressButton);
-                    addressButton.click();
-                    toast('✓ Scheda Indirizzo aperta', false);
-
-                } catch (e) {
-                    console.error('Errore apertura scheda indirizzo:', e);
-                    toast('⚠ Errore apertura scheda indirizzo', true);
-                }
+                })();
                 break;
 
             case 'metodoPagamento':
