@@ -135,16 +135,18 @@ import { Client } from "@gradio/client";
     let res = await flussoSiad.generaFlussoRettificaScarti(
         2025,
         '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024-2025 pulito',
-        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025/2trim/maggio-giugno',
-        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-09/',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025/',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-04/',
         {
-            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_09_03.json',
-            chiudiPicAnnoPrecedente: true,
+            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_10_22.json',
+            //chiudiPicAnnoPrecedente: true,
             //folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2025/2trim/1invio',
-            trimestriDaConsiderare: [2],
-            //nonConsiderareSeSuccessivoA: "30/04/2025",
+            //trimestriDaConsiderare: [3],
+            nonConsiderareSeSuccessivoA: "30/09/2025",
+            //creaFlussoPulito: true,
         },
     )
+
     //let data = await utils.getObjectFromFileExcel(nomeFile);
     //let out = flussoSiad.generaRigheTracciato1ConDefault("/Users/deduzzo/Desktop/outFolder", data, nomeFile, 2024, 3);
 

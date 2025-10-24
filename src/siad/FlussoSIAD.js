@@ -1107,6 +1107,7 @@ export class FlussoSIAD {
      * @param {boolean} [config.chiudiPicAnnoPrecedente=true] - Flag indicating whether to close the previous year PIC process.
      * @param {array} [config.trimestriDaConsiderare=[1, 2, 3, 4]] - Optional array of quarters to consider for processing.
      * @param {string|null} [config.nonConsiderareSeSuccessivoA=null] - Optional date to skip processing if the data is newer than this date.
+     * @param {boolean} [config.creaFlussoPulito=false] - Flag indicating whether to create a clean flow without errors.
      *
      * @return {Promise<object>} A promise that resolves to an object containing the output data, structured logs, and mapping results or any errors encountered during processing.
      */
@@ -1119,7 +1120,8 @@ export class FlussoSIAD {
             dbFile = "siad.mpdb",
             chiudiPicAnnoPrecedente = true,
             trimestriDaConsiderare = [1, 2, 3, 4],
-            nonConsiderareSeSuccessivoA = null
+            nonConsiderareSeSuccessivoA = null,
+            creaFlussoPulito = false
         } = config;
         let out = {
             errors: {
@@ -1234,11 +1236,17 @@ export class FlussoSIAD {
                 }
                 // data.datiTracciatiDitte.T1byCf
                 for (let t1row of data.datiTracciatiDitte.T1) {
-                    const cf = t1row[tracciato1Maggioli[1]].trim();
-                    if (!data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
-                        data.datiTracciatiDitte.T1byCf[cf] = [t1row]
-                    else
-                        data.datiTracciatiDitte.T1byCf[cf].push(t1row);
+                    try {
+                        const cf = t1row[tracciato1Maggioli[1]].trim();
+                        if (!data.datiTracciatiDitte.T1byCf.hasOwnProperty(cf))
+                            data.datiTracciatiDitte.T1byCf[cf] = [t1row]
+                        else
+                            data.datiTracciatiDitte.T1byCf[cf].push(t1row);
+                    }
+                    catch (e) {
+                        console.log("Errore su riga T1: " + JSON.stringify(t1row));
+                        process.exit(1);
+                    }
                 }
 
                 for (let file of allFilesT2) {
@@ -1327,12 +1335,14 @@ export class FlussoSIAD {
         const ultimaPicAttivitaPerAssistito = {};
         let mappingIdPicAperte = {};
         let cfNonValidiTs = {};
-        let dataDaNonConsiderare = config.nonConsiderareSeSuccessivoA ? moment(config.nonConsiderareSeSuccessivoA, "DD/MM/YYYY") : null;
+        let dataDaNonConsiderare = nonConsiderareSeSuccessivoA ? moment(nonConsiderareSeSuccessivoA, "DD/MM/YYYY") : null;
         // remove the first 200.000 record of t2bykeyOrdered
         //t2bykeyOrdered = t2bykeyOrdered.slice(200000);
         // PER CREARE IL FLUSSO PULITO
-        //data.mappaDatiMinistero.perCf = {};
-        //data.mappaDatiMinistero.allCfTrattati.perCf = {};
+        if (creaFlussoPulito) {
+            data.mappaDatiMinistero.perCf = {};
+            data.mappaDatiMinistero.allCfTrattati.perCf = {};
+        }
 
         for (let key of t2bykeyOrdered) {
 
@@ -1437,7 +1447,7 @@ export class FlussoSIAD {
                     }
                 }
                 //in caso di decisione di chiudere pic aperte negli anni precedenti
-                if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && config.chiudiPicAnnoPrecedente &&
+                if (datiPicAperteMinistero && datiPicAperteMinistero.corrente && chiudiPicAnnoPrecedente &&
                     (moment(datiPicAperteMinistero.corrente.substring(6, 16), "YYYY-MM-DD").year() !== anno)) {
                     datiPicAperteMinistero.precedenti.push(datiPicAperteMinistero.corrente);
                     delete data.mappaDatiMinistero.perCf[cf].aperte[datiPicAperteMinistero.corrente];

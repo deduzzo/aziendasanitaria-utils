@@ -63,6 +63,7 @@ async function main() {
             const allCfXml = Object.keys(xmlData.data);
             const allAltri = []; //Object.keys(altri);
             const daTrovareSuTs = [];
+            let allTrattatiOver65 = 0;
             let allTotali = {};
             for (let cf of [...allCfMinistero, ...allCfXml, ...allAltri]) {
                 allTotali[cf] = cf;
@@ -71,6 +72,14 @@ async function main() {
                 allData.tutti[cf] = cf;
                 const vivo = ministeroData.fromTS.out.vivi.hasOwnProperty(cf) ? ministeroData.fromTS.out.vivi[cf] : null;
                 const morto = ministeroData.fromTS.out.morti.hasOwnProperty(cf) ? ministeroData.fromTS.out.morti[cf] : null;
+                let trattato = false;
+                for (let key of Object.keys(xmlData.data[cf])) {
+                    if (Object.keys(xmlData.data[cf][key].prestazioni).length > 0) {
+                        trattato = true;
+                        break;
+                    }
+                }
+
                 let eta = null;
                 if (vivo)
                     eta = vivo.eta;
@@ -81,6 +90,9 @@ async function main() {
                 }
                 if (eta >= 65) {
                     allData.over65[cf] = cf;
+                    if (trattato) {
+                        allTrattatiOver65 += 1;
+                    }
                 }
             }
             // cerchiamo su ts
