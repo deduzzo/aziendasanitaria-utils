@@ -512,7 +512,8 @@ export class Medici {
                         });
                         if (!error && !error2) {
                             await page.waitForSelector("body > div:nth-child(12) > div:nth-child(3) > div:nth-child(2)");
-                            await page.click("#menu_voci > ol > li:nth-child(1) > a");
+                            //await page.click("#menu_voci > ol > li:nth-child(1) > a");
+                            await page.goto("https://sistemats4.sanita.finanze.it/simossMedici/elencoAssistiti.do", {waitUntil: 'networkidle2'});
                             // Attendiamo che il selettore #mef sia presente E che sia visibile
                             await page.waitForSelector("#mef", {
                                 visibile: true,
@@ -573,7 +574,7 @@ export class Medici {
             numParallelsJobs = 20,
             visibile = false,
         } = config;
-
+        //numParallelsJobs = 1;
         EventEmitter.defaultMaxListeners = 40;
         let out = {};
         let jobs = [];
