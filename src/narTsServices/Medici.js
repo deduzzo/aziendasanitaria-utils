@@ -1016,104 +1016,106 @@ export class Medici {
 
 
     async creaElenchiDeceduti(codToCfDistrettoMap, pathData, distretti, dataQuote = null) {
-        let lista = {perDistretto: {}, nonTrovati: []};
-        if (!dataQuote)
-            dataQuote = moment().format("YYYY-MM-DD");
-        let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".zip");
-        let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistitiNar.json");
-        for (let medico in codToCfDistrettoMap) {
-            let fileMedico = allfiles.filter(file => file.includes(medico));
-            if (fileMedico.length === 0)
-                lista.nonTrovati.push(codToCfDistrettoMap[medico]);
-            else if (fileMedico.length === 1) {
-                //let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
-                let fileData = await utils.decomprimiELeggiFile(fileMedico[0])
-                if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
-                    lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {
-                        recuperi: [],
-                        problemi: [],
-                        anagrafica: [],
-                        medici: {}
-                    };
-                for (let deceduto of Object.values(fileData.deceduti)) {
-                    let allAssistitiMedicoMap = {};
-                    for (let assistito of Object.values(allAssistiti[medico].assistiti)) {
-                        allAssistitiMedicoMap[assistito.codiceFiscale] = assistito;
-                    }
-                    let numQuote = 0;
-                    let dataScelta = moment(allAssistitiMedicoMap[deceduto.cf].data_scelta, "DD/MM/YYYY");
-
-                    if (!deceduto.hasOwnProperty('indirizzo') || deceduto.indirizzo === "" || deceduto.indirizzo === null)
-                        deceduto.indirizzo = "-";
-                    deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
-                    deceduto.codMedico = medico;
-                    deceduto.nomeCognomeMedico = codToCfDistrettoMap[medico].nome_cognome;
-                    deceduto.distretto = distretti[codToCfDistrettoMap[medico].distretto];
-                    deceduto.ambito = codToCfDistrettoMap[medico].ambito;
-                    if (deceduto.hasOwnProperty('dataDecesso') && deceduto.dataDecesso !== "" && deceduto.dataDecesso !== null && moment(deceduto.dataDecesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
-                        let dataInizio = moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.dataDecesso;
-                        // se la data di decesso è superiore al 1 gennaio 1900
-                        numQuote = utils.calcolaMesiDifferenza(dataInizio, dataQuote);
-                        deceduto.numQuoteDaRecuperare = numQuote;
-                        deceduto.note = "";
-                        if (moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta)) {
-                            deceduto.note = "Data decesso precedente alla data di scelta";
-                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
-                        } else {
-                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].recuperi.push(deceduto);
-                            if (!lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici.hasOwnProperty(medico))
-                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico] = {
-                                    codice: medico,
-                                    distretto: distretti[codToCfDistrettoMap[medico].distretto],
-                                    ambito: codToCfDistrettoMap[medico].ambito,
-                                    nomeCognome: codToCfDistrettoMap[medico].nome_cognome,
-                                    numDeceduti: 0,
-                                    quote: 0
-                                };
-                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].numDeceduti += 1;
-                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].quote += numQuote;
+        if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep)) {
+            let lista = {perDistretto: {}, nonTrovati: []};
+            if (!dataQuote)
+                dataQuote = moment().format("YYYY-MM-DD");
+            let allfiles = utils.getAllFilesRecursive(pathData + path.sep + "elaborazioni" + path.sep, ".zip");
+            let allAssistiti = await utils.leggiOggettoDaFileJSON(pathData + path.sep + "assistitiNar.json");
+            for (let medico in codToCfDistrettoMap) {
+                let fileMedico = allfiles.filter(file => file.includes(medico));
+                if (fileMedico.length === 0)
+                    lista.nonTrovati.push(codToCfDistrettoMap[medico]);
+                else if (fileMedico.length === 1) {
+                    //let fileData = await utils.leggiOggettoDaFileJSON(fileMedico[0]);
+                    let fileData = await utils.decomprimiELeggiFile(fileMedico[0])
+                    if (!lista.perDistretto.hasOwnProperty(codToCfDistrettoMap[medico].distretto))
+                        lista.perDistretto[codToCfDistrettoMap[medico].distretto] = {
+                            recuperi: [],
+                            problemi: [],
+                            anagrafica: [],
+                            medici: {}
+                        };
+                    for (let deceduto of Object.values(fileData.deceduti)) {
+                        let allAssistitiMedicoMap = {};
+                        for (let assistito of Object.values(allAssistiti[medico].assistiti)) {
+                            allAssistitiMedicoMap[assistito.codiceFiscale] = assistito;
                         }
-                    } else {
-                        deceduto.numQuoteDaRecuperare = 0;
-                        deceduto.note = "Data di decesso non valida";
-                        lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
-                    }
-                }
-                // add ambito and distretto to ...Object.values(Object.values(fileData.vivi)
-                lista.perDistretto[codToCfDistrettoMap[medico].distretto].anagrafica.push(...Object.values(Object.values(fileData.vivi)));
+                        let numQuote = 0;
+                        let dataScelta = moment(allAssistitiMedicoMap[deceduto.cf].data_scelta, "DD/MM/YYYY");
 
+                        if (!deceduto.hasOwnProperty('indirizzo') || deceduto.indirizzo === "" || deceduto.indirizzo === null)
+                            deceduto.indirizzo = "-";
+                        deceduto.dataScelta = dataScelta.format("DD/MM/YYYY");
+                        deceduto.codMedico = medico;
+                        deceduto.nomeCognomeMedico = codToCfDistrettoMap[medico].nome_cognome;
+                        deceduto.distretto = distretti[codToCfDistrettoMap[medico].distretto];
+                        deceduto.ambito = codToCfDistrettoMap[medico].ambito;
+                        if (deceduto.hasOwnProperty('dataDecesso') && deceduto.dataDecesso !== "" && deceduto.dataDecesso !== null && moment(deceduto.dataDecesso, "DD/MM/YYYY").isAfter(moment("01/01/1900", "DD/MM/YYYY"))) {
+                            let dataInizio = moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta) ? dataScelta.format("DD/MM/YYYY") : deceduto.dataDecesso;
+                            // se la data di decesso è superiore al 1 gennaio 1900
+                            numQuote = utils.calcolaMesiDifferenza(dataInizio, dataQuote);
+                            deceduto.numQuoteDaRecuperare = numQuote;
+                            deceduto.note = "";
+                            if (moment(deceduto.dataDecesso, "DD/MM/YYYY").isBefore(dataScelta)) {
+                                deceduto.note = "Data decesso precedente alla data di scelta";
+                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
+                            } else {
+                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].recuperi.push(deceduto);
+                                if (!lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici.hasOwnProperty(medico))
+                                    lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico] = {
+                                        codice: medico,
+                                        distretto: distretti[codToCfDistrettoMap[medico].distretto],
+                                        ambito: codToCfDistrettoMap[medico].ambito,
+                                        nomeCognome: codToCfDistrettoMap[medico].nome_cognome,
+                                        numDeceduti: 0,
+                                        quote: 0
+                                    };
+                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].numDeceduti += 1;
+                                lista.perDistretto[codToCfDistrettoMap[medico].distretto].medici[medico].quote += numQuote;
+                            }
+                        } else {
+                            deceduto.numQuoteDaRecuperare = 0;
+                            deceduto.note = "Data di decesso non valida";
+                            lista.perDistretto[codToCfDistrettoMap[medico].distretto].problemi.push(deceduto);
+                        }
+                    }
+                    // add ambito and distretto to ...Object.values(Object.values(fileData.vivi)
+                    lista.perDistretto[codToCfDistrettoMap[medico].distretto].anagrafica.push(...Object.values(Object.values(fileData.vivi)));
+
+                }
             }
+            let out = {};
+            for (let distretto in lista.perDistretto) {
+                if (!out.hasOwnProperty(distretto))
+                    out[distretto] = {recuperi: [], problemi: []};
+                out[distretto].recuperi.push(...lista.perDistretto[distretto].recuperi);
+                out[distretto].problemi.push(...lista.perDistretto[distretto].problemi);
+            }
+            let global = {recuperi: [], problemi: []};
+            for (let distretto in out) {
+                // add column distretto in each recuperi and problemi
+                for (let recupero of out[distretto].recuperi)
+                    global.recuperi.push(recupero);
+                for (let problema of out[distretto].problemi)
+                    global.problemi.push(problema);
+            }
+            // create folder if exist pathData + path.sep + "recuperi" + path.sep
+            if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep))
+                fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep);
+            if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep))
+                fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep);
+            if (!fs.existsSync(pathData + path.sep + "anagrafica"))
+                fs.mkdirSync(pathData + path.sep + "anagrafica");
+            let allAnagraficaTuttiDistretti = [];
+            for (let distretto in out) {
+                await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_recuperi.xlsx", out[distretto].recuperi);
+                await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_problemi.xlsx", out[distretto].problemi);
+                await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "anagrafica" + path.sep + distretto + "_anagrafica.xlsx", lista.perDistretto[distretto].anagrafica);
+                allAnagraficaTuttiDistretti.push(...lista.perDistretto[distretto].anagrafica);
+            }
+            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_recuperi.xlsx", global.recuperi);
+            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_problemi.xlsx", global.problemi);
         }
-        let out = {};
-        for (let distretto in lista.perDistretto) {
-            if (!out.hasOwnProperty(distretto))
-                out[distretto] = {recuperi: [], problemi: []};
-            out[distretto].recuperi.push(...lista.perDistretto[distretto].recuperi);
-            out[distretto].problemi.push(...lista.perDistretto[distretto].problemi);
-        }
-        let global = {recuperi: [], problemi: []};
-        for (let distretto in out) {
-            // add column distretto in each recuperi and problemi
-            for (let recupero of out[distretto].recuperi)
-                global.recuperi.push(recupero);
-            for (let problema of out[distretto].problemi)
-                global.problemi.push(problema);
-        }
-        // create folder if exist pathData + path.sep + "recuperi" + path.sep
-        if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep))
-            fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep);
-        if (!fs.existsSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep))
-            fs.mkdirSync(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep);
-        if (!fs.existsSync(pathData + path.sep + "anagrafica"))
-            fs.mkdirSync(pathData + path.sep + "anagrafica");
-        let allAnagraficaTuttiDistretti = [];
-        for (let distretto in out) {
-            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_recuperi.xlsx", out[distretto].recuperi);
-            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "per distretto" + path.sep + distretto + "_problemi.xlsx", out[distretto].problemi);
-            await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "anagrafica" + path.sep + distretto + "_anagrafica.xlsx", lista.perDistretto[distretto].anagrafica);
-            allAnagraficaTuttiDistretti.push(...lista.perDistretto[distretto].anagrafica);
-        }
-        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_recuperi.xlsx", global.recuperi);
-        await utils.scriviOggettoSuNuovoFileExcel(pathData + path.sep + "recuperi" + path.sep + "global_problemi.xlsx", global.problemi);
     }
 }
