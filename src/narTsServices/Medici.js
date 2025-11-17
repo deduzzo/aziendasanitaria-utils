@@ -634,7 +634,7 @@ export class Medici {
                 };
             allAssistitiNar.push(assistito.codiceFiscale);
         }
-        for (let assistito of assistitiTs) {
+        for (let assistito of assistitiTs ?? []) {
             if (!allAssistiti.hasOwnProperty(assistito.cf))
                 allAssistiti[assistito.cf] = {
                     nome_assistito: assistito.nome,

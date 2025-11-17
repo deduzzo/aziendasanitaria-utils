@@ -132,8 +132,9 @@ class Procedure {
                     for (let assistito of assistitiNar[codReg].assistiti) {
                         allAssistitiDistrettuali[distretto].nar.push({...assistito, ...medico});
                     }
-                    for (let assistito of assistitiTs[codReg]) {
-                        allAssistitiDistrettuali[distretto].ts.push({...assistito, ...medico});
+                    for (let assistiti of assistitiTs[codReg] ?? []) {
+                        if (assistiti)
+                            allAssistitiDistrettuali[distretto].ts.push({...assistiti, ...medico});
                     }
                     allAssistitiDistrettuali[distretto].codRegNar[codReg] = assistitiNar[codReg].assistiti;
                     allAssistitiDistrettuali[distretto].codRegTs[codReg] = assistitiTs[codReg];
@@ -188,7 +189,7 @@ class Procedure {
      *
      * @return {Promise<number>} Returns 0 upon successful processing.
      */
-    static async getControlliEsenzione(pathElenco, anno,impostazioniServizi, config={}){
+    static async getControlliEsenzione(pathElenco, anno, impostazioniServizi, config = {}) {
         let {
             colonnaProtocolli = "PROTOCOLLO",
             colonnaEsenzione = "ESENZIONE",
@@ -394,7 +395,7 @@ class Procedure {
                     }
                 }
             }
-            if (Object.values(outData) >0)
+            if (Object.values(outData) > 0)
                 outFinal.push(outData);
             da = da.add(1, "month");
         } while (da.isSameOrBefore(a) && !singoloCedolino);
