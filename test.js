@@ -138,12 +138,13 @@ import { Client } from "@gradio/client";
         '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025/',
         '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-04/',
         {
-            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_10_22.json',
-            //chiudiPicAnnoPrecedente: true,
+            folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/INVII_TEMP/TUTTO A NOVEMBRE',
+            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_12_23.json',
+            chiudiPicAnnoPrecedente: true,
             //folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2025/2trim/1invio',
             //trimestriDaConsiderare: [3],
-            nonConsiderareSeSuccessivoA: "30/09/2025",
-            //creaFlussoPulito: true,
+            nonConsiderareSeSuccessivoA: "30/11/2025",
+            creaFlussoPulito: true,
         },
     )
 
