@@ -24,3 +24,5 @@ private_*.js
 /.vscode/
 pnpm-lock.yaml
 /tampermonkey/nar2_data/
+mcp/zimbra-grabber/node_modules/
+mcp/zimbra-grabber/attachments/

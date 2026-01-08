@@ -1,0 +1,26 @@
+{
+  "name": "zimbra-email-processor-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server per elaborare email da Zimbra con Claude",
+  "type": "module",
+  "main": "zimbra-email-processor.js",
+  "bin": {
+    "zimbra-email-processor": "./zimbra-email-processor.js"
+  },
+  "scripts": {
+    "start": "node zimbra-email-processor.js",
+    "dev": "node --watch zimbra-email-processor.js"
+  },
+  "keywords": [
+    "mcp",
+    "zimbra",
+    "email",
+    "claude"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
+  }
+}

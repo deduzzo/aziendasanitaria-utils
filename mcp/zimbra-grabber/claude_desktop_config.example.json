@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zimbra-email-processor": {
+      "command": "node",
+      "args": ["/Users/deduzzo/dev/aziendasanitaria-utils/mcp/zimbra-grabber/zimbra-email-processor.js"]
+    }
+  }
+}
