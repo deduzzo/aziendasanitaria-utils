@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Zimbra - Elabora Email con Claude
 // @namespace    http://tampermonkey.net/
-// @version      1.7
-// @description  Aggiunge pulsante "Elabora" su Zimbra per inviare email e allegati a Claude tramite MCP
+// @version      1.8
+// @description  Aggiunge pulsante AI arancione su Zimbra per inviare email e allegati a Claude tramite MCP
 // @match        *://posta.asp.messina.it/*
 // @grant        none
 // @run-at       document-idle
@@ -11,19 +11,44 @@
 (function() {
     'use strict';
 
-    console.log('[Zimbra-Elabora] Script inizializzato v1.7 - Supporto tutti i formati + pulizia');
+    console.log('[Zimbra-Elabora] Script inizializzato v1.8 - Pulsante AI arancione');
 
     // Configurazione
     const CONFIG = {
         mcpServerUrl: 'http://localhost:3456',
-        buttonText: 'Elabora',
-        buttonId: 'zb__TV-main__ELABORA',
-        toolbarId: 'ztb__TV-main',
-        replyButtonId: 'zb__TV-main__REPLY'
+        buttonIcon: '✦', // Icona AI (stellina)
     };
 
-    // Flag per evitare reinserimenti multipli
-    let buttonInserted = false;
+    // Trova il pulsante Rispondi attivo (può essere in diverse viste: main, ricerca, ecc.)
+    function findReplyButton() {
+        // Cerca tutti i pulsanti REPLY visibili nella pagina
+        const replyButtons = Array.from(document.querySelectorAll('[id*="__REPLY"]'))
+            .filter(el => {
+                // Escludi elementi secondari (icone, titoli, dropdown)
+                if (el.id.includes('_left_icon') || el.id.includes('_title') ||
+                    el.id.includes('_right_icon') || el.id.includes('_dropdown') ||
+                    el.id.includes('_ALL')) {
+                    return false;
+                }
+                // Deve essere visibile
+                const rect = el.getBoundingClientRect();
+                return rect.top > 0 && rect.top < 1000 && rect.width > 0;
+            });
+
+        return replyButtons.length > 0 ? replyButtons[0] : null;
+    }
+
+    // Ottiene l'ID base dalla vista corrente (es: "zb__TV-main" o "zb__TV-SR-1")
+    function getViewBaseId() {
+        const replyBtn = findReplyButton();
+        if (!replyBtn) return null;
+
+        // Estrae il prefisso (es: "zb__TV-main" da "zb__TV-main__REPLY")
+        const match = replyBtn.id.match(/^(.*?)__REPLY/);
+        return match ? match[1] : null;
+    }
+
+    // Flag per observer
     let observerActive = false;
 
     // Utility: aspetta che un elemento sia disponibile nel DOM
@@ -534,53 +559,119 @@
 
     // Crea il pulsante Elabora
     function createElaboraButton() {
-        const replyButton = document.querySelector(`#${CONFIG.replyButtonId}`);
+        const replyButton = findReplyButton();
         if (!replyButton) {
             console.error('[Zimbra-Elabora] Pulsante Rispondi non trovato');
             return null;
         }
 
-        console.log('[Zimbra-Elabora] Creazione pulsante, stato Rispondi:', {
+        const viewBaseId = getViewBaseId();
+        if (!viewBaseId) {
+            console.error('[Zimbra-Elabora] Impossibile determinare vista corrente');
+            return null;
+        }
+
+        console.log('[Zimbra-Elabora] Creazione pulsante AI arancione per vista:', viewBaseId, {
+            replyId: replyButton.id,
             classes: replyButton.className,
             ariaDisabled: replyButton.getAttribute('aria-disabled')
         });
 
         // Clona il pulsante Rispondi
         const elaboraButton = replyButton.cloneNode(true);
-        elaboraButton.id = CONFIG.buttonId;
-        elaboraButton.setAttribute('aria-label', 'Elabora con Claude');
-        elaboraButton.title = 'Invia email e allegati a Claude per elaborazione';
+        elaboraButton.id = `${viewBaseId}__ELABORA`;
+        elaboraButton.setAttribute('aria-label', 'Invia via MCP per analisi IA');
+        elaboraButton.title = 'Invia via MCP per analisi IA';
+        elaboraButton.setAttribute('data-elabora-button', 'true'); // Marker per identificarlo facilmente
 
-        // Cambia il testo
+        // Cambia il testo con l'icona
         const textElement = elaboraButton.querySelector('.ZWidgetTitle');
         if (textElement) {
-            textElement.textContent = CONFIG.buttonText;
+            textElement.textContent = CONFIG.buttonIcon;
+            textElement.style.fontSize = '16px';
+            textElement.style.fontWeight = 'bold';
         }
 
-        // Cambia l'icona
-        const iconElement = elaboraButton.querySelector('.ImgReply');
+        // Cambia l'icona - usa l'icona AI invece di quella di default
+        const iconElement = elaboraButton.querySelector('.ImgReply, [class*="Img"]');
         if (iconElement) {
-            iconElement.className = iconElement.className.replace('ImgReply', 'ImgRefresh');
+            // Sostituisci con un'icona personalizzata
+            iconElement.style.background = 'none';
+            iconElement.style.width = '16px';
+            iconElement.style.height = '16px';
+            iconElement.textContent = '⚡';
+            iconElement.style.fontSize = '14px';
+            iconElement.style.display = 'flex';
+            iconElement.style.alignItems = 'center';
+            iconElement.style.justifyContent = 'center';
         }
+
+        // Stile arancione per il pulsante
+        elaboraButton.style.cssText += `
+            background: linear-gradient(to bottom, #ff9933 0%, #ff7700 100%) !important;
+            border-color: #ff7700 !important;
+            color: white !important;
+        `;
+
+        // Stile hover
+        elaboraButton.addEventListener('mouseenter', function() {
+            if (!this.classList.contains('ZDisabled')) {
+                this.style.background = 'linear-gradient(to bottom, #ffaa44 0%, #ff8811 100%)';
+                this.style.borderColor = '#ff8811';
+            }
+        });
+
+        elaboraButton.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('ZDisabled')) {
+                this.style.background = 'linear-gradient(to bottom, #ff9933 0%, #ff7700 100%)';
+                this.style.borderColor = '#ff7700';
+            }
+        });
 
         // Rimuovi event listener clonati
         const cleanButton = elaboraButton.cloneNode(true);
 
+        // Riapplica gli stili (perché cloneNode non clona gli event listener ma nemmeno gli stili inline)
+        cleanButton.style.cssText = elaboraButton.style.cssText;
+
+        // Riapplica event listeners per hover
+        cleanButton.addEventListener('mouseenter', function() {
+            if (!this.classList.contains('ZDisabled')) {
+                this.style.background = 'linear-gradient(to bottom, #ffaa44 0%, #ff8811 100%)';
+                this.style.borderColor = '#ff8811';
+            }
+        });
+
+        cleanButton.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('ZDisabled')) {
+                this.style.background = 'linear-gradient(to bottom, #ff9933 0%, #ff7700 100%)';
+                this.style.borderColor = '#ff7700';
+            }
+        });
+
         // Aggiungi il nostro event listener
         cleanButton.addEventListener('click', handleElaboraClick);
 
-        console.log('[Zimbra-Elabora] Pulsante creato con classi:', cleanButton.className);
+        console.log('[Zimbra-Elabora] Pulsante AI arancione creato');
         return cleanButton;
     }
 
     // Inserisci il pulsante nella toolbar
     function insertElaboraButton() {
-        if (buttonInserted) {
-            console.log('[Zimbra-Elabora] Pulsante già inserito');
-            return;
+        // Controlla se il pulsante esiste già usando il marker
+        const existingButton = document.querySelector('[data-elabora-button="true"]');
+        if (existingButton) {
+            const rect = existingButton.getBoundingClientRect();
+            if (rect.top > 0 && rect.top < 1000) {
+                console.log('[Zimbra-Elabora] Pulsante già presente e visibile in questa vista');
+                return;
+            } else {
+                console.log('[Zimbra-Elabora] Pulsante esistente ma nascosto, lo rimuovo');
+                existingButton.remove();
+            }
         }
 
-        const replyButton = document.querySelector(`#${CONFIG.replyButtonId}`);
+        const replyButton = findReplyButton();
         if (!replyButton) {
             console.error('[Zimbra-Elabora] Pulsante Rispondi non trovato');
             return;
@@ -593,8 +684,10 @@
 
         // Inserisci prima del pulsante Rispondi
         replyButton.parentNode.insertBefore(elaboraButton, replyButton);
-        buttonInserted = true;
-        console.log('[Zimbra-Elabora] Pulsante Elabora inserito');
+        console.log('[Zimbra-Elabora] Pulsante AI arancione inserito');
+
+        // Sincronizza lo stato iniziale
+        setTimeout(() => syncButtonState(), 100);
     }
 
     // Sincronizza lo stato del pulsante con throttling
@@ -640,14 +733,13 @@
     function observeToolbar() {
         if (observerActive) return;
 
-        // Observer per la toolbar (cambio pulsanti)
+        // Observer per la toolbar (cambio pulsanti e cambio vista)
         const toolbarObserver = new MutationObserver((mutations) => {
             const elaboraExists = document.querySelector(`#${CONFIG.buttonId}`);
             const replyExists = document.querySelector(`#${CONFIG.replyButtonId}`);
 
             if (!elaboraExists && replyExists) {
-                console.log('[Zimbra-Elabora] Pulsante Elabora scomparso, reinserisco');
-                buttonInserted = false;
+                console.log('[Zimbra-Elabora] Pulsante AI scomparso o cambio vista, reinserisco');
                 insertElaboraButton();
             }
         });
@@ -711,13 +803,39 @@
         console.log('[Zimbra-Elabora] Monitor selezione email attivo');
     }
 
+    // Monitora cambio URL/vista (inbox -> ricerca, ecc.)
+    function monitorViewChange() {
+        let lastHash = window.location.hash;
+
+        setInterval(() => {
+            const currentHash = window.location.hash;
+            if (currentHash !== lastHash) {
+                console.log('[Zimbra-Elabora] Cambio vista rilevato:', lastHash, '->', currentHash);
+                lastHash = currentHash;
+
+                // Aspetta che la nuova vista si carichi
+                setTimeout(() => {
+                    const replyExists = document.querySelector(`#${CONFIG.replyButtonId}`);
+                    const elaboraExists = document.querySelector(`#${CONFIG.buttonId}`);
+
+                    if (replyExists && !elaboraExists) {
+                        console.log('[Zimbra-Elabora] Inserisco pulsante nella nuova vista');
+                        insertElaboraButton();
+                    }
+                }, 500);
+            }
+        }, 1000);
+
+        console.log('[Zimbra-Elabora] Monitor cambio vista attivo');
+    }
+
     // Inizializzazione
     async function init() {
         try {
             console.log('[Zimbra-Elabora] Attesa toolbar...');
             await waitForElement(`#${CONFIG.replyButtonId}`);
 
-            console.log('[Zimbra-Elabora] Toolbar trovata, inserisco pulsante...');
+            console.log('[Zimbra-Elabora] Toolbar trovata, inserisco pulsante AI arancione...');
             insertElaboraButton();
 
             // Attiva observer
@@ -725,6 +843,9 @@
 
             // Monitora selezione email
             monitorEmailSelection();
+
+            // Monitora cambio vista
+            monitorViewChange();
 
             console.log('[Zimbra-Elabora] Inizializzazione completata');
         } catch (error) {
