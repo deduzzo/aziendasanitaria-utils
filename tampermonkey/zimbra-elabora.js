@@ -104,18 +104,28 @@
         try {
             console.log('[Zimbra-Elabora] 📄 Inizio estrazione contenuto email...');
 
-            // Corpo del messaggio - prova vari selettori
+            // Trova il contenitore del messaggio correntemente visualizzato
+            const messageContainers = Array.from(document.querySelectorAll('[id*="zv__TV"][id*="__MSG"]'))
+                .filter(el => {
+                    const rect = el.getBoundingClientRect();
+                    return rect.top > 0 && rect.top < 1000 && rect.height > 100;
+                });
+
+            // Usa il primo container trovato (quello visibile)
+            const messageContainer = messageContainers.length > 0 ? messageContainers[0] : document;
+            console.log('[Zimbra-Elabora] Container messaggio per contenuto:', messageContainer.id || 'documento intero');
+
+            // Corpo del messaggio - prova vari selettori NEL CONTAINER CORRENTE
             let bodyText = '';
             const bodySelectors = [
-                '#zv__TV-main__MSG__body',
-                '.MsgBody',
                 '[id*="MSG__body"]',
+                '.MsgBody',
                 '[class*="MsgBody"]',
-                '#zv__TV-main__MSG iframe'  // A volte il corpo è in un iframe
+                'iframe'  // A volte il corpo è in un iframe
             ];
 
             for (const selector of bodySelectors) {
-                const element = document.querySelector(selector);
+                const element = messageContainer.querySelector(selector);
                 if (element) {
                     if (element.tagName === 'IFRAME') {
                         // Prova a leggere dall'iframe
@@ -136,7 +146,7 @@
                 }
             }
 
-            // Mittente, destinatario, oggetto
+            // Mittente, destinatario, oggetto - cerca NEL CONTAINER CORRENTE
             let from = '';
             let to = '';
             let subject = '';
@@ -145,7 +155,7 @@
             // Da (mittente)
             const fromSelectors = ['[id*="_from"]', '.MsgHdrFrom', '[class*="From"]'];
             for (const sel of fromSelectors) {
-                const el = document.querySelector(sel);
+                const el = messageContainer.querySelector(sel);
                 if (el && el.textContent) {
                     from = el.textContent.replace(/^Da:\s*/i, '').trim();
                     if (from) break;
@@ -155,7 +165,7 @@
             // A (destinatario)
             const toSelectors = ['[id*="_to"]', '.MsgHdrTo', '[class*="To"]'];
             for (const sel of toSelectors) {
-                const el = document.querySelector(sel);
+                const el = messageContainer.querySelector(sel);
                 if (el && el.textContent) {
                     to = el.textContent.replace(/^A:\s*/i, '').trim();
                     if (to) break;
@@ -165,7 +175,7 @@
             // Oggetto
             const subjectSelectors = ['.SubjectCol', '[id*="subject"]', '.MsgHdrSubject', 'h1'];
             for (const sel of subjectSelectors) {
-                const el = document.querySelector(sel);
+                const el = messageContainer.querySelector(sel);
                 if (el && el.textContent) {
                     subject = el.textContent.replace(/^Oggetto:\s*/i, '').trim();
                     if (subject && subject.length > 3) break;
@@ -175,7 +185,7 @@
             // Data
             const dateSelectors = ['[id*="_date"]', '.MsgHdrDate', '[class*="Date"]'];
             for (const sel of dateSelectors) {
-                const el = document.querySelector(sel);
+                const el = messageContainer.querySelector(sel);
                 if (el && el.textContent) {
                     date = el.textContent.replace(/^Data:\s*/i, '').replace(/^Inviato:\s*/i, '').trim();
                     if (date) break;
@@ -209,9 +219,20 @@
 
             const attachments = [];
 
-            // METODO 1: Cerca link con classe "AttLink" che contengono nomi file con estensioni
-            const attLinks = document.querySelectorAll('a.AttLink');
-            console.log(`[Zimbra-Elabora] Trovati ${attLinks.length} link con classe AttLink`);
+            // Trova il contenitore del messaggio correntemente visualizzato
+            const messageContainers = Array.from(document.querySelectorAll('[id*="zv__TV"][id*="__MSG"]'))
+                .filter(el => {
+                    const rect = el.getBoundingClientRect();
+                    return rect.top > 0 && rect.top < 1000 && rect.height > 100;
+                });
+
+            // Usa il primo container trovato (quello visibile)
+            const messageContainer = messageContainers.length > 0 ? messageContainers[0] : document;
+            console.log('[Zimbra-Elabora] Container messaggio:', messageContainer.id || 'documento intero');
+
+            // METODO 1: Cerca link con classe "AttLink" SOLO nel container del messaggio corrente
+            const attLinks = messageContainer.querySelectorAll('a.AttLink');
+            console.log(`[Zimbra-Elabora] Trovati ${attLinks.length} link AttLink nel messaggio corrente`);
 
             // Raggruppa per container padre (ogni TD contiene un allegato completo)
             const processedContainers = new Set();
@@ -306,13 +327,12 @@
                 }
             }
 
-            // METODO 2 (fallback): Cerca nell'area messaggi link con "part=" nell'URL
+            // METODO 2 (fallback): Cerca link con "part=" nell'URL SOLO nel container corrente
             if (attachments.length === 0) {
                 console.log('[Zimbra-Elabora] Metodo 1 fallito, provo fallback...');
-                const messageArea = document.querySelector('#zv__TV-main__MSG, [id*="zv__TV"]');
-                if (messageArea) {
-                    const partLinks = messageArea.querySelectorAll('a[href*="part="]');
-                    console.log(`[Zimbra-Elabora] Fallback: trovati ${partLinks.length} link con part=`);
+                if (messageContainer) {
+                    const partLinks = messageContainer.querySelectorAll('a[href*="part="]');
+                    console.log(`[Zimbra-Elabora] Fallback: trovati ${partLinks.length} link con part= nel messaggio corrente`);
 
                     for (const link of partLinks) {
                         try {
@@ -337,19 +357,19 @@
                 }
             }
 
-            // METODO 3: Cerca immagini inline nel corpo dell'email
+            // METODO 3: Cerca immagini inline nel corpo dell'email corrente
             try {
                 const inlineImages = [];
 
-                // Cerca nel body principale
-                const messageBody = document.querySelector('#zv__TV-main__MSG__body, .MsgBody, [id*="MSG__body"]');
+                // Cerca nel body del messaggio corrente
+                const messageBody = messageContainer.querySelector('[id*="MSG__body"], .MsgBody');
                 if (messageBody) {
                     const imgs = messageBody.querySelectorAll('img');
                     inlineImages.push(...Array.from(imgs));
                 }
 
-                // Cerca nell'iframe (spesso il corpo è in un iframe)
-                const iframe = document.querySelector('#zv__TV-main__MSG iframe');
+                // Cerca nell'iframe del messaggio corrente
+                const iframe = messageContainer.querySelector('iframe');
                 if (iframe) {
                     try {
                         const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -606,9 +626,9 @@
             iconElement.style.justifyContent = 'center';
         }
 
-        // Stile arancione per il pulsante
+        // Stile arancione per il pulsante (sfondo solido)
         elaboraButton.style.cssText += `
-            background: linear-gradient(to bottom, #ff9933 0%, #ff7700 100%) !important;
+            background: #ff8c00 !important;
             border-color: #ff7700 !important;
             color: white !important;
         `;
@@ -616,14 +636,14 @@
         // Stile hover
         elaboraButton.addEventListener('mouseenter', function() {
             if (!this.classList.contains('ZDisabled')) {
-                this.style.background = 'linear-gradient(to bottom, #ffaa44 0%, #ff8811 100%)';
+                this.style.background = '#ffa500 !important';
                 this.style.borderColor = '#ff8811';
             }
         });
 
         elaboraButton.addEventListener('mouseleave', function() {
             if (!this.classList.contains('ZDisabled')) {
-                this.style.background = 'linear-gradient(to bottom, #ff9933 0%, #ff7700 100%)';
+                this.style.background = '#ff8c00 !important';
                 this.style.borderColor = '#ff7700';
             }
         });
@@ -637,14 +657,14 @@
         // Riapplica event listeners per hover
         cleanButton.addEventListener('mouseenter', function() {
             if (!this.classList.contains('ZDisabled')) {
-                this.style.background = 'linear-gradient(to bottom, #ffaa44 0%, #ff8811 100%)';
+                this.style.background = '#ffa500 !important';
                 this.style.borderColor = '#ff8811';
             }
         });
 
         cleanButton.addEventListener('mouseleave', function() {
             if (!this.classList.contains('ZDisabled')) {
-                this.style.background = 'linear-gradient(to bottom, #ff9933 0%, #ff7700 100%)';
+                this.style.background = '#ff8c00 !important';
                 this.style.borderColor = '#ff7700';
             }
         });
@@ -677,14 +697,27 @@
             return;
         }
 
+        // Trova la toolbar row che contiene tutti i pulsanti
+        const toolbarRow = replyButton.closest('tr[id*="_items"]');
+        if (!toolbarRow) {
+            console.error('[Zimbra-Elabora] Toolbar row non trovata');
+            return;
+        }
+
         const elaboraButton = createElaboraButton();
         if (!elaboraButton) {
             return;
         }
 
-        // Inserisci prima del pulsante Rispondi
-        replyButton.parentNode.insertBefore(elaboraButton, replyButton);
-        console.log('[Zimbra-Elabora] Pulsante AI arancione inserito');
+        // Crea un TD wrapper per il pulsante (come gli altri pulsanti)
+        const tdWrapper = document.createElement('td');
+        tdWrapper.id = `${elaboraButton.id}_wrapper`;
+        tdWrapper.className = '';
+        tdWrapper.appendChild(elaboraButton);
+
+        // Inserisci come PRIMO elemento nella toolbar
+        toolbarRow.insertBefore(tdWrapper, toolbarRow.firstElementChild);
+        console.log('[Zimbra-Elabora] Pulsante AI arancione inserito come primo nella toolbar');
 
         // Sincronizza lo stato iniziale
         setTimeout(() => syncButtonState(), 100);
@@ -696,8 +729,8 @@
         if (syncTimeout) return;
 
         syncTimeout = setTimeout(() => {
-            const replyButton = document.querySelector(`#${CONFIG.replyButtonId}`);
-            const elaboraButton = document.querySelector(`#${CONFIG.buttonId}`);
+            const replyButton = findReplyButton();
+            const elaboraButton = document.querySelector('[data-elabora-button="true"]');
 
             if (replyButton && elaboraButton) {
                 const isDisabled = replyButton.classList.contains('ZDisabled') ||
@@ -733,41 +766,32 @@
     function observeToolbar() {
         if (observerActive) return;
 
-        // Observer per la toolbar (cambio pulsanti e cambio vista)
-        const toolbarObserver = new MutationObserver((mutations) => {
-            const elaboraExists = document.querySelector(`#${CONFIG.buttonId}`);
-            const replyExists = document.querySelector(`#${CONFIG.replyButtonId}`);
+        // Observer globale per cambiamenti nella pagina
+        const globalObserver = new MutationObserver((mutations) => {
+            const elaboraExists = document.querySelector('[data-elabora-button="true"]');
+            const replyExists = findReplyButton();
 
-            if (!elaboraExists && replyExists) {
-                console.log('[Zimbra-Elabora] Pulsante AI scomparso o cambio vista, reinserisco');
+            // Se esiste Reply ma non esiste Elabora (o è nascosto), reinserisci
+            if (replyExists && !elaboraExists) {
+                console.log('[Zimbra-Elabora] Pulsante AI scomparso, reinserisco');
                 insertElaboraButton();
+            } else if (elaboraExists && replyExists) {
+                // Verifica che il pulsante sia visibile
+                const rect = elaboraExists.getBoundingClientRect();
+                if (rect.top < 0 || rect.top > 1000) {
+                    console.log('[Zimbra-Elabora] Pulsante AI nascosto, reinserisco');
+                    elaboraExists.remove();
+                    insertElaboraButton();
+                }
             }
         });
 
-        // Observer per il pulsante Rispondi (cambio stato)
-        const replyObserver = new MutationObserver((mutations) => {
-            console.log('[Zimbra-Elabora] Cambio stato rilevato sul pulsante Rispondi');
-            syncButtonState();
+        // Osserva il body per cambiamenti globali
+        globalObserver.observe(document.body, {
+            childList: true,
+            subtree: true
         });
-
-        const toolbar = document.querySelector(`#${CONFIG.toolbarId}`);
-        const replyButton = document.querySelector(`#${CONFIG.replyButtonId}`);
-
-        if (toolbar) {
-            toolbarObserver.observe(toolbar, {
-                childList: true,
-                subtree: false
-            });
-            console.log('[Zimbra-Elabora] Observer toolbar attivato');
-        }
-
-        if (replyButton) {
-            replyObserver.observe(replyButton, {
-                attributes: true,
-                attributeFilter: ['class', 'aria-disabled']
-            });
-            console.log('[Zimbra-Elabora] Observer pulsante Rispondi attivato');
-        }
+        console.log('[Zimbra-Elabora] Observer globale attivato');
 
         // Sincronizzazione periodica come fallback
         setInterval(() => {
@@ -791,8 +815,8 @@
 
                 // Dopo un piccolo delay, controlla lo stato del pulsante
                 setTimeout(() => {
-                    const replyBtn = document.querySelector(`#${CONFIG.replyButtonId}`);
-                    const elaboraBtn = document.querySelector(`#${CONFIG.buttonId}`);
+                    const replyBtn = findReplyButton();
+                    const elaboraBtn = document.querySelector('[data-elabora-button="true"]');
                     console.log('[Zimbra-Elabora] Stato pulsanti dopo selezione:', {
                         rispondiDisabled: replyBtn?.classList.contains('ZDisabled'),
                         elaboraDisabled: elaboraBtn?.classList.contains('ZDisabled')
@@ -815,12 +839,20 @@
 
                 // Aspetta che la nuova vista si carichi
                 setTimeout(() => {
-                    const replyExists = document.querySelector(`#${CONFIG.replyButtonId}`);
-                    const elaboraExists = document.querySelector(`#${CONFIG.buttonId}`);
+                    const replyExists = findReplyButton();
+                    const elaboraExists = document.querySelector('[data-elabora-button="true"]');
 
                     if (replyExists && !elaboraExists) {
                         console.log('[Zimbra-Elabora] Inserisco pulsante nella nuova vista');
                         insertElaboraButton();
+                    } else if (elaboraExists) {
+                        // Verifica che sia visibile
+                        const rect = elaboraExists.getBoundingClientRect();
+                        if (rect.top < 0 || rect.top > 1000) {
+                            console.log('[Zimbra-Elabora] Pulsante nascosto dopo cambio vista, reinserisco');
+                            elaboraExists.remove();
+                            insertElaboraButton();
+                        }
                     }
                 }, 500);
             }
@@ -833,7 +865,22 @@
     async function init() {
         try {
             console.log('[Zimbra-Elabora] Attesa toolbar...');
-            await waitForElement(`#${CONFIG.replyButtonId}`);
+
+            // Aspetta che compaia un pulsante Reply (qualsiasi vista)
+            await new Promise((resolve, reject) => {
+                const checkInterval = setInterval(() => {
+                    const replyBtn = findReplyButton();
+                    if (replyBtn) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 500);
+
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    reject(new Error('Timeout: pulsante Rispondi non trovato'));
+                }, 10000);
+            });
 
             console.log('[Zimbra-Elabora] Toolbar trovata, inserisco pulsante AI arancione...');
             insertElaboraButton();
