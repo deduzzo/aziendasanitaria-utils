@@ -1,22 +1,25 @@
 // ==UserScript==
-// @name         Zimbra - Elabora Email con Claude
+// @name         Zimbra - Elabora Email con Claude (Cifrato)
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  Aggiunge pulsante AI arancione su Zimbra per inviare email e allegati a Claude tramite MCP
+// @version      2.0
+// @description  Invia email cifrate a Claude tramite MCP con autenticazione password personale
 // @match        *://posta.asp.messina.it/*
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
 // @run-at       document-idle
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    console.log('[Zimbra-Elabora] Script inizializzato v1.8 - Pulsante AI arancione');
+    console.log('[Zimbra-Elabora] Script inizializzato v2.0 - Cifratura End-to-End');
 
     // Configurazione
     const CONFIG = {
         mcpServerUrl: 'http://localhost:3456',
         buttonIcon: '✦', // Icona AI (stellina)
+        setupIcon: '⚙️', // Icona setup password
     };
 
     // Trova il pulsante Rispondi attivo (può essere in diverse viste: main, ricerca, ecc.)
@@ -77,26 +80,96 @@
         });
     }
 
-    // Mostra notifica toast
+    // ===========================================================================
+    // TOAST MANAGER CON STACK - Non si sovrappongono
+    // ===========================================================================
+
+    const ToastManager = {
+        toasts: [],
+        TOAST_HEIGHT: 70,  // Altezza toast + margin
+        TOAST_DURATION: 4000,
+
+        show(message, type = 'info') {
+            const toast = this.createToast(message, type);
+            this.toasts.push(toast);
+            this.updatePositions();
+
+            setTimeout(() => this.remove(toast), this.TOAST_DURATION);
+        },
+
+        createToast(message, type) {
+            const toast = document.createElement('div');
+            toast.className = 'mcp-toast';
+            toast.textContent = message;
+
+            const bgColor = type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#2563eb';
+
+            toast.style.cssText = `
+                position: fixed;
+                right: 20px;
+                background: ${bgColor};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 999999;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                max-width: 400px;
+                transition: all 0.3s ease;
+                opacity: 0;
+                transform: translateX(400px);
+            `;
+
+            document.body.appendChild(toast);
+
+            // Animazione slide-in
+            requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            });
+
+            return toast;
+        },
+
+        updatePositions() {
+            // Stack dal basso verso l'alto
+            this.toasts.forEach((toast, index) => {
+                const bottomPos = 20 + (this.toasts.length - 1 - index) * this.TOAST_HEIGHT;
+                toast.style.bottom = `${bottomPos}px`;
+            });
+        },
+
+        remove(toast) {
+            // Animazione slide-out
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(400px)';
+
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+                this.toasts = this.toasts.filter(t => t !== toast);
+                this.updatePositions();
+            }, 300);
+        },
+
+        success(message) {
+            this.show(message, 'success');
+        },
+
+        error(message) {
+            this.show(message, 'error');
+        },
+
+        info(message) {
+            this.show(message, 'info');
+        }
+    };
+
+    // Alias per compatibilità
     function showToast(message, type = 'info') {
-        const toast = document.createElement('div');
-        toast.textContent = message;
-        toast.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: ${type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#2563eb'};
-            color: white;
-            padding: 12px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            z-index: 999999;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            max-width: 400px;
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 4000);
+        ToastManager.show(message, type);
     }
 
     // Estrai il contenuto testuale dell'email
@@ -434,32 +507,304 @@
         }
     }
 
-    // Invia i dati al server MCP
-    async function sendToMCP(emailData) {
+    // ===========================================================================
+    // STORAGE PASSWORD (Tampermonkey con fallback localStorage)
+    // ===========================================================================
+
+    // Controlla se GM_getValue è disponibile, altrimenti usa localStorage
+    const hasGM = typeof GM_getValue !== 'undefined';
+
+    function getStoredPassword() {
+        if (hasGM) {
+            return GM_getValue('userPassword', null);
+        } else {
+            console.warn('[Zimbra-Elabora] GM_getValue non disponibile, uso localStorage');
+            return localStorage.getItem('mcp_userPassword');
+        }
+    }
+
+    function setStoredPassword(password) {
+        if (hasGM) {
+            GM_setValue('userPassword', password);
+        } else {
+            console.warn('[Zimbra-Elabora] GM_setValue non disponibile, uso localStorage');
+            localStorage.setItem('mcp_userPassword', password);
+        }
+    }
+
+    function getStoredEmail() {
+        if (hasGM) {
+            return GM_getValue('userEmail', null);
+        } else {
+            console.warn('[Zimbra-Elabora] GM_getValue non disponibile, uso localStorage');
+            return localStorage.getItem('mcp_userEmail');
+        }
+    }
+
+    function setStoredEmail(email) {
+        if (hasGM) {
+            GM_setValue('userEmail', email);
+        } else {
+            console.warn('[Zimbra-Elabora] GM_setValue non disponibile, uso localStorage');
+            localStorage.setItem('mcp_userEmail', email);
+        }
+    }
+
+    function clearStoredCredentials() {
+        if (hasGM) {
+            GM_deleteValue('userPassword');
+            GM_deleteValue('userEmail');
+        } else {
+            localStorage.removeItem('mcp_userPassword');
+            localStorage.removeItem('mcp_userEmail');
+        }
+    }
+
+    function hasStoredCredentials() {
+        return !!(getStoredPassword() && getStoredEmail());
+    }
+
+    // ===========================================================================
+    // FUNZIONI CRITTOGRAFIA (Web Crypto API)
+    // ===========================================================================
+
+    /**
+     * Deriva chiave AES da password usando PBKDF2
+     */
+    async function deriveAESKey(password, kdfSalt, iterations = 100000) {
+        const enc = new TextEncoder();
+        const passwordBuffer = enc.encode(password);
+        const saltBuffer = Uint8Array.from(atob(kdfSalt), c => c.charCodeAt(0));
+
+        // Importa password come chiave
+        const keyMaterial = await crypto.subtle.importKey(
+            'raw',
+            passwordBuffer,
+            'PBKDF2',
+            false,
+            ['deriveBits']
+        );
+
+        // Deriva 256 bit
+        const derivedBits = await crypto.subtle.deriveBits(
+            {
+                name: 'PBKDF2',
+                salt: saltBuffer,
+                iterations: iterations,
+                hash: 'SHA-256'
+            },
+            keyMaterial,
+            256
+        );
+
+        // Importa come chiave AES (extractable: true per permettere export per HMAC)
+        return await crypto.subtle.importKey(
+            'raw',
+            derivedBits,
+            'AES-CBC',
+            true,  // extractable: true - necessario per calcolare HMAC
+            ['encrypt']
+        );
+    }
+
+    /**
+     * Cifra dati con AES-256-CBC
+     */
+    async function encryptAES(data, aesKey, iv) {
+        const enc = new TextEncoder();
+        const dataBuffer = enc.encode(data);
+
+        const encrypted = await crypto.subtle.encrypt(
+            { name: 'AES-CBC', iv },
+            aesKey,
+            dataBuffer
+        );
+
+        // Converti in base64 senza spread operator (per evitare stack overflow con file grandi)
+        const uint8Array = new Uint8Array(encrypted);
+        let binary = '';
+        for (let i = 0; i < uint8Array.length; i++) {
+            binary += String.fromCharCode(uint8Array[i]);
+        }
+        return btoa(binary);
+    }
+
+    /**
+     * Calcola HMAC-SHA256 (DEVE restituire HEX come il server!)
+     */
+    async function calculateHMAC(dataBase64, aesKey) {
+        // Esporta la chiave per usarla con HMAC
+        const keyData = await crypto.subtle.exportKey('raw', aesKey);
+
+        const hmacKey = await crypto.subtle.importKey(
+            'raw',
+            keyData,
+            { name: 'HMAC', hash: 'SHA-256' },
+            false,
+            ['sign']
+        );
+
+        // Converte base64 in buffer (come fa il server)
+        const dataBuffer = Uint8Array.from(atob(dataBase64), c => c.charCodeAt(0));
+
+        const signature = await crypto.subtle.sign(
+            'HMAC',
+            hmacKey,
+            dataBuffer
+        );
+
+        // Converti in HEX (non base64!) per matchare il server
+        const signatureArray = new Uint8Array(signature);
+        let hex = '';
+        for (let i = 0; i < signatureArray.length; i++) {
+            hex += signatureArray[i].toString(16).padStart(2, '0');
+        }
+        return hex;
+    }
+
+    /**
+     * Genera IV casuale (16 byte)
+     */
+    function generateIV() {
+        return crypto.getRandomValues(new Uint8Array(16));
+    }
+
+    // ===========================================================================
+    // INVIO EMAIL CIFRATE AL SERVER MCP
+    // ===========================================================================
+
+    /**
+     * Invia email cifrata al server MCP
+     */
+    async function sendEncryptedEmail(emailData) {
+        const password = getStoredPassword();
+        const email = getStoredEmail();
+
+        console.log('[Zimbra-Elabora] 🔐 DEBUG: Credenziali recuperate');
+        console.log('  Email:', email);
+        console.log('  Password lunghezza:', password ? password.length : 'null');
+        console.log('  Password primi 4 caratteri:', password ? password.substring(0, 4) + '...' : 'null');
+
+        if (!password || !email) {
+            throw new Error('Password o email non configurata. Clicca ⚙️ per impostare.');
+        }
+
         try {
+            // 1. Ottieni salt dal server
+            console.log('[Zimbra-Elabora] 📡 Richiesta salt al server...');
+            const saltRes = await fetch(`${CONFIG.mcpServerUrl}/auth/salt?email=${encodeURIComponent(email)}`);
+
+            if (!saltRes.ok) {
+                if (saltRes.status === 404) {
+                    throw new Error('Utente non trovato. Contatta l\'admin per essere abilitato.');
+                }
+                if (saltRes.status === 403) {
+                    throw new Error('Utente disabilitato. Contatta l\'admin.');
+                }
+                throw new Error(`Errore server: ${saltRes.status}`);
+            }
+
+            const { kdfSalt, kdfIterations } = await saltRes.json();
+            console.log('[Zimbra-Elabora] ✅ Salt ricevuto');
+            console.log('  kdfSalt lunghezza:', kdfSalt.length);
+            console.log('  kdfIterations:', kdfIterations);
+            console.log('  kdfSalt primi 16 char:', kdfSalt.substring(0, 16) + '...');
+
+            // 2. Deriva chiave AES
+            console.log('[Zimbra-Elabora] 🔑 Derivazione chiave AES in corso...');
+            const aesKey = await deriveAESKey(password, kdfSalt, kdfIterations);
+            console.log('  Chiave AES derivata con successo');
+
+            // 3. Genera IV
+            const iv = generateIV();
+            const ivBase64 = btoa(String.fromCharCode(...iv));
+            console.log('[Zimbra-Elabora] 🎲 IV generato');
+            console.log('  IV base64:', ivBase64);
+
+            // 4. Crea challenge
+            const timestamp = Date.now();
+            const challenge = `${email}:${timestamp}`;
+            console.log('[Zimbra-Elabora] 🎯 Challenge creato');
+            console.log('  Challenge:', challenge);
+            console.log('  Timestamp:', timestamp);
+
+            const encryptedChallenge = await encryptAES(challenge, aesKey, iv);
+            console.log('  Challenge cifrato (primi 32):', encryptedChallenge.substring(0, 32) + '...');
+
+            // 5. Cifra payload email
+            const jsonPayload = JSON.stringify(emailData);
+            console.log('[Zimbra-Elabora] 📦 Payload email da cifrare');
+            console.log('  Payload lunghezza:', jsonPayload.length);
+            console.log('  Payload preview:', jsonPayload.substring(0, 100) + '...');
+
+            const encryptedPayload = await encryptAES(jsonPayload, aesKey, iv);
+            console.log('  Payload cifrato lunghezza:', encryptedPayload.length);
+
+            // 6. Calcola HMAC
+            console.log('[Zimbra-Elabora] 🔒 Calcolo HMAC...');
+            const hmac = await calculateHMAC(encryptedPayload, aesKey);
+            console.log('  HMAC calcolato (hex):', hmac);
+            console.log('  HMAC lunghezza:', hmac.length);
+
+            // 7. Crea envelope
+            const envelope = {
+                userEmail: email,
+                encryptedPayload,
+                encryptedChallenge,
+                iv: ivBase64,
+                hmac,
+                timestamp,
+                version: 'v1'
+            };
+
+            console.log('[Zimbra-Elabora] 📨 Envelope preparato');
+            console.log('  Envelope keys:', Object.keys(envelope));
+            console.log('  encryptedPayload lunghezza:', envelope.encryptedPayload.length);
+            console.log('  encryptedChallenge lunghezza:', envelope.encryptedChallenge.length);
+            console.log('  iv:', envelope.iv);
+            console.log('  hmac:', envelope.hmac);
+            console.log('  timestamp:', envelope.timestamp);
+
+            // 8. Invia al server
             const response = await fetch(`${CONFIG.mcpServerUrl}/process-email`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(emailData)
+                body: JSON.stringify(envelope)
             });
 
             if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
+                const error = await response.json();
+
+                if (response.status === 401) {
+                    throw new Error('Password errata! Clicca ⚙️ per reimpostare.');
+                }
+                if (response.status === 403) {
+                    throw new Error('Utente disabilitato. Contatta l\'admin.');
+                }
+                if (response.status === 429) {
+                    throw new Error('Troppi tentativi. Riprova tra 15 minuti.');
+                }
+
+                throw new Error(error.error || `Errore server ${response.status}`);
             }
 
-            const result = await response.json();
-            return result;
+            return await response.json();
         } catch (error) {
-            console.error('[Zimbra-Elabora] Errore invio a MCP:', error);
+            console.error('[Zimbra-Elabora] Errore invio cifrato:', error);
 
             if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-                throw new Error('Server MCP non disponibile. Assicurati che Claude Desktop sia avviato.');
+                throw new Error('Server MCP non disponibile. Assicurati che sia avviato.');
             }
 
             throw error;
         }
+    }
+
+    // Alias per compatibilità
+    async function sendToMCP(emailData) {
+        return await sendEncryptedEmail(emailData);
     }
 
     // Scarica un allegato e convertilo in Base64
@@ -676,18 +1021,22 @@
         return cleanButton;
     }
 
-    // Inserisci il pulsante nella toolbar
+    // Inserisci i pulsanti nella toolbar (Elabora + Impostazioni)
     function insertElaboraButton() {
-        // Controlla se il pulsante esiste già usando il marker
-        const existingButton = document.querySelector('[data-elabora-button="true"]');
-        if (existingButton) {
-            const rect = existingButton.getBoundingClientRect();
-            if (rect.top > 0 && rect.top < 1000) {
-                console.log('[Zimbra-Elabora] Pulsante già presente e visibile in questa vista');
+        // Controlla se il pulsante Elabora esiste già usando il marker
+        const existingElabora = document.querySelector('[data-elabora-button="true"]');
+        const existingSettings = document.querySelector('[data-settings-button="true"]');
+
+        if (existingElabora && existingSettings) {
+            const rectElabora = existingElabora.getBoundingClientRect();
+            const rectSettings = existingSettings.getBoundingClientRect();
+            if (rectElabora.top > 0 && rectElabora.top < 1000 && rectSettings.top > 0 && rectSettings.top < 1000) {
+                console.log('[Zimbra-Elabora] Pulsanti già presenti e visibili in questa vista');
                 return;
             } else {
-                console.log('[Zimbra-Elabora] Pulsante esistente ma nascosto, lo rimuovo');
-                existingButton.remove();
+                console.log('[Zimbra-Elabora] Pulsanti esistenti ma nascosti, li rimuovo');
+                if (existingElabora) existingElabora.remove();
+                if (existingSettings) existingSettings.remove();
             }
         }
 
@@ -704,19 +1053,20 @@
             return;
         }
 
+        // Crea pulsante Elabora
         const elaboraButton = createElaboraButton();
         if (!elaboraButton) {
             return;
         }
 
-        // Crea un TD wrapper per il pulsante (come gli altri pulsanti)
-        const tdWrapper = document.createElement('td');
-        tdWrapper.id = `${elaboraButton.id}_wrapper`;
-        tdWrapper.className = '';
-        tdWrapper.appendChild(elaboraButton);
+        // Crea wrapper per pulsante Elabora
+        const tdElaboraWrapper = document.createElement('td');
+        tdElaboraWrapper.id = `${elaboraButton.id}_wrapper`;
+        tdElaboraWrapper.className = '';
+        tdElaboraWrapper.appendChild(elaboraButton);
 
         // Inserisci come PRIMO elemento nella toolbar
-        toolbarRow.insertBefore(tdWrapper, toolbarRow.firstElementChild);
+        toolbarRow.insertBefore(tdElaboraWrapper, toolbarRow.firstElementChild);
         console.log('[Zimbra-Elabora] Pulsante AI arancione inserito come primo nella toolbar');
 
         // Sincronizza lo stato iniziale
@@ -861,6 +1211,271 @@
         console.log('[Zimbra-Elabora] Monitor cambio vista attivo');
     }
 
+    // ===== MODAL SETUP PASSWORD =====
+
+    function createPasswordSetupModal() {
+        // Rimuovi modal esistente se presente
+        const existing = document.getElementById('mcp-password-setup-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'mcp-password-setup-modal';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 999999;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                max-width: 500px;
+                width: 90%;
+                font-family: Arial, sans-serif;
+            ">
+                <h2 style="margin: 0 0 10px 0; color: #111827; font-size: 24px;">
+                    🔐 Configurazione MCP Zimbra
+                </h2>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
+                    Imposta le credenziali per cifrare le email inviate a Claude via MCP
+                </p>
+
+                <form id="mcp-password-form">
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            Email Utente
+                        </label>
+                        <input
+                            type="email"
+                            id="mcp-user-email"
+                            placeholder="utente@asp.messina.it"
+                            required
+                            style="
+                                width: 100%;
+                                padding: 10px 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            "
+                        />
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #374151; font-size: 14px;">
+                            Password
+                        </label>
+                        <input
+                            type="password"
+                            id="mcp-user-password"
+                            placeholder="Password fornita dall'amministratore"
+                            required
+                            style="
+                                width: 100%;
+                                padding: 10px 12px;
+                                border: 1px solid #d1d5db;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                box-sizing: border-box;
+                            "
+                        />
+                    </div>
+
+                    <div style="
+                        background: #fef3c7;
+                        padding: 12px;
+                        border-radius: 6px;
+                        margin-bottom: 20px;
+                        border-left: 4px solid #f59e0b;
+                    ">
+                        <p style="margin: 0; font-size: 13px; color: #92400e;">
+                            ⚠️ <strong>IMPORTANTE:</strong> La password sarà salvata nel browser in modo sicuro.
+                            Utilizzala per cifrare tutte le email inviate a Claude.
+                        </p>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button
+                            type="button"
+                            id="mcp-cancel-btn"
+                            style="
+                                padding: 10px 20px;
+                                background: #6b7280;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                transition: background 0.2s;
+                            "
+                        >
+                            Annulla
+                        </button>
+                        <button
+                            type="submit"
+                            style="
+                                padding: 10px 20px;
+                                background: #16a34a;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                font-weight: 500;
+                                cursor: pointer;
+                                transition: background 0.2s;
+                            "
+                        >
+                            💾 Salva Credenziali
+                        </button>
+                    </div>
+                </form>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Event listeners
+        const form = modal.querySelector('#mcp-password-form');
+        const cancelBtn = modal.querySelector('#mcp-cancel-btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = modal.querySelector('#mcp-user-email').value.trim();
+            const password = modal.querySelector('#mcp-user-password').value;
+
+            if (!email || !password) {
+                ToastManager.show('Email e password sono obbligatori', 'error');
+                return;
+            }
+
+            // Salva in GM storage
+            setStoredEmail(email);
+            setStoredPassword(password);
+
+            ToastManager.show('✅ Credenziali salvate con successo!', 'success');
+            hidePasswordSetupModal();
+
+            console.log('[Zimbra-Elabora] Credenziali salvate:', { email, passwordLength: password.length });
+        });
+
+        cancelBtn.addEventListener('click', hidePasswordSetupModal);
+
+        // Chiudi cliccando fuori dal modal
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                hidePasswordSetupModal();
+            }
+        });
+
+        return modal;
+    }
+
+    function showPasswordSetupModal() {
+        let modal = document.getElementById('mcp-password-setup-modal');
+
+        if (!modal) {
+            modal = createPasswordSetupModal();
+        }
+
+        // Pre-compila email se già salvata
+        const savedEmail = getStoredEmail();
+        if (savedEmail) {
+            modal.querySelector('#mcp-user-email').value = savedEmail;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function hidePasswordSetupModal() {
+        const modal = document.getElementById('mcp-password-setup-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // Crea pulsante impostazioni (⚙️)
+    // Crea pulsante impostazioni floating in alto a destra
+    function createFloatingSettingsButton() {
+        // Verifica se esiste già
+        if (document.getElementById('mcp-floating-settings')) {
+            console.log('[Zimbra-Elabora] Pulsante floating già esistente');
+            return;
+        }
+
+        // Crea pulsante semplice (non clonato da Zimbra)
+        const settingsButton = document.createElement('button');
+        settingsButton.id = 'mcp-floating-settings';
+        settingsButton.textContent = '⚙️';
+        settingsButton.title = 'Configura credenziali MCP';
+        settingsButton.setAttribute('aria-label', 'Impostazioni MCP');
+
+        // Stile floating - posizione fissa (più a destra e più in basso)
+        settingsButton.style.cssText = `
+            position: fixed !important;
+            top: 5px !important;
+            left: 140px !important;
+            right: auto !important;
+            z-index: 99999 !important;
+            background: #f3f4f6 !important;
+            border: 1px solid #d1d5db !important;
+            color: #4b5563 !important;
+            width: 20px !important;
+            height: 20px !important;
+            font-size: 14px !important;
+            line-height: 1 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            border-radius: 50% !important;
+            transition: all 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        `;
+
+        // Event listeners per hover
+        settingsButton.addEventListener('mouseenter', function() {
+            this.style.background = '#e5e7eb !important';
+            this.style.borderColor = '#9ca3af !important';
+            this.style.transform = 'scale(1.05)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2) !important';
+        });
+
+        settingsButton.addEventListener('mouseleave', function() {
+            this.style.background = '#f3f4f6 !important';
+            this.style.borderColor = '#d1d5db !important';
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15) !important';
+        });
+
+        // Click handler
+        const openSettingsModal = (e) => {
+            console.log('[Zimbra-Elabora] 🔧 CLICK su pulsante floating impostazioni');
+            e.preventDefault();
+            e.stopPropagation();
+            showPasswordSetupModal();
+        };
+
+        settingsButton.addEventListener('click', openSettingsModal);
+
+        // Aggiungi al body
+        document.body.appendChild(settingsButton);
+        console.log('[Zimbra-Elabora] ✅ Pulsante impostazioni floating creato in alto a destra');
+    }
+
     // Inizializzazione
     async function init() {
         try {
@@ -884,6 +1499,9 @@
 
             console.log('[Zimbra-Elabora] Toolbar trovata, inserisco pulsante AI arancione...');
             insertElaboraButton();
+
+            // Crea pulsante impostazioni floating
+            createFloatingSettingsButton();
 
             // Attiva observer
             observeToolbar();

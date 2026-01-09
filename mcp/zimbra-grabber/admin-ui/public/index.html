@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Zimbra - Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🔐 MCP Zimbra Admin</h1>
+            <p class="subtitle">Gestione Utenti e Sicurezza</p>
+        </header>
+
+        <!-- Statistiche -->
+        <section class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Utenti Totali</div>
+                <div class="stat-value" id="stat-total">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Utenti Attivi</div>
+                <div class="stat-value" id="stat-active">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Utenti Disabilitati</div>
+                <div class="stat-value" id="stat-disabled">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Email Processate</div>
+                <div class="stat-value" id="stat-emails">-</div>
+            </div>
+        </section>
+
+        <!-- Azioni -->
+        <section class="actions">
+            <button class="btn btn-primary" id="btn-add-user">
+                ➕ Aggiungi Utente
+            </button>
+            <button class="btn btn-secondary" id="btn-refresh">
+                🔄 Aggiorna
+            </button>
+        </section>
+
+        <!-- Tabella Utenti -->
+        <section class="users-table">
+            <h2>Utenti Registrati</h2>
+            <table id="users-table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Stato</th>
+                        <th>Data Creazione</th>
+                        <th>Ultimo Accesso</th>
+                        <th>Email Inviate</th>
+                        <th>Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="users-tbody">
+                    <tr>
+                        <td colspan="6" class="loading">Caricamento...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Modal: Aggiungi Utente -->
+        <div id="modal-add-user" class="modal">
+            <div class="modal-content">
+                <h2>Aggiungi Nuovo Utente</h2>
+                <form id="form-add-user">
+                    <div class="form-group">
+                        <label for="input-email">Email Utente</label>
+                        <input
+                            type="email"
+                            id="input-email"
+                            placeholder="utente@asp.messina.it"
+                            required
+                            autocomplete="off"
+                        >
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            Crea Utente
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="btn-cancel-add">
+                            Annulla
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal: Password Generata -->
+        <div id="modal-password" class="modal">
+            <div class="modal-content">
+                <h2>✅ Utente Creato</h2>
+                <p>Utente <strong id="created-email"></strong> creato con successo.</p>
+                <p class="warning-text">
+                    ⚠️ Password temporanea generata. Comunicala all'utente in modo sicuro:
+                </p>
+                <div class="password-box">
+                    <code id="temp-password"></code>
+                    <button class="btn-copy" id="btn-copy-password" title="Copia password">
+                        📋
+                    </button>
+                </div>
+                <p class="info-text">
+                    L'utente dovrà configurare questa password nel script Tampermonkey.
+                </p>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="btn-close-password">
+                        Ho Copiato la Password
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

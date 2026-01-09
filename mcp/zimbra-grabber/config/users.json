@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "masterKeyVersion": "v1",
+  "lastUpdate": "2026-01-09T11:28:21.098Z",
+  "users": [
+    {
+      "email": "roberto.dedomenico@asp.messina.it",
+      "passwordHash": "$argon2id$v=19$m=65536,t=3,p=1$N+u3FHIO/3nUJIqGVP74rg$H/RxsTstbrEA4qQqAcPDUTTNn8iGDHCMIT6ZiWbyU38",
+      "encryptedDerivedKey": "2IRqMDlmnxnnR9tPbHC/6iFYkOm7uI18KaDAwg4j4C0bwzC/q9yFpamQyMv4eVeyUPGPrXpPfXAGTefzyaN2NA==",
+      "kdfSalt": "68GNsODMgAMw9PNl8542pAmp2vnLr6qIeUADFanVf1U=",
+      "kdfIterations": 100000,
+      "keyVersion": "v1",
+      "enabled": true,
+      "createdAt": "2026-01-09T09:38:03.648Z",
+      "lastLogin": "2026-01-09T11:28:21.098Z",
+      "emailsSent": 5
+    }
+  ]
+}

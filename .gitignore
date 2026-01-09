@@ -26,3 +26,4 @@ pnpm-lock.yaml
 /tampermonkey/nar2_data/
 mcp/zimbra-grabber/node_modules/
 mcp/zimbra-grabber/attachments/
+mcp/zimbra-grabber/.env

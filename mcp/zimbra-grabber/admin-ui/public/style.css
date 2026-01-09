@@ -1,0 +1,371 @@
+/**
+ * Admin UI Styles - Design minimale e professionale
+ * Palette: Grigi + accent verde (#16a34a) e rosso (#dc2626)
+ */
+
+:root {
+  --color-primary: #16a34a;
+  --color-primary-hover: #15803d;
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-secondary: #6b7280;
+  --color-bg: #f9fafb;
+  --color-bg-card: #ffffff;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  padding: 20px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: var(--color-bg-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.header h1 {
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+/* Statistiche */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: var(--color-bg-card);
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: var(--color-primary);
+}
+
+/* Azioni */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+/* Bottoni */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background: var(--color-secondary);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: white;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.btn-danger:hover {
+  background: var(--color-danger-hover);
+}
+
+.btn-small {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.btn-copy {
+  background: var(--color-secondary);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.btn-copy:hover {
+  background: #4b5563;
+}
+
+/* Tabella */
+.users-table {
+  background: var(--color-bg-card);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+.users-table h2 {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: var(--color-bg);
+}
+
+th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.5px;
+}
+
+td {
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+}
+
+td.loading {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 40px;
+}
+
+/* Badge Stati */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-enabled {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modal */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--color-bg-card);
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  max-width: 500px;
+  width: 90%;
+}
+
+.modal-content h2 {
+  margin-bottom: 20px;
+  font-size: 20px;
+}
+
+/* Form */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+/* Password Box */
+.password-box {
+  background: var(--color-bg);
+  padding: 15px;
+  border-radius: 6px;
+  margin: 15px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.password-box code {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-family: 'Courier New', monospace;
+}
+
+.warning-text {
+  color: #d97706;
+  font-weight: 500;
+  margin: 10px 0;
+}
+
+.info-text {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin: 10px 0;
+}
+
+/* Toast Notifications */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.toast {
+  background: white;
+  color: var(--color-text);
+  padding: 12px 20px;
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  margin-bottom: 10px;
+  min-width: 300px;
+  max-width: 400px;
+  border-left: 4px solid var(--color-primary);
+  animation: slideIn 0.3s ease;
+}
+
+.toast.error {
+  border-left-color: var(--color-danger);
+}
+
+.toast.success {
+  border-left-color: var(--color-primary);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  th, td {
+    padding: 8px;
+  }
+}
