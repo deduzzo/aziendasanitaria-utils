@@ -1,0 +1,15 @@
+{
+  "name": "zebra-label-printer",
+  "version": "1.0.0",
+  "description": "Micro-server per stampa etichette su Zebra GK420t",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@grandchef/node-printer": "^0.8.0",
+    "@mapbox/node-pre-gyp": "^2.0.3"
+  }
+}

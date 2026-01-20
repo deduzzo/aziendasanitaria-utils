@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wmic printer:*)",
+      "Bash(findstr:*)",
+      "Bash(node:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(cmd /c \"echo ^XA^CI28^PW800^LL400^FO20,130^A0N,50,50^FB760,1,0,C,0^FDTEST ZEBRA^FS^XZ > %TEMP%\\\\test_zebra.zpl\")",
+      "Bash(npm install:*)",
+      "Bash(ping:*)"
+    ]
+  }
+}
