@@ -1242,8 +1242,7 @@ export class FlussoSIAD {
                             data.datiTracciatiDitte.T1byCf[cf] = [t1row]
                         else
                             data.datiTracciatiDitte.T1byCf[cf].push(t1row);
-                    }
-                    catch (e) {
+                    } catch (e) {
                         console.log("Errore su riga T1: " + JSON.stringify(t1row));
                         process.exit(1);
                     }
@@ -2731,6 +2730,232 @@ export class FlussoSIAD {
         }
 
         await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato2_out.xlsx", outTracciato2, null, false);
+
+    }
+
+
+    /**
+     * Sviluppa i dati delle vaccinazioni e genera tracciati di output a partire dai file di input.
+     *
+     * Legge file Excel/JSON in `pathCartellaIn`, normalizza codici fiscali (gestione sostituti),
+     * filtra soggetti deceduti e crea i tracciati 1 e 2 per il flusso vaccinazioni.
+     *
+     * @param {string} pathCartellaIn - percorso della cartella con i file di input.
+     * @param {string|null} pathChiaviValideAttive - percorso file chiavi valide attive (opzionale).
+     * @param {number|string} anno - anno di riferimento per i tracciati.
+     * @param {number|string} numTrimestre - numero del trimestre.
+     * @param {Object} [config={}] - opzioni:
+     *   - `nomeFileVaccini` {string} nome file vaccini (default: "vaccini.xlsx")
+     *   - `nomeFileVivi` {string} nome file vivi (default: "vivi.xlsx")
+     *   - `nomeFileMorti` {string} nome file morti (default: "morti.xlsx")
+     *   - `nomeFileSostituti` {string} nome file sostituti (default: "sostituti.xlsx")
+     *   - `nomeColonnaCf` {string} nome colonna CF (default: "cf")
+     *   - `nomeColonnaData` {string} nome colonna data vaccinazione (default: "data")
+     *
+     * @returns {Promise<void>} Risolve quando i file di output sono stati scritti.
+     * @throws {Error} Se mancano colonne richieste o ci sono errori nella lettura dei file.
+     */
+    async sviluppaDatiVaccinazioni(pathCartellaIn, pathChiaviValideAttive, anno, numTrimestre, config = {}) {
+        let {
+            nomeFileTracciatoADP = "datiVaccinazioni.xlsx",
+            nomeFileMorti = "morti.xlsx",
+            nomeFileVivi = "vivi.xlsx",
+            nomeFileSostituti = "sostituti.xlsx",
+            nomeColonnaCf = "cf",
+            nomecolonnaCfSostituto = "cfOk",
+            colonnaIdRecordChiaviValide = "Id Record",
+            colonnaDataPresaInCaricoChiaviValide = "Data  Presa In Carico",
+            colonnaConclusioneChiaviValide = "Data Conclusione",
+
+        } = config;
+
+        // put int dataInizio the first day of the correct trimester
+        let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY").add(numTrimestre * 3 - 3, 'months');
+        let allChiaviValideAperte = {};
+        if (fs.existsSync(pathChiaviValideAttive)) {
+            let chiaviValide = await utils.getObjectFromFileExcel(pathChiaviValideAttive);
+            for (let chiave of chiaviValide)
+                if (typeof chiave[colonnaConclusioneChiaviValide] == "string" && chiave[colonnaConclusioneChiaviValide].includes("--"))
+                    allChiaviValideAperte[chiave[colonnaIdRecordChiaviValide]] = chiave;
+        }
+        let tracciato = await utils.getObjectFromFileExcel(pathCartellaIn + path.sep + nomeFileTracciatoADP, 0, false);
+
+        let allFileVivi = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileVivi);
+        let allFileMorti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileMorti);
+        let allFileSostituti = utils.getAllFilesRecursive(pathCartellaIn, ".xlsx", nomeFileSostituti);
+        let allVivi = {};
+        let allMorti = {};
+        let allSostituti = {};
+        for (let file of allFileVivi) {
+            let allViviTemp = await utils.getObjectFromFileExcel(file);
+            for (let vivo of allViviTemp) {
+                if (!vivo.hasOwnProperty(nomeColonnaCf))
+                    throw new Error("Errore in file " + file + " colonna " + nomeColonnaCf + " non presente");
+                else
+                    allVivi[vivo[nomeColonnaCf]] = vivo;
+            }
+        }
+        for (let file of allFileMorti) {
+            let allMortiTemp = await utils.getObjectFromFileExcel(file);
+            for (let morto of allMortiTemp) {
+                if (!morto.hasOwnProperty(nomeColonnaCf))
+                    throw new Error("Errore in file " + file + " colonna " + nomeColonnaCf + " non presente");
+                else
+                    allMorti[morto[nomeColonnaCf]] = morto;
+            }
+        }
+        for (let file of allFileSostituti) {
+            let allSostitutiTemp = await utils.getObjectFromFileExcel(file);
+            for (let sostituto of allSostitutiTemp) {
+                if (!sostituto.hasOwnProperty(nomecolonnaCfSostituto.trim().replaceAll(" ", "")) || !sostituto.hasOwnProperty(nomeColonnaCf))
+                    // error and break
+                    throw new Error("Errore in file " + file + " colonna " + nomecolonnaCfSostituto + " o " + nomeColonnaCf + " non presenti");
+                allSostituti[sostituto[nomeColonnaCf].trim().replaceAll(" ", "")] = sostituto[nomecolonnaCfSostituto].trim().replaceAll(" ", "");
+            }
+        }
+        let outTracciato1 = [];
+        let rigaHeaderTracciato1 = {}
+        for (let i = 0; i < Object.keys(tracciato1Maggioli).length; i++)
+            rigaHeaderTracciato1[i] = tracciato1Maggioli[i];
+        outTracciato1.push(rigaHeaderTracciato1);
+        let allCf = {};
+
+        for (let riga of tracciato) {
+            if (riga[1] !== "") {
+                let chiaviValideAperte = Object.keys(allChiaviValideAperte).filter(key => key.includes(riga[0]));
+
+                if ((allSostituti.hasOwnProperty(riga[0].trim().replaceAll(" ", "")) && allSostituti[riga[0].trim().replaceAll(" ", "")].trim().replaceAll(" ", "") !== "") || Object.keys(allSostituti) === 0 || !allSostituti.hasOwnProperty(riga[0].trim().replaceAll(" ", ""))) {
+                    let codFiscale = allSostituti.hasOwnProperty(riga[0].trim().replaceAll(" ", "")) ? allSostituti[riga[0].trim().replaceAll(" ", "")] : riga[0].trim().replaceAll(" ", "");
+                    let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataDecesso'], "DD/MM/YYYY") : null;
+                    let dataNascita = allVivi.hasOwnProperty(codFiscale) ? moment(allVivi[codFiscale]['dataNascita'], "DD/MM/YYYY") : (allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataNascita'], "DD/MM/YYYY") : null);
+                    let annoNascita = (dataNascita && dataNascita.isValid()) ? dataNascita.year() : Parser.cfToBirthYear(codFiscale);
+                    if (dataDecesso !== null)
+                        console.log(dataDecesso.format("DD/MM/YYYY"))
+
+                    if (!allCf.hasOwnProperty(codFiscale) && (dataDecesso == null || dataDecesso.isSameOrAfter(dataInizio))) {
+                        allCf[codFiscale] = riga[1];
+                        let rigaT1 = {};
+                        rigaT1[0] = ""; // tipo
+                        rigaT1[1] = codFiscale;
+                        rigaT1[2] = ""; // validita ci
+                        rigaT1[3] = ""; // tipologia ci
+                        rigaT1[4] = annoNascita;
+                        rigaT1[5] = Parser.cfToGender(codFiscale) === "M" ? "1" : "2";
+                        rigaT1[6] = codFiscale.substring(11, 12) !== "Z" ? "IT" : "XX";
+                        rigaT1[7] = "9";
+                        rigaT1[8] = "190";
+                        rigaT1[9] = "205";
+                        rigaT1[10] = "083048";
+                        rigaT1[11] = "1";
+                        rigaT1[12] = "2";
+                        rigaT1[13] = "190";
+                        rigaT1[14] = "205";
+                        rigaT1[15] = dataInizio.format("DD/MM/YYYY");
+                        rigaT1[16] = ""; // id record
+                        rigaT1[17] = "2";
+                        rigaT1[18] = "1";
+                        rigaT1[19] = dataInizio.format("DD/MM/YYYY");
+                        rigaT1[20] = "1";
+                        rigaT1[21] = "1";
+                        rigaT1[22] = "3";
+                        rigaT1[23] = "9";
+                        rigaT1[24] = "2";
+                        rigaT1[25] = "9";
+                        rigaT1[26] = "2";
+                        rigaT1[27] = "2";
+                        rigaT1[28] = "2";
+                        rigaT1[29] = "2";
+                        rigaT1[30] = "2";
+                        rigaT1[31] = "2";
+                        rigaT1[32] = "2";
+                        rigaT1[33] = "2";
+                        rigaT1[34] = "2";
+                        rigaT1[35] = "2";
+                        rigaT1[36] = "2";
+                        rigaT1[37] = "2";
+                        rigaT1[38] = "2";
+                        rigaT1[39] = "2";
+                        rigaT1[40] = "2";
+                        rigaT1[41] = "2";
+                        rigaT1[42] = "2";
+                        rigaT1[43] = "2";
+                        rigaT1[44] = "2";
+                        rigaT1[45] = "2";
+                        rigaT1[46] = "2";
+                        rigaT1[47] = "3";
+                        rigaT1[48] = "3";
+                        rigaT1[49] = "3";
+                        rigaT1[50] = "3";
+                        rigaT1[51] = "3";
+                        rigaT1[52] = "3";
+                        rigaT1[53] = "3";
+                        let patologie = [
+                            "401", // ipertensione
+                            "413", // angina
+                            "427", // tachicardia
+                            "715", // artrosi
+                            "518", // insufficenza respiratoria
+                            "493", // asma
+                            "715", // osteortrite
+                            "707", // ulcera da decubito
+                        ]
+                        // put random value of patologie
+                        rigaT1[54] = patologie[Math.floor(Math.random() * patologie.length)];
+                        rigaT1[55] = "";
+                        if (chiaviValideAperte.length > 0) {
+                            rigaT1[56] = chiaviValideAperte[0];
+                            rigaT1[57] = moment(allChiaviValideAperte[chiaviValideAperte[0]][colonnaDataPresaInCaricoChiaviValide]).format("DD/MM/YYYY");
+                        } else {
+                            rigaT1[56] = "";
+                            rigaT1[57] = "";
+                        }
+                        rigaT1[58] = allMorti.hasOwnProperty(codFiscale) ? allMorti[codFiscale]['dataDecesso'] : "";
+
+                        outTracciato1.push(rigaT1);
+                    }
+                }
+            }
+        }
+        await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato1_out.xlsx", outTracciato1, null, false);
+
+
+        let outTracciato2 = [];
+        let rigaHeaderTracciato2 = {}
+        for (let i = 0; i < Object.keys(tracciato2Maggioli).length; i++)
+            rigaHeaderTracciato2[i] = tracciato2Maggioli[i];
+        outTracciato2.push(rigaHeaderTracciato2);
+
+
+        let allCfKey = Object.keys(allCf);
+        for (let codFiscale of allCfKey) {
+            console.log(codFiscale)
+            let dataFromT2 = allCf[codFiscale];
+            let data = moment(dataFromT2, "DD/MM/YYYY");
+            let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataDecesso'], "DD/MM/YYYY") : null;
+            if (dataDecesso == null || dataDecesso.isAfter(data)) {
+                let rigaT2 = {}
+                rigaT2[0] = codFiscale;
+                rigaT2[1] = ""; // tipo
+                rigaT2[2] = "190";
+                rigaT2[3] = "205";
+                rigaT2[4] = dataInizio.format("DD/MM/YYYY");
+                rigaT2[5] = "";
+                rigaT2[6] = ""
+                rigaT2[7] = ""
+                rigaT2[8] = ""
+                rigaT2[9] = "1"
+                rigaT2[10] = data.format("DD/MM/YYYY")// data accesso
+                rigaT2[11] = "1" // tipo operatore
+                rigaT2[12] = "6"; // tipo prestazione
+                rigaT2[13] = ""; // data sospensione
+                rigaT2[14] = ""; //motivo sospensione
+                rigaT2[15] = "";
+                outTracciato2.push(rigaT2);
+            }
+        }
+
+        await utils.scriviOggettoSuNuovoFileExcel(pathCartellaIn + path.sep + "tracciato2_out.xlsx", outTracciato2, null, false);
+
 
     }
 
