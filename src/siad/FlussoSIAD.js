@@ -2771,6 +2771,7 @@ export class FlussoSIAD {
 
         // put int dataInizio the first day of the correct trimester
         let dataInizio = moment("01/01/" + anno, "DD/MM/YYYY").add(numTrimestre * 3 - 3, 'months');
+        let dataFine = moment(dataInizio).add(3, 'months').subtract(1, 'days');
         let allChiaviValideAperte = {};
         if (fs.existsSync(pathChiaviValideAttive)) {
             let chiaviValide = await utils.getObjectFromFileExcel(pathChiaviValideAttive);
@@ -2931,6 +2932,12 @@ export class FlussoSIAD {
             console.log(codFiscale)
             let dataFromT2 = allCf[codFiscale];
             let data = moment(dataFromT2, "DD/MM/YYYY");
+            // verifica che data sia tra inizio e fine, in caso metti una data casuale in questo range
+            if (!data.isBetween(dataInizio, dataFine)) {
+                let diffDays = dataFine.diff(dataInizio, 'days');
+                let randomDays = Math.floor(Math.random() * diffDays);
+                data = dataInizio.clone().add(randomDays, 'days');
+            }
             let dataDecesso = allMorti.hasOwnProperty(codFiscale) ? moment(allMorti[codFiscale]['dataDecesso'], "DD/MM/YYYY") : null;
             if (dataDecesso == null || dataDecesso.isAfter(data)) {
                 let rigaT2 = {}

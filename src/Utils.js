@@ -853,13 +853,67 @@ const riunisciJsonDaTag = async (path, tag, filter = null) => {
     return out;
 }
 
-const riunisciExcelDaTag = async (path, tag, filter = null) => {
-    let files = getAllFilesRecursive(path, ".xlsx", filter);
-    let out = {};
-    out[tag] = [];
+/**
+ * Riunisci dati da tutti i file Excel trovati ricorsivamente in `path`.
+ *
+ * - Cerca tutti i file `.xlsx` all'interno della cartella `path` (ricorsivamente),
+ *   applicando opzionalmente un `filter` sui nomi dei file.
+ * - Per ogni file trovato legge il primo foglio usando `getObjectFromFileExcel`.
+ * - Se `config.tags` è un array non vuoto, per ogni `tag` crea un array in output
+ *   e ci inserisce i valori corrispondenti (per ogni riga prende `row[tag]`).
+ * - Se `config.tags` è vuoto, costruisce l'output con tutte le colonne presenti
+ *   nella prima riga del primo file (`data[0]`).
+ * - Se `config.salvaInNuovoFileExcel` è true, salva il risultato in
+ *   un file `riunito.xlsx` nella cartella `path`.
+ *
+ * @param {string} path - Cartella radice dove cercare i file Excel.
+ * @param {Object} [config={}] - Configurazione opzionale.
+ * @param {string[]} [config.tags=[]] - Array di colonne (nomi) da raccogliere.
+ * @param {string|null} [config.filter=null] - Filtro per i nomi dei file (opzionale).
+ * @param {boolean} [config.salvaInNuovoFileExcel=false] - Se true salva l'output in `riunito.xlsx`.
+ * @param {string|null} [config.soloValoriUniciPerCampo=null] - Se specificato, mantiene solo righe con valori unici per questo campo.
+ * @returns {Promise<Object>} Oggetto con chiavi corrispondenti ai tag (o colonne) e valori come array dei relativi valori.
+ *
+ * @example
+ * // Unisce le colonne "nome" e "cognome" da tutti gli xlsx nella cartella
+ * const out = await riunisciExcelDaTag(`/Users/deduzzo/dati`, { tags: ['nome','cognome'] });
+ */
+const riunisciExcelDaTag = async (folderPath, config = {}) => {
+    let {
+        tags = [],
+        filter = null,
+        salvaInNuovoFileExcel = false,
+        soloValoriUniciPerCampo = null
+    } = config;
+    let files = getAllFilesRecursive(folderPath, ".xlsx", filter);
+    let out = [];
     for (let file of files) {
         let data = await getObjectFromFileExcel(file);
-        out[tag].push(...data);
+        if (tags.length === 0) {
+            // get all keys from data[0]
+            let keys = Object.keys(data[0]);
+            tags = keys;
+        }
+        // add every object of data but only the tags we want, ex. if tag is ['cf', 'data'] we want to put only object type {cf: 'xxx', data: 'yyy'} in out
+        for (let obj of data) {
+            let objTemp = {};
+            tags.forEach(tag => {
+                objTemp[tag] = obj[tag];
+            });
+            // prevent to push empty object
+            if (Object.values(objTemp).some(value => value !== ""))
+                out.push(objTemp);
+        }
+    }
+    if (soloValoriUniciPerCampo) {
+        let out2 = {};
+        for (let riga of out)
+            if (!out2.hasOwnProperty(riga[soloValoriUniciPerCampo]))
+                out2[riga[soloValoriUniciPerCampo]] = riga;
+        out = Object.values(out2);
+    }
+    if (salvaInNuovoFileExcel) {
+        await scriviOggettoSuNuovoFileExcel(folderPath + path.sep + "riunito.xlsx", out);
     }
     return out;
 }
