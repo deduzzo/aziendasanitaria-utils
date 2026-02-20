@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "masterKeyVersion": "v1",
-  "lastUpdate": "2026-01-09T11:28:21.098Z",
+  "lastUpdate": "2026-01-28T09:46:04.098Z",
   "users": [
     {
       "email": "roberto.dedomenico@asp.messina.it",
@@ -12,8 +12,8 @@
       "keyVersion": "v1",
       "enabled": true,
       "createdAt": "2026-01-09T09:38:03.648Z",
-      "lastLogin": "2026-01-09T11:28:21.098Z",
-      "emailsSent": 5
+      "lastLogin": "2026-01-28T09:46:04.098Z",
+      "emailsSent": 6
     }
   ]
 }

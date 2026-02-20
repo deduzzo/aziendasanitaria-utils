@@ -541,9 +541,8 @@
         handleWebSocketCommand('metodoPagamento');
     });
 
-    /* ====================== WebSocket Connection ====================== */
+    /* ====================== WebSocket Connection (ASP Anagrafica Desktop) ====================== */
     let ws = null;
-    let reconnectInterval = null;
 
     // Helper per selezionare un valore in un combobox ZK
     async function selectComboboxValue(inputId, value, doc = document) {
@@ -1765,65 +1764,59 @@
         }
     }
 
+    const WS_URL = 'ws://127.0.0.1:12345';
+    const WS_RECONNECT_INTERVAL = 5000;
+    let wsReconnectTimer = null;
+
     function connectWebSocket() {
-        if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
-            console.log('WebSocket già connesso o in connessione');
-            return;
-        }
+        if (ws && ws.readyState === WebSocket.OPEN) return;
 
         try {
-            ws = new WebSocket('ws://localhost:12345');
+            ws = new WebSocket(WS_URL);
 
             ws.onopen = () => {
-                console.log('Connesso al server WebSocket locale');
-                toast('✓ Connesso al server locale', false);
-                if (reconnectInterval) {
-                    clearInterval(reconnectInterval);
-                    reconnectInterval = null;
-                }
+                console.log('WebSocket connesso a', WS_URL);
+                toast('✓ Connesso ad ASP Anagrafica Desktop', false);
+                if (wsReconnectTimer) { clearInterval(wsReconnectTimer); wsReconnectTimer = null; }
             };
 
             ws.onmessage = (event) => {
-                console.log('Messaggio ricevuto dal server:', event.data);
                 try {
                     const message = JSON.parse(event.data);
-
-                    // Gestione comandi strutturati
+                    console.log('WS messaggio ricevuto:', message);
                     if (message.command) {
                         handleWebSocketCommand(message.command, message.data);
                     } else {
-                        // Retrocompatibilità: se non c'è il campo command, tratta come dati paziente
                         ta.value = JSON.stringify(message, null, 2);
                         save('tm_json', ta.value);
                         autoParseFromTextarea();
                         toast('📥 Dati ricevuti dal server', false);
                     }
                 } catch (e) {
-                    console.error('Errore nel parsing del messaggio ricevuto:', e);
+                    console.error('Errore parsing messaggio WS:', e);
                     toast('⚠ Messaggio ricevuto non valido', true);
                 }
             };
 
-            ws.onerror = (error) => {
-                console.error('Errore WebSocket:', error);
+            ws.onclose = () => {
+                console.log('WebSocket disconnesso, riconnessione tra 5s...');
+                scheduleReconnect();
             };
 
-            ws.onclose = () => {
-                console.log('Connessione WebSocket chiusa');
-                ws = null;
-                // Tenta riconnessione automatica ogni 5 secondi
-                if (!reconnectInterval) {
-                    reconnectInterval = setInterval(() => {
-                        console.log('Tentativo di riconnessione...');
-                        connectWebSocket();
-                    }, 5000);
-                }
+            ws.onerror = (err) => {
+                console.error('Errore WebSocket:', err);
             };
         } catch (e) {
-            console.error('Errore nella creazione della connessione WebSocket:', e);
+            console.error('Errore creazione WebSocket:', e);
+            scheduleReconnect();
         }
     }
 
-    // Connetti al caricamento dello script
+    function scheduleReconnect() {
+        if (!wsReconnectTimer) {
+            wsReconnectTimer = setInterval(connectWebSocket, WS_RECONNECT_INTERVAL);
+        }
+    }
+
     connectWebSocket();
 })();

@@ -134,16 +134,16 @@ import { Client } from "@gradio/client";
     )*/
     let res = await flussoSiad.generaFlussoRettificaScarti(
         2025,
-        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024-2025 pulito',
-        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025/',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2022-2023-2024-2025 pulito/2023-2024',
+        '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/IMPORTAZIONE MAGGIOLI/DATI INVIATI A DITTA/2025',
         '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/CHIAVI VALIDE DEL MINISTERO/2025-04/',
         {
-            folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/INVII_TEMP/TUTTO A NOVEMBRE',
-            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2025_12_23.json',
+            folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/INVII_TEMP/DICEMBRE TUTTO',
+            portalePicFileJson: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/JSON PORTALE PIC/adi_pic_2026_01_26.json',
             chiudiPicAnnoPrecedente: true,
             //folderOut: '/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2025/2trim/1invio',
             //trimestriDaConsiderare: [3],
-            nonConsiderareSeSuccessivoA: "30/11/2025",
+            nonConsiderareSeSuccessivoA: "31/12/2025",
             creaFlussoPulito: true,
         },
     )
