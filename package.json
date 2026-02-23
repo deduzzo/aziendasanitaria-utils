@@ -18,7 +18,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\"",
     "run-private": "node ./private_example.js",
-    "bun-run-private": "bun ./private_example.js"
+    "bun-run-private": "bun ./private_example.js",
+    "genera-strutture": "node ./load_strutture.js"
   },
   "dependencies": {
     "@freiraum/msgreader": "^1.1.1",

@@ -10,6 +10,7 @@ import {DatiStruttureProgettoTs} from "./DatiStruttureProgettoTs.js";
 import ExcelJS from "exceljs"
 import loki from 'lokijs';
 import {hashFile} from "hasha";
+import * as cheerio from 'cheerio';
 
 export class FlussoM {
     /**
@@ -403,27 +404,76 @@ export class FlussoM {
     }
 
 
-    #loadStruttureFromFlowlookDB() {
-        const buffer = fs.readFileSync(this._settings.flowlookDBFilePath);
-        const reader = new MDBReader(buffer);
+    // DEPRECATO: sostituito da #loadStruttureFromLatestFile()
+    // #loadStruttureFromFlowlookDB() {
+    //     const buffer = fs.readFileSync(this._settings.flowlookDBFilePath);
+    //     const reader = new MDBReader(buffer);
+    //     const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
+    //     let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) - 2));
+    //     let mancanti = []
+    //     let struttureOut = {}
+    //     struttureFiltrate.forEach(p => {
+    //         if (this._settings.datiStruttureRegione.comuniDistretti.hasOwnProperty(p["CodiceComune"])) {
+    //             struttureOut[p['CodiceStruttura']] = {
+    //                 codiceRegione: p['CodiceRegione'],
+    //                 codiceAzienda: p['CodiceAzienda'],
+    //                 denominazione: p['DenominazioneStruttura'],
+    //                 codiceComune: p['CodiceComune'],
+    //                 idDistretto: this._settings.datiStruttureRegione.comuniDistretti[p["CodiceComune"]],
+    //                 dataUltimoAggiornamento: moment(p['DataAggiornamento'], 'DD/MM/YYYY')
+    //             };
+    //         } else
+    //             mancanti.push(p);
+    //     })
+    //     return struttureOut;
+    // }
 
-        const strutture = reader.getTable(this._settings.flowlookDBTableSTS11).getData();
-        let struttureFiltrate = strutture.filter(p => p["CodiceAzienda"] === this._settings.codiceAzienda && p["CodiceRegione"] === this._settings.codiceRegione && (parseInt(p["Anno"]) >= (new Date().getFullYear()) - 2));
-        let mancanti = []
-        let struttureOut = {}
-        struttureFiltrate.forEach(p => {
-            if (this._settings.datiStruttureRegione.comuniDistretti.hasOwnProperty(p["CodiceComune"])) {
-                struttureOut[p['CodiceStruttura']] = {
-                    codiceRegione: p['CodiceRegione'],
-                    codiceAzienda: p['CodiceAzienda'],
-                    denominazione: p['DenominazioneStruttura'],
-                    codiceComune: p['CodiceComune'],
-                    idDistretto: this._settings.datiStruttureRegione.comuniDistretti[p["CodiceComune"]],
-                    dataUltimoAggiornamento: moment(p['DataAggiornamento'], 'DD/MM/YYYY')
-                };
-            } else
-                mancanti.push(p);
-        })
+    #loadStruttureFromLatestFile() {
+        const struttureDir = path.join("data", "strutture");
+        if (!fs.existsSync(struttureDir)) {
+            throw new Error(`Cartella ${struttureDir} non trovata. Eseguire prima la generazione delle strutture con load_strutture.js`);
+        }
+
+        const latestFile = fs.readdirSync(struttureDir).find(f => f.startsWith("LATEST_"));
+        if (!latestFile) {
+            throw new Error(`Nessun file LATEST_ trovato in ${struttureDir}. Eseguire prima la generazione delle strutture con load_strutture.js`);
+        }
+
+        const strutture = JSON.parse(fs.readFileSync(path.join(struttureDir, latestFile), "utf-8"));
+
+        // Costruisci reverse lookup: nome distretto -> id numerico
+        const reverseDistretti = {};
+        for (const [id, nome] of Object.entries(this._settings.datiStruttureRegione.distretti)) {
+            reverseDistretti[nome.toLowerCase()] = parseInt(id);
+        }
+
+        const struttureOut = {};
+        for (const s of strutture) {
+            let idDistretto = null;
+            if (s.distretto) {
+                const distLower = s.distretto.toLowerCase();
+                // Match esatto
+                idDistretto = reverseDistretti[distLower];
+                // Match parziale (es. "Barcellona P.G." contiene "barcellona")
+                if (idDistretto === undefined) {
+                    const found = Object.entries(reverseDistretti).find(([nome]) =>
+                        distLower.startsWith(nome) || nome.startsWith(distLower)
+                    );
+                    if (found) idDistretto = found[1];
+                }
+            }
+
+            struttureOut[s.codice] = {
+                denominazione: s.denominazione,
+                codiceComune: s.codCatastale,
+                idDistretto: idDistretto,
+                distretto: s.distretto,
+                ambito: s.ambito,
+                stato: s.stato
+            };
+        }
+
+        console.log(`Caricate ${Object.keys(struttureOut).length} strutture da ${latestFile}`);
         return struttureOut;
     }
 
@@ -476,7 +526,7 @@ export class FlussoM {
     }
 
     async #ottieniStatDaFileFlussoM(file) {
-        let strutture = this.#loadStruttureFromFlowlookDB();
+        let strutture = this.#loadStruttureFromLatestFile();
         let ricetteInFile = await this.#elaboraFileFlussoM(file, this._starts);
         let warn = "";
         if (ricetteInFile.error) {
@@ -486,13 +536,13 @@ export class FlussoM {
             let verificaDateStruttura = this.#checkMeseAnnoStruttura(Object.values(ricetteInFile.ricette))
             ricetteInFile.codiceStruttura = verificaDateStruttura.codiceStruttura;
             ricetteInFile.file = file;
-            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto.toString() ?? (ricetteInFile.datiDaFile?.idDistretto ?? "X");
+            ricetteInFile.idDistretto = strutture[verificaDateStruttura.codiceStruttura]?.idDistretto?.toString() ?? (ricetteInFile.datiDaFile?.idDistretto ?? "X");
             ricetteInFile.annoPrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(2, 4);
             ricetteInFile.mesePrevalente = verificaDateStruttura.meseAnnoPrevalente.substr(0, 2);
             ricetteInFile.date = _.omitBy(verificaDateStruttura.date, _.isNil);
             if (!strutture.hasOwnProperty(verificaDateStruttura.codiceStruttura)) {
-                console.log("STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente sul FLOWLOOK")
-                warn = "STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente sul FLOWLOOK"
+                console.log("STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente nel file strutture")
+                warn = "STRUTTURA " + verificaDateStruttura.codiceStruttura + " non presente nel file strutture"
             }
             return {errore: false, warning: (warn === "" ? false : warn), out: ricetteInFile}
         }
@@ -536,7 +586,7 @@ export class FlussoM {
 
     async generaReportDaStats(salvaFileHtml = true, salvaFileExcel = true) {
         let idDistretti = Object.keys(this._settings.datiStruttureRegione.distretti);
-        let strutture = this.#loadStruttureFromFlowlookDB();
+        let strutture = this.#loadStruttureFromLatestFile();
         let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         const table = {
             name: '',
@@ -897,11 +947,19 @@ export class FlussoM {
         }
         let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         const outputFile = nomeFile === "" ? (outFolder + path.sep + '190205_000_XXXX_XX_M_AL_20XX_XX_XX.TXT') : outFolder + path.sep + nomeFile;
-        var logger = fs.createWriteStream(outputFile, {
-            flags: 'a' // 'a' means appending (old data will be preserved)
-        })
-        var writeLine = (line) => logger.write(`${line}\n`);
-        for (var file of allFiles) {
+
+        // Rimuovi file esistente per evitare append duplicato
+        if (fs.existsSync(outputFile)) {
+            fs.unlinkSync(outputFile);
+        }
+
+        console.log(`unisciFileTxt: ${allFiles.length} file da ${inFolder}`);
+
+        const logger = fs.createWriteStream(outputFile, { flags: 'w' });
+        const writeLine = (line) => logger.write(`${line}\n`);
+        let totalLines = 0;
+
+        for (const file of allFiles) {
             const fileStream = fs.createReadStream(file);
             const rl = readline.createInterface({
                 input: fileStream,
@@ -911,7 +969,6 @@ export class FlussoM {
             let nLine = 0;
             for await (const line of rl) {
                 writeLine(line);
-                // Each line in input.txt will be successively available here as `line`.
                 nLine++;
                 if (line.length !== lunghezzaRiga) {
                     console.log("file: " + file);
@@ -920,10 +977,14 @@ export class FlussoM {
                     errors.push({file: file, lunghezza: line.length, linea: nLine})
                 }
             }
+            totalLines += nLine;
         }
         logger.end();
+
+        const fileSize = fs.existsSync(outputFile) ? fs.statSync(outputFile).size : 0;
+        console.log(`unisciFileTxt: ${totalLines} righe totali, ${(fileSize / 1024).toFixed(1)} KB -> ${outputFile}`);
+
         if (errors.length === 0) {
-            //verifica
             console.log("verifica.. ");
             errors = [...errors, ...await this.#processLineByLine(outputFile, lunghezzaRiga)]
             if (errors.length === 0)
@@ -933,7 +994,7 @@ export class FlussoM {
                 console.table(errors);
             }
         }
-        return {error: errors.length !== 0, errors: errors}
+        return {error: errors.length !== 0, errors: errors, totalFiles: allFiles.length, totalLines, fileSize}
     }
 
     async inviaMailAiDistretti(distretti, meseAnno = "", mailGlobale = "", nomeFileCompleto = "CONSEGNE_GLOBALI") {
@@ -1440,7 +1501,7 @@ export class FlussoM {
 
 
     async generaFileExcelPerAnno(nomeFile, anno, cosaGenerare = [FlussoM.PER_STRUTTURA_ANNO_MESE, FlussoM.TAB_CONSEGNE_PER_CONTENUTO, FlussoM.TAB_CONSEGNE_PER_NOME_FILE, FlussoM.TAB_DIFFERENZE_CONTENUTO_NOMEFILE]) {
-        const strutture = this.#loadStruttureFromFlowlookDB();
+        const strutture = this.#loadStruttureFromLatestFile();
         let files = utils.getAllFilesRecursive(this._settings.out_folder, '.mstats');
         let data = [];
         for (let file of files) {
@@ -1616,7 +1677,7 @@ export class FlussoM {
             }
         }
 
-        const strutture = this.#loadStruttureFromFlowlookDB();
+        const strutture = this.#loadStruttureFromLatestFile();
 
         const buffer = fs.readFileSync(this.settings.flowlookDBFilePath);
         const reader = new MDBReader(buffer);
@@ -1746,6 +1807,177 @@ export class FlussoM {
             }
             data = null;
         }
+    }
+
+    /**
+     * Esegue lo scraping di una pagina HTML dell'elenco strutture del Progetto Tessera Sanitaria
+     * e genera un file JSON con i dati estratti.
+     * @param {string} htmlContent - Il contenuto HTML della pagina
+     * @param {string} outputDir - La directory di output (default: "data")
+     * @returns {Array<{codice: string, denominazione: string, indirizzo: string, localita: string, piva: string, stato: string}>}
+     */
+    static scrapingStruttureProgettoTs(htmlContent, outputDir = "data/strutture") {
+        const strutture = [];
+        const isHTML = /<tr[\s>]/i.test(htmlContent) || /<td[\s>]/i.test(htmlContent);
+
+        if (isHTML) {
+            const $ = cheerio.load(htmlContent);
+            $('tr').each((i, row) => {
+                const tds = $(row).find('td');
+                if (tds.length < 5) return;
+
+                const codice = $(tds[0]).text().trim();
+                if (!codice || codice === "Codice") return;
+
+                const denominazione = $(tds[1]).text().trim();
+                const indirizzo = $(tds[2]).text().trim();
+                const localita = $(tds[3]).text().trim();
+                const piva = $(tds[4]).text().trim();
+
+                const rigaTesto = $(row).text();
+                const stato = rigaTesto.includes("Struttura chiusa") ? "chiuso" : "attivo";
+
+                strutture.push({codice, denominazione, indirizzo, localita, piva, stato});
+            });
+        } else {
+            // Parsing testo piano (copia-incolla dal browser)
+            const lines = htmlContent.split('\n');
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || !/^\d{6}\s/.test(trimmed)) continue;
+
+                const stato = trimmed.includes("Struttura chiusa") ? "chiuso" : "attivo";
+                const cleaned = trimmed.replace(/\s+Visualizza Dettaglio.*$/, '');
+
+                // Prova prima con tab, poi con 4+ spazi
+                let parts = cleaned.split('\t').map(p => p.trim()).filter(p => p);
+                if (parts.length < 5) {
+                    parts = cleaned.split(/\s{4,}/).map(p => p.trim()).filter(p => p);
+                }
+
+                if (parts.length >= 5) {
+                    strutture.push({
+                        codice: parts[0],
+                        denominazione: parts[1],
+                        indirizzo: parts[2],
+                        localita: parts[3],
+                        piva: parts[4],
+                        stato
+                    });
+                }
+            }
+        }
+
+        // Arricchimento con codice catastale e distretto dal CSV ambiti
+        const csvPath = path.join(path.dirname(outputDir), "ambiti_distretti_messina.csv");
+        if (fs.existsSync(csvPath)) {
+            const csvContent = fs.readFileSync(csvPath, "utf-8");
+            const ambiti = {};
+            csvContent.split('\n').slice(1).forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 3) {
+                    const ambito = parts[0].trim();
+                    if (ambito) {
+                        ambiti[ambito] = { codCatastale: parts[1].trim(), distretto: parts[2].trim() };
+                    }
+                }
+            });
+
+            // Carica mapping manuale da file JSON esterno
+            const mappingPath = path.join(path.dirname(outputDir), "mapping_strutture_extra.json");
+            let mappingVarianti = {};
+            let mappingPerCodice = {};
+            if (fs.existsSync(mappingPath)) {
+                const mappingData = JSON.parse(fs.readFileSync(mappingPath, "utf-8"));
+                mappingVarianti = mappingData.per_comune || {};
+                mappingPerCodice = mappingData.per_codice_struttura || {};
+            }
+
+            // Normalizza stringa per match fuzzy (rimuove apostrofi, trattini, spazi multipli)
+            const normalizza = (s) => s.toUpperCase().replace(/['\-\u2019\u0060]/g, '').replace(/\s+/g, ' ').trim();
+
+            // Costruisci indice normalizzato degli ambiti
+            const ambitiNorm = {};
+            for (const [key, val] of Object.entries(ambiti)) {
+                ambitiNorm[normalizza(key)] = { ...val, ambitoOriginale: key };
+            }
+
+            let matchati = 0;
+            let nonMatchati = [];
+
+            for (const s of strutture) {
+                // Estrai comune dalla localita (rimuovi provincia es. "(ME)")
+                let comune = s.localita.replace(/\s*\([A-Z]{2}\)\s*$/, '').trim();
+
+                // 0. Match per codice struttura (override manuale)
+                if (mappingPerCodice[s.codice]) {
+                    comune = mappingPerCodice[s.codice];
+                }
+
+                // 1. Match diretto
+                if (ambiti[comune]) {
+                    s.codCatastale = ambiti[comune].codCatastale;
+                    s.distretto = ambiti[comune].distretto;
+                    s.ambito = comune;
+                    matchati++;
+                    continue;
+                }
+
+                // 2. Match via mapping manuale per comune
+                const mappato = mappingVarianti[comune];
+                if (mappato && ambiti[mappato]) {
+                    s.codCatastale = ambiti[mappato].codCatastale;
+                    s.distretto = ambiti[mappato].distretto;
+                    s.ambito = mappato;
+                    matchati++;
+                    continue;
+                }
+
+                // 3. Match fuzzy normalizzato (apostrofi, trattini)
+                const comuneNorm = normalizza(comune);
+                if (ambitiNorm[comuneNorm]) {
+                    const found = ambitiNorm[comuneNorm];
+                    s.codCatastale = found.codCatastale;
+                    s.distretto = found.distretto;
+                    s.ambito = found.ambitoOriginale;
+                    matchati++;
+                    continue;
+                }
+
+                // Non trovato
+                s.codCatastale = null;
+                s.distretto = null;
+                s.ambito = null;
+                nonMatchati.push({ codice: s.codice, denominazione: s.denominazione, localita: s.localita });
+            }
+
+            console.log(`Matching ambiti: ${matchati}/${strutture.length} matchati, ${nonMatchati.length} non matchati`);
+            if (nonMatchati.length > 0) {
+                console.log("Strutture senza match ambito:");
+                nonMatchati.forEach(s => console.log(`  ${s.codice} - ${s.denominazione} - ${s.localita}`));
+            }
+        }
+
+        const timestamp = moment().format("YYYYMMDD_HHmmss");
+        const nomeFile = path.join(outputDir, `strutture_ts_${timestamp}.json`);
+
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, {recursive: true});
+        }
+
+        fs.writeFileSync(nomeFile, JSON.stringify(strutture, null, 2), "utf-8");
+        console.log(`Salvate ${strutture.length} strutture in ${nomeFile}`);
+
+        // Rimuovi eventuali file LATEST_ precedenti e crea il nuovo
+        const files = fs.readdirSync(outputDir);
+        files.filter(f => f.startsWith("LATEST_")).forEach(f => {
+            fs.unlinkSync(path.join(outputDir, f));
+        });
+        const latestFile = path.join(outputDir, `LATEST_strutture_ts_${timestamp}.json`);
+        fs.copyFileSync(nomeFile, latestFile);
+        console.log(`Creato ${latestFile}`);
+
+        return strutture;
     }
 
 }
