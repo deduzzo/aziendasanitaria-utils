@@ -731,7 +731,7 @@ export class FlussoSIAD {
      * @param {string} [nomeFileTs="datiTS.mpdb"] (Opzionale) Il percorso del file dati TS da utilizzare per il confronto.
      * @return {Promise<void>} Una promessa che si risolve una volta completato il calcolo delle statistiche e la scrittura del file di output.
      */
-    async statisticheFLS21(pathData, nomeFileTs = "datiTS.mpdb") {
+    async statisticheFLS21(pathData, nomeFileTs = "siad.mpdb") {
         let data = {
             allChiaviCasiTrattati: {},
             statsT1: {totali: 0, anziani: 0, palliativa: 0},
@@ -744,8 +744,8 @@ export class FlussoSIAD {
 
         let fileDatiTs = fs.existsSync(pathData + path.sep + nomeFileTs) ? await utils.leggiOggettoMP(pathData + path.sep + nomeFileTs) : null;
 
-        let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
-        let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
+        let filesT1 = utils.getAllFilesRecursive(pathData, ".xml", "AA2");
+        let filesT2 = utils.getAllFilesRecursive(pathData, ".xml", "AP2");
 
         filesT1.forEach(file => {
             let xml_string = fs.readFileSync(file, "utf8");
@@ -757,9 +757,9 @@ export class FlussoSIAD {
                         const chiavePic = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['Id_Rec'][0];
                         console.log(chiavePic)
                         const cf = assistenze[i]['Assistito'][0]['DatiAnagrafici'][0]['CUNI'][0];
-                        const presenteSuTs = fileDatiTs.out.vivi.hasOwnProperty(cf) || fileDatiTs.out.morti.hasOwnProperty(cf);
-                        const vivo = presenteSuTs ? fileDatiTs.out.vivi.hasOwnProperty(cf) : null;
-                        const datiTs = presenteSuTs ? (vivo ? fileDatiTs.out.vivi[cf] : fileDatiTs.out.morti[cf]) : null;
+                        const presenteSuTs = fileDatiTs.fromTS.out.vivi.hasOwnProperty(cf) || fileDatiTs.fromTS.out.morti.hasOwnProperty(cf);
+                        const vivo = presenteSuTs ? fileDatiTs.fromTS.out.vivi.hasOwnProperty(cf) : null;
+                        const datiTs = presenteSuTs ? (vivo ? fileDatiTs.fromTS.out.vivi[cf] : fileDatiTs.fromTS.out.morti[cf]) : null;
                         const eta = datiTs ? datiTs.eta : utils.getAgeFromCF(cf);
                         const anziano = eta >= 65;
                         const palliativa = assistenze[i]['Eventi'][0]['PresaInCarico'][0]['ATTR']['TipologiaPIC'] === "2";
@@ -954,21 +954,24 @@ export class FlussoSIAD {
             }
         }
 
-        console.log("Totale prese in carico : " + chiavi.length);
-        console.log("Totale prese in carico almeno un accesso: " + totalePreseIncaricoAlmenoUnAccesso);
-        console.log("Totali geriatrica: " + (totalePreseIncaricoAlmenoUnAccesso - totalePalliativa));
-        console.log("Totali palliativa: " + totalePalliativa);
-        console.log("Totali accessi: " + (totaleAccessiPalliativa + totaleAccessiGeriatrica));
-        console.log("Totali accessi Geriatrica: " + totaleAccessiGeriatrica);
-        console.log("Totali accessi Palliativa: " + totaleAccessiPalliativa);
-
-        console.log("Totale prese in carico over 65: " + chiavi65.length);
-        console.log("Totale prese in carico almeno un accesso over 65: " + totalePreseIncaricoAlmenoUnAccesso65);
-        console.log("Totali geriatrica over 65: " + (totalePreseIncaricoAlmenoUnAccesso65 - totalePalliativa65));
-        console.log("Totali palliativa over 65: " + totalePalliativa65);
-        console.log("Totali accessi over 65: " + (totaleAccessiPalliativa65 + totaleAccessiGeriatrica65));
-        console.log("Totali accessi Geriatrica over 65: " + totaleAccessiGeriatrica65);
-        console.log("Totali accessi Palliativa over 65: " + totaleAccessiPalliativa65);
+        const result = {
+            totalePreseInCarico: chiavi.length,
+            totalePreseInCaricoAlmenoUnAccesso: totalePreseIncaricoAlmenoUnAccesso,
+            totaliGeriatrica: (totalePreseIncaricoAlmenoUnAccesso - totalePalliativa),
+            totaliPalliativa: totalePalliativa,
+            totaliAccessi: (totaleAccessiPalliativa + totaleAccessiGeriatrica),
+            totaliAccessiGeriatrica: totaleAccessiGeriatrica,
+            totaliAccessiPalliativa: totaleAccessiPalliativa,
+            totalePreseInCaricoOver65: chiavi65.length,
+            totalePreseInCaricoAlmenoUnAccessoOver65: totalePreseIncaricoAlmenoUnAccesso65,
+            totaliGeriatricaOver65: (totalePreseIncaricoAlmenoUnAccesso65 - totalePalliativa65),
+            totaliPalliativaOver65: totalePalliativa65,
+            totaliAccessiOver65: (totaleAccessiPalliativa65 + totaleAccessiGeriatrica65),
+            totaliAccessiGeriatricaOver65: totaleAccessiGeriatrica65,
+            totaliAccessiPalliativaOver65: totaleAccessiPalliativa65
+        };
+        console.log(JSON.stringify(result, null, 2));
+        return result;
     }
 
     statisticheChiaviValide(pathFile) {
