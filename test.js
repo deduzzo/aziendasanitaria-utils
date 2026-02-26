@@ -112,14 +112,14 @@ import { Client } from "@gradio/client";
 
 
 
-/*    await Procedure.eseguiVerifichePeriodicheDecedutiAssistitiMedici(
+    await Procedure.eseguiVerifichePeriodicheDecedutiAssistitiMedici(
         impostazioniEsterni,
         "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/ELENCO MEDICI COMPLETO/ELENCO-TUTTI-2025-02-13.xlsx",
         distrettiByKeyword,
         "31/01/2025",
         {
             workingPath: "/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/Personale Convenzionato/RECUPERI MORTI/RECUPERI PERIODICI/2025-02"
-        });*/
+        });
 
 
     //await flussoSiad.statisticheFLS21('/Users/deduzzo/Library/CloudStorage/GoogleDrive-info@robertodedomenico.it/Drive condivisi/LAVORO ASP/flussi/SIAD/INVII/2024/INVII DEFINITIVI/MIEI/anno ignorando maggioli pseudo completo (da correggere per eventuali scarti)',
