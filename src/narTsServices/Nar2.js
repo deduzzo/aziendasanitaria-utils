@@ -343,28 +343,35 @@ export class Nar2 {
         let datiIdAssistito;
         const retry = 3;
         for (let i = 0; i < retry; i++) {
-            if (!fallback) {
-                datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
-                if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
-                    datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
-            } else {
-                await this.getToken({fallback});
-                const data = {cf: codiceFiscale, token: Nar2.#token, type: "nar2"};
-                const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
-                datiIdAssistito = await axios.request({
-                    method: "post",
-                    url: Nar2.GET_WS_FALLBACK_INTERNAL,
-                    data: {d: cripted},
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
+            try {
+                if (!fallback) {
+                    datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
+                    if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
+                        datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
+                } else {
+                    await this.getToken({fallback});
+                    const data = {cf: codiceFiscale, token: Nar2.#token, type: "nar2"};
+                    const cripted = CryptHelper.AESEncrypt(JSON.stringify(data), this._cryptData["KEY"], CryptHelper.convertBase64StringToByte(this._cryptData["IV"]));
+                    datiIdAssistito = await axios.request({
+                        method: "post",
+                        url: Nar2.GET_WS_FALLBACK_INTERNAL,
+                        data: {d: cripted},
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        }
+                    });
+                    if (datiIdAssistito.status === 200 && datiIdAssistito.data?.data?.hasOwnProperty('nar2'))
+                        datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
+                    else {
+                        datiAssistito = {ok: false, data: datiIdAssistito.data};
+                        console.log(`[getDatiAssistitoNar2FromCf] Risposta fallback non valida - status: ${datiIdAssistito.status}, hasData: ${!!datiIdAssistito.data?.data}, hasNar2: ${!!datiIdAssistito.data?.data?.nar2}`);
                     }
-                });
-                if (datiIdAssistito.status === 200 && datiIdAssistito.data.data.hasOwnProperty('nar2'))
-                    datiAssistito = {ok: true, data: datiIdAssistito.data.data.nar2.result};
-                else datiAssistito = {ok: false, data: datiIdAssistito.data};
+                }
+            } catch (e) {
+                console.log("[getDatiAssistitoNar2FromCf] Eccezione durante recupero Nar2:", e.message);
             }
             if (datiAssistito && datiAssistito.ok) break;
-            else console.log("Errore durante il recupero dei dati assistito da Nar2, tentativi rimanenti:" + (retry - i));
+            else console.log("[getDatiAssistitoNar2FromCf] Errore Nar2, tentativi rimanenti:" + (retry - i));
         }
         if (datiAssistito && datiAssistito.ok) {
             try {
@@ -416,6 +423,7 @@ export class Nar2 {
                 fullData: datiAssistito
             };
         } else {
+            console.log(`[getDatiAssistitoNar2FromCf] Nar2 fallito dopo ${retry} tentativi per CF: ${codiceFiscale?.substring(0, 6)}***`);
             assistito.erroreNar2 = "Nessun assistito trovato con il codice fiscale fornito";
             assistito.okNar2 = false;
             return {ok: false, data: null, fullData: datiIdAssistito};
@@ -535,13 +543,19 @@ export class Nar2 {
 
         await this.getToken({fallback});
         if (sogei && nar2) {
-            await Promise.all([
+            const results = await Promise.allSettled([
                 this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback),
                 this.getDatiAssistitoNar2FromCf(cf, assistito, fallback)
             ]);
+            results.forEach((result, index) => {
+                if (result.status === 'rejected') {
+                    const source = index === 0 ? 'Sogei' : 'Nar2';
+                    console.log(`[getDatiAssistitoCompleti] ${source} fallito:`, result.reason?.message || result.reason);
+                }
+            });
         } else {
-            if (sogei) await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback);
-            if (nar2) await this.getDatiAssistitoNar2FromCf(cf, assistito, fallback);
+            if (sogei) await this.getDatiAssistitoFromCfSuSogeiNew(cf, assistito, fallback).catch(e => console.log('[getDatiAssistitoCompleti] Sogei fallito:', e.message));
+            if (nar2) await this.getDatiAssistitoNar2FromCf(cf, assistito, fallback).catch(e => console.log('[getDatiAssistitoCompleti] Nar2 fallito:', e.message));
         }
 
         return assistito;
@@ -589,7 +603,7 @@ export class Nar2 {
                             'Content-Type': 'application/x-www-form-urlencoded'
                         }
                     })
-                    out.data = {status: out.data.data.sogei.status || false, data: out.data.data.sogei.data};
+                    out.data = {status: out.data?.data?.sogei?.status || false, data: out.data?.data?.sogei?.data};
                 }
 
                 if (!out.data || out.data === undefined || (fallback && out.data.status.toString().toLowerCase().includes("token is invalid")))
@@ -643,15 +657,18 @@ export class Nar2 {
                     };
                 }
             } catch (e) {
+                console.log(`[getDatiAssistitoFromCfSuSogeiNew] Errore tentativo Sogei:`, e.message);
                 await this.getToken({fallback});
             }
         }
-        if (!ok)
+        if (!ok) {
+            console.log(`[getDatiAssistitoFromCfSuSogeiNew] Sogei fallito dopo ${this._maxRetry} tentativi per CF: ${cf?.substring(0, 6)}***`);
             return {
                 ok: false,
                 fullData: null,
                 data: assistito
             };
+        }
     }
 
 
