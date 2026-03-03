@@ -24,6 +24,38 @@ export class Nar2 {
     static CAT_MMG = "90000000045";
     static TIPO_AMBITI = "90000000038";
 
+    static PARAMS = {
+        CODICE_FISCALE: 'codiceFiscale',
+        NOME: 'nome',
+        COGNOME: 'cognome',
+        DATA_NASCITA: 'dataNascita',
+        AZIENDA: 'azienda',
+        CATEGORIA: 'categoria',
+        SESSO: 'sesso',
+        CITTADINANZA: 'cittadinanza',
+        INTERVALLO_ETA: 'intervallo_eta',
+        INTERVALLO_DECESSO: 'intervallo_decesso',
+        INTERVALLO_INSERIMENTO: 'intervallo_inserimento',
+        INTERVALLO_MODIFICA: 'intervallo_modifica',
+        ASL: 'asl',
+        ASL_ASSISTENZA: 'asl_assistenza',
+        DISTRETTO_ASSISTENZA: 'distretto_assistenza',
+        NUMERO_TESSERA_SANITARIA: 'numeroTesseraSanitaria',
+        SCADENZA_TESSERA_SANITARIA: 'scadenzaTesseraSanitaria',
+        PROVINCIA: 'provincia',
+        PROVINCIA_RESIDENZA: 'provincia_residenza',
+        COMUNE_RESIDENZA: 'comune_residenza',
+        COMUNE: 'comune',
+        PROVINCIA_NASCITA: 'provincia_nascita',
+        PROVINCIA_DOMICILIO: 'provincia_domiclio',
+        COMUNE_DOMICILIO: 'comune_domicilio',
+        STATE: 'state',
+        STP: 'stp',
+        START: 'start',
+        LENGTH: 'length',
+        PAGINATION: 'pagination'
+    };
+
     static #token = null;
     static #tokenPromise = null; // Variabile per la chiamata in corso
 
@@ -513,9 +545,87 @@ export class Nar2 {
         return await this.#getDataFromUrlIdOrParams(Nar2.GET_NUM_ASSISTITI_MEDICO, {urlId: id});
     }
 
-    async getAssistitiFromParams(params) {
-        // params in uri: codiceFiscale, nome, cognome, dataNascita
-        return await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, {params: params});
+/**
+     * Recupera gli assistiti tramite l'endpoint `pazienti`.
+     *
+     * Tutti i nomi dei parametri query sono esposti come costanti statiche in `Nar2.PARAMS`
+     * e possono essere usati direttamente in chiamata per evitare stringhe hard-coded:
+     *   this.getAssistitiFromParams({ [Nar2.PARAMS.CODICE_FISCALE]: 'RSSMRA80A01H501U', [Nar2.PARAMS.START]: 0 })
+     *
+     * Parametri disponibili (chiavi query):
+     * - CODICE_FISCALE: 'codiceFiscale'
+     * - NOME: 'nome'
+     * - COGNOME: 'cognome'
+     * - DATA_NASCITA: 'dataNascita' formato YYYY-MM-DD
+     * - AZIENDA: 'azienda'
+     * - CATEGORIA: 'categoria'
+     * - SESSO: 'sesso'
+     * - CITTADINANZA: 'cittadinanza'
+     * - INTERVALLO_ETA: 'intervallo_eta' (oggetto -> verrà serializzato JSON)
+     * - INTERVALLO_DECESSO: 'intervallo_decesso' (oggetto -> serializzato)
+     * - INTERVALLO_INSERIMENTO: 'intervallo_inserimento' (oggetto -> serializzato)
+     * - INTERVALLO_MODIFICA: 'intervallo_modifica' (oggetto -> serializzato)
+     * - ASL: 'asl'
+     * - ASL_ASSISTENZA: 'asl_assistenza'
+     * - DISTRETTO_ASSISTENZA: 'distretto_assistenza'
+     * - NUMERO_TESSERA_SANITARIA: 'numeroTesseraSanitaria'
+     * - SCADENZA_TESSERA_SANITARIA: 'scadenzaTesseraSanitaria'
+     * - PROVINCIA: 'provincia'
+     * - PROVINCIA_RESIDENZA: 'provincia_residenza'
+     * - COMUNE_RESIDENZA: 'comune_residenza'
+     * - COMUNE: 'comune'
+     * - PROVINCIA_NASCITA: 'provincia_nascita'
+     * - PROVINCIA_DOMICILIO: 'provincia_domiclio'
+     * - COMUNE_DOMICILIO: 'comune_domicilio'
+     * - STATE: 'state'
+     * - STP: 'stp'
+     * - START: 'start'
+     * - LENGTH: 'length'
+     * - PAGINATION: 'pagination'
+     *
+     * Nota: per i parametri complessi (es. `INTERVALLO_ETA`) passare un oggetto:
+     *   { [Nar2.PARAMS.INTERVALLO_ETA]: { intervallo_da: null, intervallo_a: null } }
+     * Verrà serializzato automaticamente in JSON prima dell'invio.
+     *
+     * @param {Object} params - Mappa chiave/valore dei parametri query; si consiglia l'uso di `Nar2.PARAMS`.
+     * @returns {Promise<Object>} Oggetto { ok: boolean, data: [...] } come ritornato da `#getDataFromUrlIdOrParams`.
+     */
+    async getAssistitiFromParams(params = {}) {
+        // Serializza in JSON eventuali parametri complessi (oggetti)
+        const preparedParams = {};
+        for (const [key, value] of Object.entries(params || {})) {
+            if (value === null || typeof value === 'undefined' || value === '') {
+                preparedParams[key] = value;
+            } else if (typeof value === 'object') {
+                try {
+                    preparedParams[key] = JSON.stringify(value);
+                } catch (e) {
+                    preparedParams[key] = value;
+                }
+            } else {
+                preparedParams[key] = value;
+            }
+        }
+        const result = await this.#getDataFromUrlIdOrParams(Nar2.GET_ASSISTITI_NAR, {
+            getParams: preparedParams
+        });
+
+        // Ripuliamo l'output mantenendo solo i campi essenziali
+        if (result && result.ok && result.data && Array.isArray(result.data)) {
+            result.data = result.data.map(assistito => {
+                return {
+                    nome: assistito.pz_nome,
+                    cognome: assistito.pz_cogn,
+                    codiceFiscale: assistito.pz_cfis,
+                    dataNascita: new moment(assistito.pz_dt_nas, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY"),
+                    sesso: assistito.pz_sesso,
+                    capResidenza: assistito.pz_cap_res,
+                    indirizzoResidenza: assistito.pz_ind_res,
+                };
+            });
+        }
+
+        return result;
     }
 
     /**
