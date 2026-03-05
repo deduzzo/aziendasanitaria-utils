@@ -377,7 +377,7 @@ export class Nar2 {
         for (let i = 0; i < retry; i++) {
             try {
                 if (!fallback) {
-                    datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale});
+                    datiIdAssistito = await this.getAssistitiFromParams({codiceFiscale: codiceFiscale},true);
                     if (datiIdAssistito.ok && datiIdAssistito.data && datiIdAssistito.data.length === 1)
                         datiAssistito = await this.getAssistitoFromId(datiIdAssistito.data[0].pz_id);
                 } else {
@@ -590,7 +590,7 @@ export class Nar2 {
      * @param {Object} params - Mappa chiave/valore dei parametri query; si consiglia l'uso di `Nar2.PARAMS`.
      * @returns {Promise<Object>} Oggetto { ok: boolean, data: [...] } come ritornato da `#getDataFromUrlIdOrParams`.
      */
-    async getAssistitiFromParams(params = {}) {
+    async getAssistitiFromParams(params = {}, fulldata = false) {
         // Serializza in JSON eventuali parametri complessi (oggetti)
         const preparedParams = {};
         for (const [key, value] of Object.entries(params || {})) {
@@ -612,17 +612,20 @@ export class Nar2 {
 
         // Ripuliamo l'output mantenendo solo i campi essenziali
         if (result && result.ok && result.data && Array.isArray(result.data)) {
-            result.data = result.data.map(assistito => {
-                return {
-                    nome: assistito.pz_nome,
-                    cognome: assistito.pz_cogn,
-                    codiceFiscale: assistito.pz_cfis,
-                    dataNascita: new moment(assistito.pz_dt_nas, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY"),
-                    sesso: assistito.pz_sesso,
-                    capResidenza: assistito.pz_cap_res,
-                    indirizzoResidenza: assistito.pz_ind_res,
-                };
-            });
+            if (!fulldata)
+                result.data = result.data.map(assistito => {
+                    return {
+                        nome: assistito.pz_nome,
+                        cognome: assistito.pz_cogn,
+                        codiceFiscale: assistito.pz_cfis,
+                        dataNascita: new moment(assistito.pz_dt_nas, "YYYY-MM-DD HH:mm:ss").format("DD/MM/YYYY"),
+                        sesso: assistito.pz_sesso,
+                        capResidenza: assistito.pz_cap_res,
+                        indirizzoResidenza: assistito.pz_ind_res,
+                    };
+                });
+            else
+                return result;
         }
 
         return result;
