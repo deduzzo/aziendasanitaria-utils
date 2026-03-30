@@ -20,7 +20,8 @@
       "Bash(claude:*)",
       "Bash(\"/Users/deduzzo/.claude/chrome/chrome-native-host\":*)",
       "Bash(wc -l /Users/deduzzo/dev/aziendasanitaria-utils/mcp/zimbra-grabber/*.js /Users/deduzzo/dev/aziendasanitaria-utils/mcp/zimbra-grabber/lib/*.js /Users/deduzzo/dev/aziendasanitaria-utils/mcp/zimbra-grabber/admin-ui/*.js /Users/deduzzo/dev/aziendasanitaria-utils/mcp/zimbra-grabber/admin-ui/routes/*.js /Users/deduzzo/dev/aziendasanitaria-utils/tampermonkey/zimbra-elabora.js)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(wc:*)"
     ]
   }
 }
