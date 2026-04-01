@@ -136,7 +136,6 @@ export class FlussoM {
                     out[key] = {totaleLordo: 0, totaleTicket: 0, numPrestazioni: 0, totaleNetto: 0}
                 out[key].totaleLordo += prestazione.totale;
                 out[key].numPrestazioni += prestazione.quant;
-                out[key].totaleNetto += ricetta.riga99.totale;
             }
             out[key].totaleTicket += ricetta.riga99.importoTicket;
             out[key].totaleNetto += ricetta.riga99.totale;
