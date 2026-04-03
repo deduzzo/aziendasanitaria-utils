@@ -293,6 +293,7 @@ export class FlussoM {
         }
 
         let prestMap = {}
+        let cfUnici = new Set();
         let lunghezzaRiga = utils.verificaLunghezzaRiga(this._starts);
         let error = null;
         for await (const line of rl) {
@@ -306,6 +307,7 @@ export class FlussoM {
                     var rt = this.#buildRicetteFromMRows(ricettaTemp);
                     //TODO: filtro?
                     ricette[rt.id] = rt;
+                    if (rt.cf) cfUnici.add(rt.cf);
                     totale.totalePrestazioniCalcolate = totale.totalePrestazioniCalcolate + rt.totalePrestazioniCalcolate;
                     totale.numPrestazioni = totale.numPrestazioni + rt.numPrestazioni;
                     this.#calcolaTotaliPrestazioni(rt.prestazioni, prestMap)
@@ -353,6 +355,7 @@ export class FlussoM {
                 calcolaPrestazioniPerMese: calcolaPrestazioniPerMese,
                 prestazioni: totale.prestazioniMap,
                 numeroRighe: i,
+                numAssistitiUnici: cfUnici.size,
                 numeroRicette: Object.values(ricette).length,
                 ricette: ricette,
                 nonOk: Object.values(ricette).filter((p) => p.differenzeTotale !== 0)
