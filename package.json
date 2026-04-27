@@ -81,6 +81,9 @@
   "author": "Roberto De Domenico",
   "license": "MIT",
   "devDependencies": {
-    "@gradio/client": "^1.14.2"
+    "@gradio/client": "^1.14.2",
+    "ddddocr-node": "^2.2.0",
+    "sharp": "^0.34.5",
+    "tesseract.js": "^7.0.0"
   }
 }

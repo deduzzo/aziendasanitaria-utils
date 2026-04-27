@@ -28,3 +28,4 @@ mcp/zimbra-grabber/node_modules/
 mcp/zimbra-grabber/attachments/
 mcp/zimbra-grabber/.env
 .claude/
+/test/
