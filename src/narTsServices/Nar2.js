@@ -17,12 +17,35 @@ export class Nar2 {
     static GET_WS_FALLBACK_INTERNAL = "https://anagraficaconnector.asp.it1.robertodedomenico.it";
     static GET_DATI_PAZIENTEMEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/PazienteMedico/{id}/NaN/{az_id}/{tipo_medico}/null"
     static AGGIORNA_CAMBIO_MEDICO = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/aggiornaSceltaMedico/{id_cambio_medico}"
+    static SCELTA_MEDICO_URL = "https://nar2.regione.sicilia.it/services/index.php/api/pazienti/sceltaMedico";
+    static GET_ONLY_SIT_ASS = "https://nar2.regione.sicilia.it/services/index.php/api/getOnlySitAss/{pz_id}/{pm_id}/{az_id}/{tipo_med}/{eta}";
+    static GET_SCID_BY_SAID = "https://nar2.regione.sicilia.it/services/index.php/api/getSCIDBySAID/{sa_id}";
+    static AMBITO_DOM_SCELTA_AUTOCOMPLETE = "https://nar2.regione.sicilia.it/services/index.php/api/ambitoDomScelta";
+    static MEDICI_BY_AMBITO_AUTOCOMPLETE = "https://nar2.regione.sicilia.it/services/index.php/api/mediciByAmbito";
     static MEDICO_DI_BASE = "M";
     static PEDIATRA = "P";
 
     static CAT_PEDIATRI = "90000000046";
     static CAT_MMG = "90000000045";
     static TIPO_AMBITI = "90000000038";
+
+    // Motivi e tipi operazione (estratti dai cataloghi NAR2)
+    static MOTIVO_CAMBIO_MEDICO = "90000000025";          // A04 - Cambio medico
+    static MOTIVO_RICONG_FAMILIARE = "90000000027";       // A06 - Ricongiungimento familiare
+    static MOTIVO_DEROGA_TERRITORIALE = "90000000140";    // A19 - Deroga territoriale
+    static MOTIVO_CAMBIO_RES_REGIONE = "90000000073";     // 01 - Cambio residenza in regione
+    static MOTIVO_REVOCA_PER_CAMBIO = "90000000029";      // motivo revoca standard
+    static TIPO_OP_SCELTA = "39100000036";                // 1 - Scelta (variazione del medico)
+    static TIPO_OP_NUOVA_ISCRIZIONE = "39100000037";      // 2 - Nuova iscrizione
+    static TIPO_OP_REVOCA = "39100000038";                // 3 - Revoca
+
+    // Codici situazione assistenziale (sa_cod) → mappabili tramite getOnlySitAss
+    static SIT_ASS_CAMBIO_MEDICO_REGIONE = "19";          // Cambio in regione ricong. fam.
+    static SIT_ASS_CAMBIO_DEROGA = "31";                  // Cambio medico in deroga territoriale
+    static SIT_ASS_CAMBIO_NELL_ASL = "13";                // Cambio medico nell'ASL (residente) — DEFAULT
+    static SIT_ASS_CAMBIO_NELLA_REGIONE = "18";           // Cambio medico nella regione (residente)
+    static SIT_ASS_CAMBIO_RICONG_FAM = "17";              // Cambio per ricong.fam. MMG
+    static SIT_ASS_ISCRIZIONE_ELENCO_SEPARATO = "29";     // Iscrizione elenco separato
 
     static PARAMS = {
         CODICE_FISCALE: 'codiceFiscale',
@@ -142,34 +165,291 @@ export class Nar2 {
     }
 
 
-    async aggiornaCambioMedico() {
-        /*        {
-                    "data": {
-                    "pm_paz": 1150422,
-                        "pm_fstato": "A",
-                        "pm_medico": 13971,
-                        "pm_dt_scad": null,
-                        "pm_dt_enable": "2025-03-20",
-                        "pm_mot_scelta": "90000000025"
-                },
-                    "dett_pazientemedico": {
-                    "dm_ambito_dom": "140",
-                        "dm_situazione_ass": "6",
-                        "dm_eta_scelta": 89,
-                        "dm_ambito_scelta": "140",
-                        "dm_motivo_scelta": "90000000025",
-                        "dm_tipoop_scelta": "39100000036",
-                        "dm_dt_fine_proroga_ped": null,
-                        "dm_motivo_pror_scad_ped": null
-                },
-                    "revoca": {
-                    "pm_dt_disable": "2025-08-17",
-                        "dm_dt_ins_revoca": "2025-09-08",
-                        "dm_motivo_revoca": "90000000029",
-                        "dm_tipoop_revoca": "39100000038",
-                        "revoca_id": 15182808
+    /**
+     * Recupera le situazioni assistenziali ammesse per un paziente, comprensive di
+     * motivi/tipi operazione validi (catalogo `motivo_op` + `gentgen`).
+     *
+     * Endpoint: GET /getOnlySitAss/{pz_id}/{pm_id|null}/{az_id}/{tipo_med}/{eta}
+     *
+     * @param {string} codFiscale - Codice fiscale dell'assistito.
+     * @param {Object} [config={}]
+     * @param {string|number|null} [config.pmId=null] - pm_id scelta corrente; null per nuova scelta.
+     * @param {string} [config.tipoMedico="M"] - "M" MMG o "P" Pediatra.
+     * @returns {Promise<{ok:boolean, data:Array|null}>}
+     */
+    async getSituazioniAssistenzialiAmmesse(codFiscale, config = {}) {
+        const {pmId = null, tipoMedico = Nar2.MEDICO_DI_BASE} = config;
+        const dati = await this.getDatiAssistitoNar2FromCf(codFiscale);
+        if (!dati || !dati.ok) return {ok: false, data: null};
+        const fullData = dati.fullData.data;
+        const eta = moment().diff(moment(fullData.pz_dt_nas, "YYYY-MM-DD HH:mm:ss"), "years");
+        const azId = fullData.comune_domicilio?._azienda?.[0]?.az_azie ?? "ME";
+        const data = await this.#getDataFromUrlIdOrParams(Nar2.GET_ONLY_SIT_ASS, {
+            replaceFromUrl: {
+                pz_id: fullData.pz_id,
+                pm_id: pmId,
+                az_id: azId,
+                tipo_med: tipoMedico,
+                eta: eta
+            },
+            rawResponse: true // endpoint restituisce direttamente un array
+        });
+        return data;
+    }
+
+    /**
+     * Restituisce le categorie cittadino (sc_id) ammesse per una data situazione assistenziale.
+     *
+     * Endpoint: GET /getSCIDBySAID/{sa_id}
+     *
+     * @param {string|number} saId - sa_id della situazione assistenziale.
+     * @returns {Promise<{ok:boolean, data:string[]|null}>}
+     */
+    async getCategorieCittadinoBySituazione(saId) {
+        return await this.#getDataFromUrlIdOrParams(Nar2.GET_SCID_BY_SAID, {
+            replaceFromUrl: {sa_id: saId},
+            rawResponse: true // restituisce direttamente un array di sc_id
+        });
+    }
+
+    /**
+     * Ricerca ambiti via autocomplete.
+     *
+     * Endpoint: GET /ambitoDomScelta?searchKey=...&azienda=...&tipo=...
+     *
+     * @param {string} searchKey - Stringa di ricerca (es. "mess").
+     * @param {Object} [config={}]
+     * @param {string|number} [config.azienda] - Codice azienda/comune (es. pz_com_res).
+     * @param {string} [config.tipo=Nar2.TIPO_AMBITI] - Tipo struttura.
+     * @param {boolean} [config.showAzienda=false]
+     * @returns {Promise<{ok:boolean, data:Array|null}>}
+     */
+    async searchAmbitiAutocomplete(searchKey, config = {}) {
+        const {azienda, tipo = Nar2.TIPO_AMBITI, showAzienda = false} = config;
+        return await this.#getDataFromUrlIdOrParams(Nar2.AMBITO_DOM_SCELTA_AUTOCOMPLETE, {
+            getParams: {
+                start: 0,
+                autocomplete: true,
+                searchKey,
+                azienda,
+                tipo,
+                showAzienda
+            }
+        });
+    }
+
+    /**
+     * Ricerca medici per ambito via autocomplete (variante della `getMediciByAmbito`).
+     *
+     * Endpoint: GET /mediciByAmbito?searchKey=...&ambito=...&tipo=M&...
+     *
+     * @param {string|number} idAmbito
+     * @param {string} codFiscaleAssistito
+     * @param {string} searchKey - Stringa di ricerca (es. "ros" per "rossi").
+     * @param {Object} [config={}]
+     * @param {string} [config.tipoMedico="M"]
+     * @param {string} [config.dataScelta=oggi]
+     * @param {number} [config.sitAssistenziale=4]
+     * @returns {Promise<{ok:boolean, data:Array|null}>}
+     */
+    async searchMediciByAmbitoAutocomplete(idAmbito, codFiscaleAssistito, searchKey, config = {}) {
+        const {
+            tipoMedico = Nar2.MEDICO_DI_BASE,
+            dataScelta = moment().format("YYYY-MM-DD"),
+            sitAssistenziale = 4
+        } = config;
+        const fullData = (await this.getDatiAssistitoNar2FromCf(codFiscaleAssistito)).fullData.data;
+        const azienda = fullData.comune_domicilio?._azienda?.[0]?.az_azie ?? "ME";
+        return await this.#getDataFromUrlIdOrParams(Nar2.MEDICI_BY_AMBITO_AUTOCOMPLETE, {
+            getParams: {
+                start: 0,
+                autocomplete: true,
+                searchKey,
+                azienda,
+                tipo: tipoMedico,
+                dataScelta,
+                situazioneAss: sitAssistenziale,
+                ambito: idAmbito,
+                idPaziente: fullData.pz_id
+            }
+        });
+    }
+
+    /**
+     * Costruisce e (opzionalmente) invia la richiesta di cambio medico al NAR2.
+     *
+     * Endpoint finale: POST /pazienti/sceltaMedico
+     *
+     * Flusso:
+     *  1. Recupera dati assistito (pz_id, pz_com_res, età, comune domicilio).
+     *  2. Recupera la scelta medico attiva (per costruire `revoca_scelta_precedente`).
+     *  3. Recupera le situazioni assistenziali ammesse e seleziona quella richiesta
+     *     (default: `13` = "Cambio medico nell'ASL"); da qui estrae motivo e tipo operazione.
+     *  4. Costruisce il payload `{data, dett_pazientemedico, [revoca_scelta_precedente]}`.
+     *  5. Se `dryRun=true` ritorna il payload senza inviarlo (per ispezione/test sicuro).
+     *  6. Altrimenti POST `/pazienti/sceltaMedico` e ritorna la risposta del server.
+     *
+     * Tutti i parametri sono override opzionali: se non specificati vengono dedotti
+     * automaticamente dai dati e dai cataloghi NAR2.
+     *
+     * @param {string} codFiscale - Codice fiscale dell'assistito.
+     * @param {string|number} idMedico - `pf_id` del medico scelto (campo `pf_id` da `getMediciByAmbito`).
+     * @param {Object} [config={}]
+     * @param {boolean} [config.dryRun=true] - DEFAULT TRUE: ritorna payload senza inviare. Impostare a false per inviare davvero.
+     * @param {string} [config.tipoMedico="M"] - "M" MMG, "P" Pediatra.
+     * @param {string} [config.dataScelta=oggi] - Data scelta (YYYY-MM-DD).
+     * @param {string} [config.dataRevoca=ieri] - Data disabilitazione scelta precedente (YYYY-MM-DD).
+     * @param {string} [config.dataInsRevoca=oggi] - Data inserimento revoca (YYYY-MM-DD).
+     * @param {string|number} [config.idAmbitoScelta] - Override sr_id ambito di scelta (default = ambito di domicilio).
+     * @param {string|number} [config.idAmbitoDomicilio] - Override sr_id ambito di domicilio (default: ricavato da getAmbitiDomicilioAssistito).
+     * @param {string} [config.codiceSituazioneAssistenziale="13"] - sa_cod (vedi costanti SIT_ASS_*).
+     * @param {string|number} [config.idSituazioneAssistenziale] - Override diretto del sa_id (bypassa la lookup per sa_cod).
+     * @param {string} [config.motivoScelta] - Override pm_mot_scelta/dm_motivo_scelta (default: dedotto dalla situazione).
+     * @param {string} [config.tipoOperazioneScelta] - Override dm_tipoop_scelta (default: dedotto dalla situazione).
+     * @param {string} [config.motivoRevoca] - Override dm_motivo_revoca (default: stesso motivo della scelta).
+     * @param {string} [config.tipoOperazioneRevoca=TIPO_OP_REVOCA] - dm_tipoop_revoca.
+     * @param {boolean} [config.forzaSenzaRevoca=false] - Se true non aggiunge revoca anche se esiste medico precedente.
+     * @param {string} [config.dataFineProrogaPed=null] - Solo pediatri.
+     * @param {string} [config.motivoProrogaPed=null] - Solo pediatri.
+     * @returns {Promise<{ok:boolean, dryRun:boolean, payload:Object, response:Object|null, error?:string}>}
+     */
+    async aggiornaCambioMedico(codFiscale, idMedico, config = {}) {
+        const {
+            dryRun = true,
+            tipoMedico = Nar2.MEDICO_DI_BASE,
+            dataScelta = moment().format("YYYY-MM-DD"),
+            dataRevoca = moment().subtract(1, "day").format("YYYY-MM-DD"),
+            dataInsRevoca = moment().format("YYYY-MM-DD"),
+            idAmbitoScelta = null,
+            idAmbitoDomicilio = null,
+            codiceSituazioneAssistenziale = Nar2.SIT_ASS_CAMBIO_NELL_ASL,
+            idSituazioneAssistenziale = null,
+            motivoScelta = null,
+            tipoOperazioneScelta = null,
+            motivoRevoca = null,
+            tipoOperazioneRevoca = Nar2.TIPO_OP_REVOCA,
+            forzaSenzaRevoca = false,
+            dataFineProrogaPed = null,
+            motivoProrogaPed = null
+        } = config;
+
+        // 1) Dati assistito
+        const datiAssistito = await this.getDatiAssistitoNar2FromCf(codFiscale);
+        if (!datiAssistito || !datiAssistito.ok) {
+            return {ok: false, dryRun, payload: null, response: null, error: "Assistito non trovato su NAR2"};
+        }
+        const fullData = datiAssistito.fullData.data;
+        const pzId = fullData.pz_id;
+        const eta = moment().diff(moment(fullData.pz_dt_nas, "YYYY-MM-DD HH:mm:ss"), "years");
+        const azId = fullData.comune_domicilio?._azienda?.[0]?.az_azie ?? "ME";
+
+        // 2) Ambito di domicilio (se non fornito): lo ricavo dai dati paziente o dal catalogo ambiti
+        let ambitoDom = idAmbitoDomicilio;
+        if (!ambitoDom) {
+            const dettStorico = fullData.storico_medici?.[0]?.dett_pazientemedico;
+            ambitoDom = dettStorico?.dm_ambito_dom ?? null;
+            if (!ambitoDom) {
+                // fallback: prendo il primo ambito MMG/Pediatra dalla lista
+                const ambitiRes = await this.getAmbitiDomicilioAssistito(codFiscale, {dividiAmbitiMMGPediatri: true});
+                if (ambitiRes?.ok) {
+                    const lista = tipoMedico === Nar2.PEDIATRA ? ambitiRes.data.ambiti.pediatri : ambitiRes.data.ambiti.mmg;
+                    ambitoDom = lista?.[0]?.sr_id ?? null;
                 }
-                }*/
+            }
+        }
+        if (!ambitoDom) {
+            return {ok: false, dryRun, payload: null, response: null, error: "Impossibile determinare l'ambito di domicilio"};
+        }
+        const ambitoScelta = idAmbitoScelta ?? ambitoDom;
+
+        // 3) Scelta medico corrente (per revoca_scelta_precedente)
+        // La scelta attiva si trova in storico_medici[*] con pm_fstato="A" e pm_dt_disable=null
+        let revocaPrecedente = null;
+        if (!forzaSenzaRevoca) {
+            const storico = Array.isArray(fullData.storico_medici) ? fullData.storico_medici : [];
+            const sceltaAttiva = storico.find(s => s?.pm_fstato === "A" && !s?.pm_dt_disable);
+            const pmIdCorrente = sceltaAttiva?.pm_id ?? null;
+            if (pmIdCorrente) {
+                revocaPrecedente = {
+                    pm_dt_disable: dataRevoca,
+                    dm_dt_ins_revoca: dataInsRevoca,
+                    dm_motivo_revoca: motivoRevoca, // popolato sotto se null
+                    dm_tipoop_revoca: tipoOperazioneRevoca,
+                    revoca_id: typeof pmIdCorrente === "string" ? parseInt(pmIdCorrente, 10) : pmIdCorrente
+                };
+            }
+        }
+
+        // 4) Situazione assistenziale + motivo + tipo operazione (dal catalogo)
+        const sitAmmesse = await this.getSituazioniAssistenzialiAmmesse(codFiscale, {tipoMedico});
+        if (!sitAmmesse || !sitAmmesse.ok || !Array.isArray(sitAmmesse.data)) {
+            return {ok: false, dryRun, payload: null, response: null, error: "Impossibile recuperare situazioni assistenziali ammesse"};
+        }
+        let situazioneScelta;
+        if (idSituazioneAssistenziale) {
+            situazioneScelta = sitAmmesse.data.find(s => s.sa_id?.toString() === idSituazioneAssistenziale.toString());
+        } else {
+            situazioneScelta = sitAmmesse.data.find(s => s.sa_cod?.toString() === codiceSituazioneAssistenziale.toString());
+        }
+        if (!situazioneScelta) {
+            return {
+                ok: false, dryRun, payload: null, response: null,
+                error: `Situazione assistenziale non ammessa per questo paziente (cercata: sa_cod=${codiceSituazioneAssistenziale}, sa_id=${idSituazioneAssistenziale}). Ammesse: ${sitAmmesse.data.map(s => s.sa_cod).join(", ")}`
+            };
+        }
+        const motivoOp = situazioneScelta.motivo_op?.[0];
+        const motivoFromSit = motivoOp?.eg_id ?? null;
+        const tipoOpFromSit = motivoOp?.gentgen?.find(g => g.gt_id2 === Nar2.TIPO_OP_SCELTA)?.gt_id2 ?? Nar2.TIPO_OP_SCELTA;
+
+        const motivoFinale = motivoScelta ?? motivoFromSit;
+        const tipoOpFinale = tipoOperazioneScelta ?? tipoOpFromSit;
+        if (!motivoFinale) {
+            return {ok: false, dryRun, payload: null, response: null, error: "Impossibile determinare il motivo della scelta"};
+        }
+
+        // Allinea il motivo revoca se non specificato
+        if (revocaPrecedente && !revocaPrecedente.dm_motivo_revoca) {
+            revocaPrecedente.dm_motivo_revoca = motivoFinale;
+        }
+
+        // 5) Payload
+        const payload = {
+            data: {
+                pm_paz: pzId,
+                pm_fstato: "A",
+                pm_medico: typeof idMedico === "string" ? parseInt(idMedico, 10) : idMedico,
+                pm_dt_scad: null,
+                pm_dt_enable: dataScelta,
+                pm_mot_scelta: motivoFinale
+            },
+            dett_pazientemedico: {
+                dm_ambito_dom: ambitoDom?.toString(),
+                dm_situazione_ass: situazioneScelta.sa_id?.toString(),
+                dm_eta_scelta: eta,
+                dm_ambito_scelta: ambitoScelta?.toString(),
+                dm_motivo_scelta: motivoFinale,
+                dm_tipoop_scelta: tipoOpFinale,
+                dm_dt_fine_proroga_ped: tipoMedico === Nar2.PEDIATRA ? dataFineProrogaPed : null,
+                dm_motivo_pror_scad_ped: tipoMedico === Nar2.PEDIATRA ? motivoProrogaPed : null
+            }
+        };
+        if (revocaPrecedente) payload.revoca_scelta_precedente = revocaPrecedente;
+
+        // 6) Dry-run: ritorna senza inviare
+        if (dryRun) {
+            return {ok: true, dryRun: true, payload, response: null};
+        }
+
+        // 7) Submit
+        const result = await this.#postDataToUrl(Nar2.SCELTA_MEDICO_URL, payload);
+        return {
+            ok: result.ok,
+            dryRun: false,
+            payload,
+            response: result.fullResponse,
+            data: result.data,
+            error: result.ok ? undefined : "Errore durante la POST /pazienti/sceltaMedico"
+        };
     }
 
     async getSituazioniAssistenziali(codFiscaleAssistito, includeFullData = true) {
@@ -475,13 +755,61 @@ export class Nar2 {
      * @param {Object} [config.replaceFromUrl=null] - Key-value pairs for dynamic URL segment replacement.
      * @return {Promise<Object>} An object containing a boolean `ok` and the fetched `data` in the `result` if successful, or `null` on failure.
      */
+    /**
+     * Esegue una POST autenticata gestendo retry e rinnovo token.
+     *
+     * @param {string} url - URL completo o template con placeholder `{key}`.
+     * @param {Object} body - Payload JSON da inviare nel body.
+     * @param {Object} [config={}]
+     * @param {Object} [config.replaceFromUrl] - Sostituzioni nei placeholder URL.
+     * @param {Object} [config.getParams] - Eventuali query params.
+     * @returns {Promise<{ok:boolean, data:any, fullResponse:Object|null}>}
+     */
+    async #postDataToUrl(url, body, config = {}) {
+        const {replaceFromUrl = null, getParams = null} = config;
+
+        let finalUrl = url;
+        if (getParams) {
+            const queryParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(getParams)) queryParams.append(key, value);
+            finalUrl = `${url}?${queryParams.toString()}`;
+        }
+        if (replaceFromUrl && typeof replaceFromUrl === "object") {
+            for (const [key, value] of Object.entries(replaceFromUrl))
+                finalUrl = finalUrl.replace(`{${key}}`, (value === null || typeof value === "undefined") ? "null" : value.toString());
+        }
+
+        let out = {ok: false, data: null, fullResponse: null};
+        for (let i = 0; i < this._maxRetry && !out.ok; i++) {
+            try {
+                await this.getToken();
+                const response = await axios.post(finalUrl, body, {
+                    headers: {
+                        Authorization: `Bearer ${Nar2.#token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!response?.data?.status || response.data.status.toString() !== "true" ||
+                    response.data.status.toString().toLowerCase().includes("token is invalid")) {
+                    await this.getToken({newToken: true});
+                } else {
+                    out = {ok: true, data: response.data.result, fullResponse: response.data};
+                }
+            } catch (e) {
+                console.log(`[#postDataToUrl] Errore POST ${finalUrl}: ${e.message}`);
+                await this.getToken({newToken: true});
+            }
+        }
+        return out;
+    }
+
     async #getDataFromUrlIdOrParams(url, config = {}) {
         const {
             urlId = null,
             params = null,
             getParams = null,
             replaceFromUrl = null,
-
+            rawResponse = false, // se true, accetta risposte non incapsulate in {status, result}
         } = config;
         let out = {ok: false, data: null};
         let ok = false;
@@ -497,7 +825,7 @@ export class Nar2 {
         }
         if (replaceFromUrl && typeof replaceFromUrl === "object") {
             for (const [key, value] of Object.entries(replaceFromUrl))
-                finalUrl = finalUrl.replace(`{${key}}`, value.toString());
+                finalUrl = finalUrl.replace(`{${key}}`, (value === null || typeof value === "undefined") ? "null" : value.toString());
         }
 
         for (let i = 0; i < this._maxRetry && !ok; i++) {
@@ -518,7 +846,17 @@ export class Nar2 {
                         params: params,
                     });
 
-                if (!response?.data?.status || response.data.status.toString() !== "true" ||
+                // Caso 1: risposta raw (array nudo o oggetto senza envelope)
+                if (rawResponse) {
+                    // se contiene un messaggio "token is invalid" rinnovo
+                    const asStr = typeof response?.data === "string" ? response.data : JSON.stringify(response?.data ?? "");
+                    if (asStr.toLowerCase().includes("token is invalid")) {
+                        await this.getToken({newToken: true});
+                    } else {
+                        ok = true;
+                        out = {ok: true, data: response.data};
+                    }
+                } else if (!response?.data?.status || response.data.status.toString() !== "true" ||
                     response.data.status.toString().toLowerCase().includes("token is invalid")) {
                     await this.getToken({newToken: true});
                 } else {
