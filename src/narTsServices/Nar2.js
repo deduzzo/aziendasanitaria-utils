@@ -790,7 +790,7 @@ export class Nar2 {
                     }
                 });
                 if (!response?.data?.status || response.data.status.toString() !== "true" ||
-                    response.data.status.toString().toLowerCase().includes("token is invalid")) {
+                    /token is (invalid|expired)/i.test(response.data.status.toString())) {
                     await this.getToken({newToken: true});
                 } else {
                     out = {ok: true, data: response.data.result, fullResponse: response.data};
@@ -850,14 +850,14 @@ export class Nar2 {
                 if (rawResponse) {
                     // se contiene un messaggio "token is invalid" rinnovo
                     const asStr = typeof response?.data === "string" ? response.data : JSON.stringify(response?.data ?? "");
-                    if (asStr.toLowerCase().includes("token is invalid")) {
+                    if (/token is (invalid|expired)/i.test(asStr)) {
                         await this.getToken({newToken: true});
                     } else {
                         ok = true;
                         out = {ok: true, data: response.data};
                     }
                 } else if (!response?.data?.status || response.data.status.toString() !== "true" ||
-                    response.data.status.toString().toLowerCase().includes("token is invalid")) {
+                    /token is (invalid|expired)/i.test(response.data.status.toString())) {
                     await this.getToken({newToken: true});
                 } else {
                     ok = true;
@@ -1057,7 +1057,7 @@ export class Nar2 {
                     out.data = {status: out.data?.data?.sogei?.status || false, data: out.data?.data?.sogei?.data};
                 }
 
-                if (!out.data || out.data === undefined || (fallback && out.data.status.toString().toLowerCase().includes("token is invalid")))
+                if (!out.data || out.data === undefined || (fallback && /token is (invalid|expired)/i.test(out.data.status.toString())))
                     await this.getToken({newToken: true, fallback});
                 else if (out.data.status.toString() !== "true" && out.data.listaMessaggi.p801descrizioneMessaggio.includes("errato")) {
                     assistito.okTs = false;
