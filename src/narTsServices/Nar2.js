@@ -1057,11 +1057,11 @@ export class Nar2 {
                     out.data = {status: out.data?.data?.sogei?.status || false, data: out.data?.data?.sogei?.data};
                 }
 
-                if (!out.data || out.data === undefined || (fallback && /token is (invalid|expired)/i.test(out.data.status.toString())))
+                if (!out.data || (fallback && /token is (invalid|expired)/i.test(out.data.status?.toString() ?? "")))
                     await this.getToken({newToken: true, fallback});
-                else if (out.data.status.toString() !== "true" && out.data.listaMessaggi.p801descrizioneMessaggio.includes("errato")) {
+                else if (out.data.status?.toString() !== "true") {
                     assistito.okTs = false;
-                    assistito.erroreTs = out.data.listaMessaggi.p801descrizioneMessaggio;
+                    assistito.erroreTs = out.data.listaMessaggi?.p801descrizioneMessaggio ?? "Sogei: status non valido";
                     return {
                         ok: true,
                         fullData: out.data,
@@ -1069,7 +1069,7 @@ export class Nar2 {
                     };
                 } else {
                     ok = true;
-                    const deceduto = out.data.data.p801descrizioneCodiceTipoAssistito.toLowerCase().includes("deceduto");
+                    const deceduto = out.data.data?.p801descrizioneCodiceTipoAssistito?.toLowerCase().includes("deceduto") ?? false;
                     const asp = nullArray(out.data.data.p801codiceRegioneResidenzaAsl) + " - " +
                         nullArray(out.data.data.p801descrizioneRegioneResidenzaAsl) + " " +
                         nullArray(out.data.data.p801codiceAslResidenzaAsl) + " - " +
